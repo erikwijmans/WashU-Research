@@ -18,7 +18,7 @@
 #define max(a,b) ((a > b) ? a : b)
 #define min(a,b) ((a < b) ? a : b)
 
-static float PANO_H = 1024*3;
+static float PANO_H = 1024;
 
 using namespace std;
 using namespace cv;
@@ -47,9 +47,9 @@ int main(int argc, char** argv)
 
 
 
-	if ( argc != 3 )
+	if ( argc != 4 )
     {
-        printf("usage: VideoToPanorama.out <Images_Path> <IMU_File_Path.txt>\n");
+        printf("usage: VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_Path.png>\n");
         return -1;
     }
 
@@ -124,7 +124,7 @@ int main(int argc, char** argv)
 
 
 
-	imwrite("panorama.png", panorama);
+	imwrite(argv[3], panorama);
 	cout << "Saved" << endl;
 	return 0;
 }
@@ -280,6 +280,12 @@ void projectImageToPanorama(string & imageName, ifstream & imuFile){
 				if(imageCoords[0] < nCols && imageCoords[0] >= 0){
 					int srcRow = imageCoords[0];
 					srcRow *= channels;
+
+					if(srcRow % 3 !=0 || j %3 !=0){
+						cout << "Image Row: " << srcRow
+							<< "Pano Row" << j << endl;
+						throw "EXIT_FAILURE";
+					}
 
 					for (int k = 0; k < channels; ++k)
 					{

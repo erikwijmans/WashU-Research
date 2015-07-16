@@ -27,10 +27,4 @@ math.h
 -
 time.h
 -
-cstdio
--
-cstdlib
--
-cilk/cilk.h
--
 
