@@ -1,0 +1,36 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/erik/Projects/c++/VideoToPanorama/VideoToPanorama.cpp
+opencv2/highgui.hpp
+-
+opencv2/imgproc.hpp
+/home/erik/Projects/c++/VideoToPanorama/opencv2/imgproc.hpp
+stdio.h
+-
+iostream
+-
+string
+-
+dirent.h
+-
+vector
+-
+fstream
+-
+math.h
+-
+time.h
+-
+cstdio
+-
+cstdlib
+-
+cilk/cilk.h
+-
+

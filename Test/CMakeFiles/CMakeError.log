@@ -1,0 +1,8 @@
+Performing C++ SOURCE FILE Test COMPILER_SUPPORTS_CXX11 failed with the following output:
+
+Source file was:
+int main() { return 0; }
+Performing C++ SOURCE FILE Test COMPILER_SUPPORTS_CXX0X failed with the following output:
+
+Source file was:
+int main() { return 0; }
