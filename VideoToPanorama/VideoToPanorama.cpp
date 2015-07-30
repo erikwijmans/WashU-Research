@@ -13,7 +13,7 @@
 
 #define NUM_ENTRY_PER_LINE 19
 #define PI 3.14159
-#define FPS 15
+#define FPS 7
 
 
 constexpr float PANO_H = 1024;
@@ -34,13 +34,20 @@ inline float min (float a, float b) {return (a < b) ? a : b;}
 
 
 
-Mat panorama (PANO_H, PANO_H*2, CV_8UC3);
+Mat panorama (PANO_H, PANO_H*2, CV_8UC3, Scalar::all(255));
 Mat K;
 
 int main(int argc, char** argv)
 {
+	//Moto X K
 	K = (Mat_<float>(3,3) << 3867.214290/3.25, 0, 1220.329623/3.25, 
 		0, 3850.296435/3.25, 2077.400229/3.25, 0, 0, 1);
+	
+
+	//Nexus 9 K
+	K = (Mat_<float>(3,3) << 1082, 0, 360, 0, 1085, 640, 0, 0, 1);
+	
+
 
 
 
@@ -86,13 +93,15 @@ int main(int argc, char** argv)
 	binaryFileOut.close();
 	
 
-	ifstream binaryFile("output.dat",  ios::in | ios::binary);
+	
 
 	cvNamedWindow("panorama", WINDOW_NORMAL);
 	imshow("panorama", panorama);
 	waitKey(0);
 
 	sort(imageNames.begin(), imageNames.end());
+	// while(true){
+	ifstream binaryFile("output.dat",  ios::in | ios::binary);
 
 	clock_t startTime, endTime;
 	startTime = clock();
@@ -100,7 +109,6 @@ int main(int argc, char** argv)
 	for (auto & image : imageNames){
 		projectImageToPanorama(image, binaryFile);
 
-		cvNamedWindow("panorama", WINDOW_NORMAL);
 		imshow("panorama", panorama);
 		waitKey(1);	
 	}
@@ -109,9 +117,17 @@ int main(int argc, char** argv)
 	float seconds = ((float) endTime - (float)startTime)/CLOCKS_PER_SEC;
 	
 	cout << "Time to stitch : " << seconds << endl;
-
-
 	binaryFile.close();
+	// waitKey(5000);
+	// panorama = Mat (PANO_H, PANO_H*2, CV_8UC3, Scalar::all(255));
+	
+	
+
+// }
+
+
+
+	
 
 	cout << "DONE\nHit enter to save or ctrl-c the terminal to not save" << endl;
 
@@ -162,6 +178,7 @@ Mat readInRotation(ifstream & file, float  timeSamp){
 		return rot_matrix.t();
 	} else{
 		return Mat (0,0, CV_32F);
+		cout << "EOF" << endl;
 	}
 
 }
@@ -285,7 +302,7 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 
 					for (int k = 0; k < channels; ++k)
 					{
-						if(dst[j + k] == 0)
+						if(dst[j + k] == 255)
 							dst[j+k] = src[srcRow + k];
 						else
 							dst[j+k] = (dst[j+k] + src[srcRow + k])/2;

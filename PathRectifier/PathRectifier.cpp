@@ -3,20 +3,34 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include <gurobi_c++.h>
 
-
+#define PI 3.14159
 
 using namespace Eigen;
 using namespace std;
 
 
 int F = 0;
+float weight = 1;
 
 void printPath(const char *, VectorXf & );
 void csvToBinary (ifstream &, fstream &);
 void shiftToPositive(VectorXf &);
-inline float reduceNoise (float a) {return (a > 0.15) ? a : 0;}
+inline float reduceNoise (float a) {return (a > 10) ? a : 0;}
+VectorXf lPSolver(VectorXf &);
+void rotatePoints(VectorXf &, Matrix2f &);
 
+Matrix2f  rotationMatrix(float theta){
+	Matrix2f R;
+	R(0,0) = cos(theta);
+	R(1,0) = sin(theta);
+	R(0,1) = -sin(theta);
+	R(1,1) = cos(theta);
+
+
+	return R;
+}
 
 
 
@@ -51,7 +65,7 @@ int main(int argc, char** argv)
 	A.reserve(6 + (2*F-2)*2 + (2*F-4)*3);
 	VectorXf x(2*F) , b(4*F-2);
 
-	float weight = 0.4;
+	weight = 1;
 
 	for (int i = 0; i < 2*F-2; ++i)
 	{
@@ -59,7 +73,7 @@ int main(int argc, char** argv)
 		A.insert(4+i, i+2) = -1*weight;
 	}
 
-	weight = 0.8;
+	weight = 1;
 	for (int i = 0; i < 2*F-4; ++i)
 	{
 		A.insert(4+2*F-2 + i, i) = 1*weight;
@@ -71,10 +85,10 @@ int main(int argc, char** argv)
 
 	b = A*givenX;
 
-	for (int i = 4+2*F-2; i < 2*F-4; ++i)
+	/*for (int i = 4+2*F-2; i < 2*F-4; ++i)
 	{
 		b(i) = reduceNoise(b(i));
-	}
+	}*/
 
 
 	A.insert(0,0) = 1;
@@ -84,6 +98,8 @@ int main(int argc, char** argv)
 	A.insert(3, 1) = -1;
 	A.insert(3, 2*F-1) = -1;
 
+	clock_t startTime, endTime;
+	startTime = clock();
 	SparseMatrix<float> APrime (2*F, 2*F);
 	VectorXf bPrime (2*F);
 
@@ -105,9 +121,41 @@ int main(int argc, char** argv)
 	  return -1;
 	}
 
+
 	shiftToPositive(x);
 
+	endTime = clock();
+
+	float seconds = ((float) endTime - (float)startTime)/CLOCKS_PER_SEC;
+	
+	cout << "Time to solve : " << seconds << endl;
+
+
+
+	VectorXf GrobX =  lPSolver(b);
+
+	Matrix2f R = rotationMatrix(6.0/180.0*PI);
+	rotatePoints(GrobX, R);
+	rotatePoints(x, R);
+
+	shiftToPositive(x);
+	shiftToPositive(GrobX);
+
+
+	printPath("GurobiPath.html", GrobX);
 	printPath("Path.html", x);
+	x.normalize();
+	GrobX.normalize();
+
+	double error = 0.0;
+	for (int i = 0; i < 2*F; ++i)
+	{
+		error = (x[i] - GrobX[i]) * (x[i] - GrobX[i]);
+	}
+
+	error = sqrt(error);
+
+	cout <<"Difference = " << error << endl;
 	
 	return 0;
 }
@@ -116,10 +164,13 @@ void printPath(const char * name, VectorXf & x){
 	ofstream pathWriter (name, ios::out);
 	pathWriter << "<!DOCTYPE html>" << endl << "<html>"
 		<< endl << "<body>" << endl << endl 
-		<< "<svg height=\"500\" width=\"500\">" << endl << "<polyline points=\"";
+		<< "<svg height=\"1000\" width=\"1000\">" << endl
+		<< "<image xlink:href=\"file:/home/erik/Projects/c++/PathRectifier/Bryan+Jolley.png\"" 
+		<< "x=\"-50\" y=\"-300\" width=\"1000\" height=\"1000\" />" << endl << endl
+		<< "<polyline points=\"" << flush;
 	for (int i = 0; i < 2*F ; i+=2)
 	{
-		pathWriter << x(i) << "," << x(i+1) << " "; 
+		pathWriter << x(i) << "," << x(i+1) << " " << flush;
 	}
 
 	pathWriter << "\"" << " style=\"fill:none;stroke:black;stroke-width:2\" />" 
@@ -166,4 +217,77 @@ void shiftToPositive(VectorXf & toShift){
 		toShift(i+1) -= minY;
 	}
 
+}
+
+VectorXf lPSolver(VectorXf & b){
+	try {
+	    GRBEnv env = GRBEnv();
+
+	    GRBModel model = GRBModel(env);
+
+	    GRBVar * dVarList = model.addVars(2*F-4, GRB_CONTINUOUS);
+	    GRBVar * xyVarList = model.addVars(2*F, GRB_CONTINUOUS);
+	    model.update();
+
+	    GRBLinExpr obj = 0.0;
+	    for (int i = 0; i < 2*F-4; ++i)
+	    {
+	    	obj += dVarList[i];
+	    }
+
+	    model.setObjective(obj, GRB_MINIMIZE);
+	    model.addConstr(xyVarList[0] == xyVarList[2*F-2]);
+	    model.addConstr(xyVarList[1] == xyVarList[2*F-1]);
+
+
+	    for (int i = 0; i < 2*F-4; ++i)
+	    {
+	    	model.addConstr(-1*dVarList[i] <= xyVarList[i] 
+	    		- 2*xyVarList[i+2]+xyVarList[i+4] - b(4+2*F-2+i));
+	    	model.addConstr(xyVarList[i] - 2*xyVarList[i+2]
+	    		+xyVarList[i+4] - b(4+2*F-2+i) <= dVarList[i]);
+
+	    }
+
+
+	    model.optimize();
+
+	    VectorXf x (2*F);
+	    for (int i = 0; i < 2*F; ++i)
+	    {
+	    	x(i) = xyVarList[i].get(GRB_DoubleAttr_X);
+	    }
+
+	    shiftToPositive(x);
+
+	    return x;
+
+
+    } catch(GRBException e) {
+      cout << "Error code = " << e.getErrorCode() << endl;
+      cout << e.getMessage() << endl;
+    } catch(...) {
+      cout << "Exception during optimization" << endl;
+    }
+
+    
+}
+
+void rotatePoints(VectorXf & points, Matrix2f & R){
+	Vector2f xAxis (1,0);
+	Vector2f yAxis (0,1);
+
+	xAxis = R*xAxis;
+	yAxis = R*yAxis;
+
+	for (int i = 0; i < points.size(); i+=2)
+	{
+		float oldX = points(i);
+		float oldY = points(i+1);
+
+		Vector2f oldPoint (oldX, oldY);
+
+		points(i) = xAxis.dot(oldPoint);
+		points(i+1) = yAxis.dot(oldPoint);
+	}
 }

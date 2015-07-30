@@ -15,7 +15,7 @@ if len(args) != 4 and len(args) !=3 :
 	print("Usage : python videoToImages.py <input_video> <output_folder/>")
 	print("OR Usage :python videoToImages.py <input_video> <output_folder/> <frame_rate>")
 	sys.exit();
-
+subprocess.call(['rm','-rf', args[2]])
 subprocess.call(['mkdir', args[2]])
 output = args[2] + 'image-%5d.png'
 if len(args) == 4 :
