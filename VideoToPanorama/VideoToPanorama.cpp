@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿/*
 This program takes a video in the form of a series of still and its IMU file and stitches a panorama 
 out of the stills based solely on the rotation information.
@@ -14,6 +15,9 @@ usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_
 */
 
 #include <opencv2/core.hpp>
+=======
+﻿#include <opencv2/core.hpp>
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 #include <opencv2/highgui.hpp>
 #include "opencv2/imgproc.hpp"
 #include <stdio.h>
@@ -31,7 +35,11 @@ usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_
 #define FPS 5
 
 
+<<<<<<< HEAD
 constexr float PANO_H = 1024;
+=======
+constexpr float PANO_H = 1024;
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 
 using namespace std;
 using namespace cv;
@@ -39,7 +47,10 @@ using namespace cv;
 
 
 Mat readInRotation(ifstream &, float );
+<<<<<<< HEAD
 //csv files are converted to binary because c++ reads csv files poorly at best
+=======
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 void csvToBinary (ifstream &, ofstream &);
 int projectImageToPanorama(string &, ifstream &);
 void image_coords_to_pano_coords(float *, float *, Mat &);
@@ -81,6 +92,10 @@ int main(int argc, char** argv)
 
 	std::vector<string> imageNames;
 	
+<<<<<<< HEAD
+=======
+
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (imageFolderPath)) != NULL) {
@@ -98,9 +113,15 @@ int main(int argc, char** argv)
 	  return EXIT_FAILURE;
 	}
 
+<<<<<<< HEAD
 	
 
 	ifstream csvFile (argv[2], ios::in );
+=======
+	char * imuFile = argv[2];
+
+	ifstream csvFile (imuFile, ios::in );
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 
 	ofstream binaryFileOut("output.dat",  ios::out | ios::binary);
 
@@ -189,6 +210,10 @@ Mat readInRotation(ifstream & file, float  timeSamp){
 		return Mat (0,0, CV_32F);
 		cout << "EOF" << endl;
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 }
 
 
@@ -291,7 +316,10 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 		if( imageCoords[1] < nRows && imageCoords[1] >= 0){
 
 			uchar * src = img.ptr<uchar>((int) imageCoords[1]);
+<<<<<<< HEAD
 
+=======
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 			for (int j = startCol; j < width + startCol; j+=channels)
 			{
 				panoCoords[0] = j/channels;
@@ -303,8 +331,17 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 					int srcRow = imageCoords[0];
 					srcRow *= channels;
 
+<<<<<<< HEAD
 
 					//To ensure that color don't get messed up, the color channels are coppied manually
+=======
+					if(srcRow % 3 !=0 || j %3 !=0){
+						cout << "Image Row: " << srcRow
+							<< "Pano Row" << j << endl;
+						throw "EXIT_FAILURE";
+					}
+
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 					for (int k = 0; k < channels; ++k)
 					{
 						if(dst[j + k] == 255)
@@ -354,6 +391,11 @@ void image_coords_to_pano_coords(float * img_coords, float * pano_coords , Mat &
 
 	pano_coords [0] = theta/PI * PANO_H; //col #
 	pano_coords [1] = phi/PI * PANO_H; //row #
+<<<<<<< HEAD
+=======
+
+	
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 }
 
 

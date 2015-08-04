@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
 Takes a path and solves for what the correct path should by making some assumptions.
 For least squares regression method, it assumes that the start and end points must be the same.  It also assumes
@@ -11,6 +12,8 @@ acceleration at any point must be the same in both the input and output paths.
 
 
 
+=======
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 #include <Eigen/SparseCholesky>
 #include <Eigen/Dense>
 #include <iostream>
@@ -28,7 +31,10 @@ int F = 0;
 float weight = 1;
 
 void printPath(const char *, VectorXf & );
+<<<<<<< HEAD
 //csv files are converted to binary because c++ reads csv files poorly at best
+=======
+>>>>>>> fe313f5c84a4d9a2013ad4f2f8387a5157d44a01
 void csvToBinary (ifstream &, fstream &);
 void shiftToPositive(VectorXf &);
 inline float reduceNoise (float a) {return (a > 10) ? a : 0;}
