@@ -13,7 +13,7 @@
 
 #define NUM_ENTRY_PER_LINE 19
 #define PI 3.14159
-#define FPS 7
+#define FPS 5
 
 
 constexpr float PANO_H = 1024;
@@ -35,6 +35,7 @@ inline float min (float a, float b) {return (a < b) ? a : b;}
 
 
 Mat panorama (PANO_H, PANO_H*2, CV_8UC3, Scalar::all(255));
+Mat flippedPanorama (PANO_H, PANO_H*2, CV_8UC3);
 Mat K;
 
 int main(int argc, char** argv)
@@ -82,7 +83,7 @@ int main(int argc, char** argv)
 	  return EXIT_FAILURE;
 	}
 
-	const char * imuFile = argv[2];
+	char * imuFile = argv[2];
 
 	ifstream csvFile (imuFile, ios::in );
 
@@ -100,7 +101,6 @@ int main(int argc, char** argv)
 	waitKey(0);
 
 	sort(imageNames.begin(), imageNames.end());
-	// while(true){
 	ifstream binaryFile("output.dat",  ios::in | ios::binary);
 
 	clock_t startTime, endTime;
@@ -108,7 +108,6 @@ int main(int argc, char** argv)
 
 	for (auto & image : imageNames){
 		projectImageToPanorama(image, binaryFile);
-
 		imshow("panorama", panorama);
 		waitKey(1);	
 	}
@@ -118,26 +117,21 @@ int main(int argc, char** argv)
 	
 	cout << "Time to stitch : " << seconds << endl;
 	binaryFile.close();
-	// waitKey(5000);
-	// panorama = Mat (PANO_H, PANO_H*2, CV_8UC3, Scalar::all(255));
-	
-	
 
-// }
+	flip(panorama, flippedPanorama, 0);
 
+	imshow("panorama", flippedPanorama);
+	waitKey(0);
 
 
 	
 
 	cout << "DONE\nHit enter to save or ctrl-c the terminal to not save" << endl;
-
-	cvNamedWindow("panorama", WINDOW_NORMAL);
-	imshow("panorama", panorama);
 	waitKey(0);
 
 
 
-	imwrite(argv[3], panorama);
+	imwrite(argv[3], flippedPanorama);
 	cout << "Saved" << endl;
 	return 0;
 }
