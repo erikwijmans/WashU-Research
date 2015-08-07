@@ -1,4 +1,20 @@
-﻿#include <opencv2/core.hpp>
+
+﻿/*
+This program takes a video in the form of a series of still and its IMU file and stitches a panorama 
+out of the stills based solely on the rotation information.
+
+The stitching is done by transforming the corners of an image into world coordinates and then projecting those
+world coordinates onto the panaorama by transforming cartesian coordinates to spherical coordinates and scaling them
+
+Once the corners have been found, the largest possible square those corners can make up is calculated.  Then every pixel on
+the panorama in that square is scanned and matched to its image pixel.
+
+
+
+usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_Path.png>
+*/
+
+#include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include "opencv2/imgproc.hpp"
 #include <stdio.h>
@@ -16,7 +32,8 @@
 #define FPS 5
 
 
-constexpr float PANO_H = 1024;
+
+constexr float PANO_H = 1024;
 
 using namespace std;
 using namespace cv;
@@ -24,6 +41,7 @@ using namespace cv;
 
 
 Mat readInRotation(ifstream &, float );
+//csv files are converted to binary because c++ reads csv files poorly at best
 void csvToBinary (ifstream &, ofstream &);
 int projectImageToPanorama(string &, ifstream &);
 void image_coords_to_pano_coords(float *, float *, Mat &);
@@ -65,7 +83,6 @@ int main(int argc, char** argv)
 
 	std::vector<string> imageNames;
 	
-
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (imageFolderPath)) != NULL) {
@@ -83,9 +100,9 @@ int main(int argc, char** argv)
 	  return EXIT_FAILURE;
 	}
 
-	char * imuFile = argv[2];
+	
+	ifstream csvFile (argv[2], ios::in );
 
-	ifstream csvFile (imuFile, ios::in );
 
 	ofstream binaryFileOut("output.dat",  ios::out | ios::binary);
 
@@ -167,7 +184,6 @@ Mat readInRotation(ifstream & file, float  timeSamp){
 		return Mat (0,0, CV_32F);
 		cout << "EOF" << endl;
 	}
-
 }
 
 
@@ -270,6 +286,7 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 		if( imageCoords[1] < nRows && imageCoords[1] >= 0){
 
 			uchar * src = img.ptr<uchar>((int) imageCoords[1]);
+
 			for (int j = startCol; j < width + startCol; j+=channels)
 			{
 				panoCoords[0] = j/channels;
@@ -280,12 +297,6 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 				if(imageCoords[0] < nCols && imageCoords[0] >= 0){
 					int srcRow = imageCoords[0];
 					srcRow *= channels;
-
-					if(srcRow % 3 !=0 || j %3 !=0){
-						cout << "Image Row: " << srcRow
-							<< "Pano Row" << j << endl;
-						throw "EXIT_FAILURE";
-					}
 
 					for (int k = 0; k < channels; ++k)
 					{
@@ -336,8 +347,6 @@ void image_coords_to_pano_coords(float * img_coords, float * pano_coords , Mat &
 
 	pano_coords [0] = theta/PI * PANO_H; //col #
 	pano_coords [1] = phi/PI * PANO_H; //row #
-
-	
 }
 
 

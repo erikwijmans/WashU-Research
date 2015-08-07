@@ -1,3 +1,16 @@
+
+/*
+Takes a path and solves for what the correct path should by making some assumptions.
+For least squares regression method, it assumes that the start and end points must be the same.  It also assumes
+that the acceleration and velocity at any point must be the same in the input and output paths.  Also, it locks the start point to (0,0)
+
+For linear programming (which is solved with Gurobi).  It assumes the start and end points must be the same.  It also assumes that the
+acceleration at any point must be the same in both the input and output paths.
+
+*/
+
+
+
 #include <Eigen/SparseCholesky>
 #include <Eigen/Dense>
 #include <iostream>
@@ -15,6 +28,7 @@ int F = 0;
 float weight = 1;
 
 void printPath(const char *, VectorXf & );
+//csv files are converted to binary because c++ reads csv files poorly at best
 void csvToBinary (ifstream &, fstream &);
 void shiftToPositive(VectorXf &);
 inline float reduceNoise (float a) {return (a > 10) ? a : 0;}
