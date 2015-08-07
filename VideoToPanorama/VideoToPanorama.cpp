@@ -121,13 +121,6 @@ int main(int argc, char** argv)
 	flip(panorama, flippedPanorama, 0);
 
 	imshow("panorama", flippedPanorama);
-	waitKey(0);
-
-
-	
-
-	cout << "DONE\nHit enter to save or ctrl-c the terminal to not save" << endl;
-	waitKey(0);
 
 
 
