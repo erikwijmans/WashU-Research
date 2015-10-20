@@ -1,0 +1,1193 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"po",
+				"points"
+			],
+			[
+				"curr",
+				"currentFP"
+			],
+			[
+				"rot",
+				"rotation"
+			],
+			[
+				"rota",
+				"rotation"
+			],
+			[
+				"sco",
+				"scores"
+			],
+			[
+				"glo",
+				"globalMins"
+			],
+			[
+				"rSSparseP",
+				"rSSparsePyramidTrimmed"
+			],
+			[
+				"curren",
+				"currentFP"
+			],
+			[
+				"rss",
+				"rSSparsePyramidTrimmed"
+			],
+			[
+				"poi",
+				"pointsToAnalyze"
+			],
+			[
+				"sigS",
+				"sigScores"
+			],
+			[
+				"av",
+				"averageScore"
+			],
+			[
+				"scre",
+				"scores"
+			],
+			[
+				"ave",
+				"average"
+			],
+			[
+				"dif",
+				"diffEntropy"
+			],
+			[
+				"socs",
+				"scores"
+			],
+			[
+				"soc",
+				"score"
+			],
+			[
+				"sS",
+				"sigS"
+			],
+			[
+				"si",
+				"sigE"
+			],
+			[
+				"en",
+				"entropy"
+			],
+			[
+				"entro",
+				"entropyFileNames"
+			],
+			[
+				"etnr",
+				"entropyFileNames"
+			],
+			[
+				"xM",
+				"xMin"
+			],
+			[
+				"Vec",
+				"Vector2i"
+			],
+			[
+				"S",
+				"Scalar"
+			],
+			[
+				"per",
+				"perimeter"
+			],
+			[
+				"max",
+				"maxCol"
+			],
+			[
+				"out",
+				"outerSize"
+			],
+			[
+				"s",
+				"similarity"
+			],
+			[
+				"cur",
+				"currentFP"
+			],
+			[
+				"fp",
+				"fpEntropy"
+			],
+			[
+				"cr",
+				"currentTag"
+			],
+			[
+				"nu",
+				"numOps"
+			],
+			[
+				"han",
+				"handleM"
+			],
+			[
+				"u",
+				"unsigned"
+			],
+			[
+				"str",
+				"strcmp"
+			],
+			[
+				"line",
+				"lineb4Comma"
+			],
+			[
+				"pri",
+				"privaveScores"
+			],
+			[
+				"colu",
+				"column"
+			],
+			[
+				"col",
+				"column"
+			],
+			[
+				"scor",
+				"scores"
+			],
+			[
+				"rsS",
+				"rSSparseTrimmed"
+			],
+			[
+				"rSS",
+				"rSSparse"
+			],
+			[
+				"glb",
+				"globalMins"
+			],
+			[
+				"glM",
+				"globalMins"
+			],
+			[
+				"Glob",
+				"globalMins"
+			],
+			[
+				"gl",
+				"globalMins"
+			],
+			[
+				"GlM",
+				"globalMins"
+			],
+			[
+				"poit",
+				"points"
+			],
+			[
+				"sc",
+				"scores"
+			],
+			[
+				"sca",
+				"scanIndex"
+			],
+			[
+				"ve",
+				"Vector3i"
+			],
+			[
+				"fpS",
+				"fpScore"
+			],
+			[
+				"point",
+				"points"
+			],
+			[
+				"mIn",
+				"minInfo"
+			],
+			[
+				"locM",
+				"localMinima"
+			],
+			[
+				"poin",
+				"pointsToAnalyze"
+			],
+			[
+				"Ve",
+				"Vector2i"
+			],
+			[
+				"find",
+				"findPointsToAnalyze"
+			],
+			[
+				"poinT",
+				"pointsToanalyze"
+			],
+			[
+				"score",
+				"scores"
+			],
+			[
+				"diff",
+				"diff"
+			],
+			[
+				"trim",
+				"trimmed"
+			],
+			[
+				"lev",
+				"level"
+			],
+			[
+				"Mat",
+				"MatrixXd"
+			],
+			[
+				"curF",
+				"currentFP"
+			],
+			[
+				"cuF",
+				"currentFP"
+			],
+			[
+				"currn",
+				"currentScan"
+			],
+			[
+				"cropp",
+				"croppedInfo"
+			],
+			[
+				"rS",
+				"rSSparsePyramidTrimmed"
+			],
+			[
+				"tr",
+				"trimmed"
+			],
+			[
+				"tri",
+				"tripletList"
+			],
+			[
+				"findP",
+				"findPlacementPointBasedV2"
+			],
+			[
+				"num",
+				"numLevels"
+			],
+			[
+				"scan",
+				"scanLevel"
+			],
+			[
+				"beg",
+				"begin"
+			],
+			[
+				"Out",
+				"outerSize"
+			],
+			[
+				"SPar",
+				"SparseMatrix"
+			],
+			[
+				"y",
+				"yStop"
+			],
+			[
+				"x",
+				"xStop"
+			],
+			[
+				"sq",
+				"squaredNorm"
+			],
+			[
+				"ent",
+				"entropy"
+			],
+			[
+				"arg",
+				"argv"
+			],
+			[
+				"cro",
+				"cropped"
+			],
+			[
+				"roF",
+				"rotationFile"
+			],
+			[
+				"roFi",
+				"rotationFileNames"
+			],
+			[
+				"ro",
+				"rotationFileNames"
+			],
+			[
+				"scN",
+				"scanName"
+			],
+			[
+				"nuS",
+				"numScansToProcess"
+			],
+			[
+				"fil",
+				"fileName"
+			],
+			[
+				"st",
+				"string"
+			],
+			[
+				"crF",
+				"currentFP"
+			],
+			[
+				"bei",
+				"begin"
+			],
+			[
+				"com",
+				"combinedScan"
+			],
+			[
+				"coM",
+				"colMax"
+			],
+			[
+				"row",
+				"rowMax"
+			],
+			[
+				"rR",
+				"rSSparse"
+			],
+			[
+				"do",
+				"double"
+			],
+			[
+				"scr",
+				"scores"
+			],
+			[
+				"pr",
+				"pragma"
+			],
+			[
+				"maX",
+				"maxCount"
+			],
+			[
+				"lo",
+				"localMinima"
+			],
+			[
+				"so",
+				"scores"
+			],
+			[
+				"cloud",
+				"cloudNomral"
+			],
+			[
+				"fiF",
+				"fileFolderIn"
+			],
+			[
+				"roT",
+				"rotatedTrips"
+			],
+			[
+				"tir",
+				"tripletList"
+			],
+			[
+				"bi",
+				"binaryReader"
+			],
+			[
+				"In",
+				"InnerIterator"
+			],
+			[
+				"para",
+				"parallel"
+			],
+			[
+				"I",
+				"InnerIterator"
+			],
+			[
+				"fs",
+				"fpSparse"
+			],
+			[
+				"min",
+				"minScore"
+			],
+			[
+				"socre",
+				"scores"
+			],
+			[
+				"ros",
+				"rotatedScans"
+			],
+			[
+				"Spar",
+				"SparseMatrix"
+			],
+			[
+				"con",
+				"continue"
+			],
+			[
+				"be",
+				"bestRotated"
+			],
+			[
+				"_",
+				"_input"
+			],
+			[
+				"cv",
+				"cvNamedWindow"
+			],
+			[
+				"bes",
+				"bestScore"
+			],
+			[
+				"beS",
+				"bestScores"
+			],
+			[
+				"flo",
+				"floorPlan"
+			],
+			[
+				"end",
+				"endl"
+			],
+			[
+				"nor",
+				"normals"
+			],
+			[
+				"fl",
+				"floorPlan"
+			],
+			[
+				"V3",
+				"Vector3d"
+			],
+			[
+				"get",
+				"getRotationMatrix"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "placeScan.cpp",
+			"settings":
+			{
+				"buffer_size": 27263,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "CMakeLists.txt",
+			"settings":
+			{
+				"buffer_size": 311,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "getRotations.cpp",
+			"settings":
+			{
+				"buffer_size": 6198,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					""
+				],
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					"Run"
+				]
+			],
+			[
+				"Packages/C++/C++ Single File.sublime-build",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 96.0,
+		"last_filter": "sie bar",
+		"selected_items":
+		[
+			[
+				"sie bar",
+				"View: Toggle Side Bar"
+			],
+			[
+				"toggle sid",
+				"View: Toggle Side Bar"
+			],
+			[
+				"projc ad",
+				"Project: Add Folder"
+			],
+			[
+				"side bar",
+				"View: Toggle Side Bar"
+			],
+			[
+				"projec",
+				"Project: Add Folder"
+			],
+			[
+				"instal",
+				"Package Control: Install Package"
+			],
+			[
+				"lint mode",
+				"SublimeLinter: Choose Lint Mode"
+			],
+			[
+				"toggle lin",
+				"SublimeLinter: Toggle Linter"
+			],
+			[
+				"Linter lin",
+				"SublimeLinter: Choose Lint Mode"
+			],
+			[
+				"enable i",
+				"SublimeLinter: Disable Linter"
+			],
+			[
+				"in",
+				"Package Control: Install Package"
+			],
+			[
+				"i",
+				"Package Control: Install Package"
+			],
+			[
+				"inst",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 467.0
+	},
+	"console":
+	{
+		"height": 1006.0,
+		"history":
+		[
+			"import urllib.request,os,hashlib; h = 'eb2297e1a458f27d836c04bb0cbaf282' + 'd0e7a3098092775ccb37ca9d6b2e4b7d'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by) "
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/home/erik/Projects/c++/placeScan"
+	],
+	"file_history":
+	[
+		"/home/erik/Desktop/csim.c",
+		"/home/erik/.bashrc",
+		"/home/erik/.profile",
+		"/home/erik/Projects/c++/placeScan/cropped.png",
+		"/home/erik/Projects/c++/placeScan/placeScan.sublime-project",
+		"/home/erik/Projects/c++/dominateDirections/CMakeLists.txt",
+		"/home/erik/Projects/c++/dominateDirections/dominateDirections.cpp",
+		"/home/erik/Projects/c++/placeScan/CMakeLists.txt",
+		"/home/erik/Projects/c++/placeScan/placeScan.cpp",
+		"/home/erik/Projects/c++/dominateDirections/CMakeCache.txt",
+		"/home/erik/Projects/c++/VideoToPanorama/VideoToPanorama.cpp",
+		"/home/erik/Projects/c++/scanDensity/dominateDirections.cpp",
+		"/home/erik/Projects/c++/scanDensity/centerOfScan.cpp",
+		"/home/erik/Desktop/estimateVP.m",
+		"/home/erik/Projects/c++/PathRectifier/PathRectifier.cpp",
+		"/home/erik/Projects/c++/VideoToPanorama/videoToImages.py",
+		"/home/erik/Projects/c++/scanDensity/script.py",
+		"/home/erik/Projects/c++/scanDensity/test.cpp",
+		"/home/erik/Programs/meshlab/src/README.txt",
+		"/home/erik/Projects/meshlab/src/README.txt",
+		"/home/erik/Projects/scanData/IMUFiles/Lopata.txt",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C013%5D/Internal storage/Android/data/com.wustl.erik.InteractivePanorama/files/Room8",
+		"/home/erik/Projects/Android-Programs/videoToImages.py",
+		"/home/erik/Projects/Android-Programs/.git/logs/refs/heads/master",
+		"/home/erik/Projects/Android-Programs/.git/HEAD",
+		"/home/erik/Projects/c++/PathRectifier/Makefile",
+		"/home/erik/Projects/c++/PathRectifier/GurobiPath.html",
+		"/home/erik/Projects/c++/PathRectifier/Path.html",
+		"/home/erik/Projects/c++/VideoToPanorama/VideoToPanorama.py",
+		"/opt/gurobi604/linux64/examples/build/Makefile",
+		"/home/erik/Projects/c++/ImageJoiner/ImageJoiner.cpp",
+		"/home/erik/Projects/c++/ImageJoiner/CMakeLists.txt",
+		"/home/erik/Projects/c++/VideoToPanorama/CMakeLists.txt",
+		"/home/erik/Projects/c++/Test/GurobiTest.cpp",
+		"/opt/gurobi604/linux64/examples/c++/lp_c++.cpp",
+		"/opt/gurobi604/linux64/examples/data/coins.lp",
+		"/home/erik/Projects/c++/VideoToPanorama/Makefile",
+		"/home/erik/Projects/c++/PathRectifier/Path.txt",
+		"/opt/gurobi604/linux64/include/gurobi_c++.h",
+		"/opt/gurobi604/linux64/.bashrc",
+		"/opt/gurobi604/linux64/ReleaseNotes.html",
+		"/home/erik/Projects/c++/PathRectifier/StartPath.html",
+		"/home/erik/Projects/c++/PathRectifier/startPath.html",
+		"/etc/ssh/ssh_config",
+		"/home/erik/Projects/c++/Test/EigenTest.cpp",
+		"/home/erik/Projects/c++/Test/EigenTest",
+		"/home/erik/Projects/c++/CilkPlus/CilkPlusTest.cpp",
+		"/home/erik/Projects/scanData/IMUFiles/Room3.txt",
+		"/home/erik/Projects/c++/Test/test.cpp",
+		"/home/erik/Projects/c++/ForFun/CMakeLists.txt",
+		"/home/erik/Projects/c++/ForFun/ForFun.cpp",
+		"/home/erik/Projects/c++/Test/CMakeLists.txt",
+		"/home/erik/Projects/c++/Test/Default.txt",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C015%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/Default.dat",
+		"/home/erik/Projects/c++/Test/output.dat",
+		"/home/erik/Desktop/videoToImages.py",
+		"/home/erik/Projects/c++/Test/Default.dat",
+		"/home/erik/Projects/csvToBinary/csvToBinary.cpp",
+		"/home/erik/Projects/csvToBinary/csvToBinaryJava.java",
+		"/home/erik/Projects/c++/DisplayImage/DisplayImage.cpp",
+		"/home/erik/Projects/csvToBinary/Output.dat",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C020%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C016%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C013%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C012%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C006%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C078%5D/Internal storage/Android/data/com.example.erik.InteractivePanorama/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C056%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C057%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C054%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C052%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C053%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C051%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C050%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C049%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C048%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C047%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C043%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C045%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C046%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C044%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C042%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C040%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C039%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C038%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C035%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C033%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C034%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C028%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C025%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData.txt",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C025%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/home/erik/Desktop/CubePositionMaker.java",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C023%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData.txt",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C023%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData",
+		"/run/user/1000/gvfs/mtp:host=%5Busb%3A001%2C022%5D/Internal storage/Android/data/com.example.erik.opengllesson2lighting/files/cubeColorData.txt",
+		"/home/erik/Desktop/openCVLine.cpp"
+	],
+	"find":
+	{
+		"height": 35.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"k+1",
+			"k",
+			"floorPlan",
+			"minInfo.index",
+			"tmp.index",
+			"minScore.index",
+			"floorPlan",
+			"pyramid",
+			"entropyFileNames",
+			"findLocalM",
+			"findLocaM",
+			"scores[scores.size()-1].score",
+			"scores[scores.size() - 2]",
+			"scores[1].score",
+			"1.1*minScore",
+			"cores[0].score",
+			"diff",
+			"score.size()",
+			"pyramid",
+			"scanFileNames",
+			"i",
+			"similarity",
+			"i",
+			"vec_private",
+			"scores",
+			"rSSparse",
+			"V2",
+			"index",
+			"Vector3i",
+			"2*x + 1,2*y",
+			"Vector2i",
+			"[k]",
+			"k",
+			"pointsToanalyze",
+			"scans[k]",
+			"threshHolded",
+			"scan",
+			"scan.coeffRef",
+			"currentFP.coeffRef",
+			"fpPyramid[i]",
+			"reserve",
+			"fpPyramid[i]",
+			"fpPyramid[i].rows()",
+			"sparse",
+			"Sparse",
+			"sparse",
+			"scan",
+			"sScan",
+			"i",
+			" ",
+			"pPyramid[i]",
+			"i",
+			"scores",
+			"diff",
+			"scanNames",
+			"noramlsNames",
+			"fileFolderIn",
+			"findPlac",
+			"cout ",
+			"i",
+			"fpSparse",
+			"sScan",
+			"i",
+			"min",
+			"minScore",
+			"cloudNomrals",
+			"i",
+			"numTriplets",
+			"rSSparse;",
+			"rSSparse[1]",
+			"int",
+			"i",
+			"score",
+			"#pragma omp parallel for",
+			"i",
+			"int",
+			".R",
+			"R",
+			"output",
+			"scorePos",
+			"output",
+			"dst",
+			"i",
+			"output",
+			"i",
+			"dst",
+			"static_cast<int>(",
+			"dst",
+			"static_cast<int>(dst",
+			"static_cast<int>(",
+			"_output",
+			"float",
+			"[8]",
+			"[7]",
+			"[6]",
+			"[5]",
+			"[4]",
+			"[3]",
+			"[2]",
+			"[1]",
+			"[0]",
+			"xProdcut",
+			"[3]",
+			"[2]",
+			"[1]",
+			"[0]",
+			"xProdcut.dot(xProdcut)",
+			"[1]",
+			"1",
+			"static_cast<int>(",
+			"static_cast<double>(",
+			"i",
+			"(",
+			",",
+			")",
+			"(",
+			"i",
+			"dst",
+			"d3",
+			"param",
+			"0",
+			"ave",
+			"sign",
+			"n1",
+			"nlhs",
+			"1",
+			"3",
+			"i"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			""
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "placeScan.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 27263,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								16067,
+								16067
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 9340.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "CMakeLists.txt",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 311,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								262,
+								262
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "getRotations.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6198,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3999,
+								3999
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 2719.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 25.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 236.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "placeScan.sublime-project",
+	"replace":
+	{
+		"height": 46.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"cam",
+				"CMakeLists.txt"
+			],
+			[
+				"",
+				"placeScan.cpp"
+			],
+			[
+				".cpp",
+				"dominateDirections.cpp"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"last_filter": "scan",
+		"selected_items":
+		[
+			[
+				"scan",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"clou",
+				"~/Projects/c++/cloudNormalVisualization/cloudNormalVisualization.sublime-project"
+			],
+			[
+				"csv",
+				"~/Projects/c++/cloudNormalVisualization/cloudNormalVisualization.sublime-project"
+			],
+			[
+				"can",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"sca",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"imag",
+				"~/Projects/c++/imageToSparse/imageToSparese.sublime-project"
+			],
+			[
+				"im",
+				"~/Projects/c++/imageToSparse/imageToSparese.sublime-project"
+			],
+			[
+				"imT",
+				"~/Projects/c++/imageToSparse/imageToSparese.sublime-project"
+			],
+			[
+				"imagt",
+				"~/Projects/c++/imageToSparse/imageToSparese.sublime-project"
+			],
+			[
+				"ima",
+				"~/Projects/c++/imageToSparse/imageToSparese.sublime-project"
+			],
+			[
+				"place",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
+			[
+				"sc",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"pl",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
+			[
+				"cloud",
+				"~/Projects/c++/cloudNormals/cloudNormals.sublime-project"
+			],
+			[
+				"viz",
+				"~/Projects/c++/cloudNormalVisualization/cloudNormalVisualization.sublime-project"
+			],
+			[
+				"cl",
+				"~/Projects/c++/cloudNormals/cloudNormals.sublime-project"
+			],
+			[
+				"s",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"domin",
+				"~/Projects/c++/dominateDirections/dominateDirections.sublime-project"
+			],
+			[
+				"dom",
+				"~/Projects/c++/dominateDirections/dominateDirections.sublime-project"
+			],
+			[
+				"scd",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
+				"vid",
+				"~/Projects/c++/VideoToPanorama/videoToPanorama.sublime-project"
+			],
+			[
+				"do",
+				"~/Projects/c++/dominateDirections/dominateDirections.sublime-project"
+			]
+		],
+		"width": 380.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": false,
+	"side_bar_width": 238.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

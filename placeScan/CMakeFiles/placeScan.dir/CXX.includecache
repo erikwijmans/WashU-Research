@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/erik/Projects/c++/placeScan/placeScan.cpp
+Eigen/Eigen
+-
+Eigen/StdVector
+-
+Eigen/Sparse
+-
+opencv2/core.hpp
+-
+opencv2/highgui.hpp
+-
+opencv2/imgproc.hpp
+-
+stdio.h
+-
+iostream
+-
+string
+-
+dirent.h
+-
+vector
+-
+fstream
+-
+math.h
+-
+time.h
+-
+omp.h
+-
+

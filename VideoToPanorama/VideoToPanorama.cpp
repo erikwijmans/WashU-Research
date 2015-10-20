@@ -1,5 +1,4 @@
-
-﻿/*
+/*
 This program takes a video in the form of a series of still and its IMU file and stitches a panorama 
 out of the stills based solely on the rotation information.
 
@@ -33,7 +32,7 @@ usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_
 
 
 
-constexr float PANO_H = 1024;
+constexpr float PANO_H = 1024;
 
 using namespace std;
 using namespace cv;
@@ -150,7 +149,7 @@ int main(int argc, char** argv)
 
 Mat readInRotation(ifstream & file, float  timeSamp){
 
-	cout << "Reading the file" << endl;
+	//cout << "Reading the file" << endl;
 	float time1, time2;
 	file.seekg(0);
 
@@ -230,7 +229,7 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 	size_t pos  = imageName.find("-");
 	float imgNum = stof (imageName.substr(pos +1, 5));
 
-	cout << imgNum << endl;
+	//cout << imgNum << endl;
 
 	Mat rot_matrix = readInRotation(imuFile, (imgNum-1)/FPS);
 
@@ -247,7 +246,7 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 	int vp, up;
 
 
-	cout << "Sticthing " << endl;
+	//cout << "Sticthing " << endl;
 
 	
 	float corner1 [3], corner2 [3], corner3 [3], corner4 [3];
@@ -316,8 +315,8 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 	float seconds = ((float)endTime - (float)startTime)/CLOCKS_PER_SEC;
 
 
-	cout << "Done sticthing \t" << flush;
-	cout << seconds << endl;
+	/*cout << "Done sticthing \t" << flush;
+	cout << seconds << endl;*/
 
 	return 0;
 

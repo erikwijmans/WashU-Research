@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/erik/Projects/c++/scanDensity/scanDensity.cpp
+Eigen/Dense
+-
+Eigen/StdVector
+-
+opencv2/core.hpp
+-
+opencv2/highgui.hpp
+-
+opencv2/imgproc.hpp
+-
+stdio.h
+-
+iostream
+-
+string
+-
+dirent.h
+-
+vector
+-
+fstream
+-
+math.h
+-
+time.h
+-
+pcl/point_types.h
+-
+pcl/io/ply_io.h
+-
+
