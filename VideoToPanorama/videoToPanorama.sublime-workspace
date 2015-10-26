@@ -1035,9 +1035,13 @@
 	"select_project":
 	{
 		"height": 500.0,
-		"last_filter": "scan",
+		"last_filter": "plac",
 		"selected_items":
 		[
+			[
+				"plac",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
 			[
 				"scan",
 				"~/Projects/c++/scanDensity/scanDensity.sublime-project"

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <math.h>
 #include <time.h>
+#include <gflags/gflags.h>
 
 /*#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -22,7 +23,7 @@ using namespace std;
 using namespace Eigen;
 // using namespace pcl;
 
-float scale = 75.0;
+
 
 void examinePointEvidence(const vector<Vector3f > &, const float *, const float *,
 	const string &, const string &);
@@ -39,38 +40,29 @@ void displayPointEvenidence(const vector<VectorXf> &, const string &, const int)
 void analyzeScan(const string &, const string &);
 
 
-Mat heatMap;
-bool pointE = true;
-bool freeE = true;
+static Mat heatMap;
 
-void usage(){
-	cout << "Usage: scanDensity.o <Dataflag> <binaryData> <output" 
-			<< "Folder>/ Optional:scale Optional:<TypeFlag>" << endl;
-	cout << "Data flags: -f:  Tells the program to expect a folder of binary files" << endl;
-	cout << "            -s:  Tells the program to expect a single binary files" << endl;
-	cout << "Type flags: -pe: Point evidence only" << endl;
-	cout << "            -fe: Free space evidence only" << endl;
-	exit(-1);
-}
 
-int main(int argc, char const *argv[])
+
+
+DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
+DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
+DEFINE_bool(quiteMode, false, "Turns of all print statements");
+DEFINE_bool(preview, true, "Turns on previews of the output");
+DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/binaryFiles/",
+	"Path to binary files");
+DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/",
+	"Path to output folder");
+DEFINE_double(scale, 73.5, "scale used to size the density maps");
+DEFINE_int32(startIndex, 0, "Number to start with");
+DEFINE_int32(numScans, -1, "Number to process, ");
+
+
+
+int main(int argc, char *argv[])
 {
 
-	if(argc != 4 && argc != 5 && argc !=6)
-		usage();
-
-	if(argc >= 5){
-		string scaleString = argv[4];
-		scale = stof(scaleString);
-	}
-
-	if(argc == 6){
-		string typeFlag = argv[5];
-		if(typeFlag.compare("-pe")==0)
-			freeE = false;
-		if(typeFlag.compare("-fe")==0)
-			pointE = false;
-	}
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
 	
 	size_t startTime, endTime;
 	startTime = clock();
@@ -78,45 +70,34 @@ int main(int argc, char const *argv[])
 
 	vector<string> binaryNames;
 
-	string dataFlag = argv[1];
-	const char * fileFolderIn = argv[2];
-	const string fileFolderOut = argv[3];
+	
 
-	if(dataFlag.compare("-f") == 0){
-		DIR *dir;
-		struct dirent *ent;
-		if ((dir = opendir (fileFolderIn)) != NULL) {
-		  /* Add all the files and directories to a vector */
-		  while ((ent = readdir (dir)) != NULL) {
-		  	string fileName = ent->d_name;
-		  	if(fileName != ".." && fileName != "."){
-		  		binaryNames.push_back(fileName);
-		  	}
-		  }
-		  closedir (dir);
-		}  else {
-		  /* could not open directory */
-		  perror ("");
-		  return EXIT_FAILURE;
-		}
+	
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
+	  /* Add all the files and directories to a vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	string fileName = ent->d_name;
+	  	if(fileName != ".." && fileName != "."){
+	  		binaryNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  return EXIT_FAILURE;
+	}
 
-		sort(binaryNames.begin(), binaryNames.end());
-		for(auto & name : binaryNames){
-			const string binaryFilePath = fileFolderIn + name;
-			analyzeScan(binaryFilePath, fileFolderOut);
-		}
-	} else{
-		analyzeScan(string (fileFolderIn), fileFolderOut);
+	sort(binaryNames.begin(), binaryNames.end());
+	if(FLAGS_numScans == -1)
+		FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
+	for(int i = FLAGS_startIndex; i < FLAGS_startIndex + FLAGS_numScans; ++i){
+		const string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		analyzeScan(binaryFilePath, FLAGS_outFolder);
 	}
 	
-	endTime = clock();
-	float seconds = static_cast<float>(endTime - startTime)/CLOCKS_PER_SEC;
-	cout << "Time: " << seconds << "s" << endl;
-	
-	
-
-
-
 	
 	
 
@@ -125,7 +106,8 @@ int main(int argc, char const *argv[])
 
 void analyzeScan(const string & fileName, const string & outputFolder){
 	const string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
-	cout << scanNumber << endl;
+	if(!FLAGS_quiteMode)
+		cout << scanNumber << endl;
     ifstream scanFile (fileName, ios::in | ios::binary);
 
     int columns, rows;
@@ -156,10 +138,10 @@ void analyzeScan(const string & fileName, const string & outputFolder){
 	float  zNormFactors [2];
 	createBoundingBox(pointMin, pointMax, zNormFactors, points);
 
-	if(pointE)
+	if(FLAGS_pe || (!FLAGS_pe && !FLAGS_fe))
 		examinePointEvidence(points, pointMin, pointMax, outputFolder, scanNumber);
 
-	if(freeE)
+	if(FLAGS_fe || (!FLAGS_pe && !FLAGS_fe))
 		examineFreeSpaceEvidence(points, pointMin, pointMax, zNormFactors, outputFolder, scanNumber);
 }
 
@@ -193,9 +175,9 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 	sigmaY = sqrt(sigmaY);
 	sigmaZ = sqrt(sigmaZ);
 
-	double dX = 1.1*5*sigmaX;
-	double dY = 1.1*5*sigmaX;
-	double dZ = 1.1*5*sigmaZ;
+	double dX = 1.1*7*sigmaX;
+	double dY = 1.1*7*sigmaX;
+	double dZ = 1.1*7*sigmaZ;
 
     pointMin[0] = averageX - dX/2;
   	pointMin[1] = averageY - dY/2;
@@ -212,11 +194,11 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 void examinePointEvidence(const vector<Vector3f > & points,
 	const float* pointMin, const float * pointMax, 
 	const string & outputFolder, const string & scanNumber){
-	const int numZ = 20.0*ceil(pointMax[2] - pointMin[2]);
+	const int numZ = 100;
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
-	const int numCols = scale * (pointMax[0] - pointMin[0]);
-	const int numRows = scale * (pointMax[1] - pointMin[0]);
+	const int numCols = FLAGS_scale * (pointMax[0] - pointMin[0]);
+	const int numRows = FLAGS_scale * (pointMax[1] - pointMin[0]);
 
 	heatMap = Mat (numRows, numCols, CV_8UC1, Scalar::all(255));
 
@@ -226,8 +208,8 @@ void examinePointEvidence(const vector<Vector3f > & points,
 
 	// PointCloud<PointXYZ> cloud;
 	for(auto & point : points){
-	 	const int x = scale*(point[0] - pointMin[0]);
-		const int y = scale*(point[1] - pointMin[1]);
+	 	const int x = FLAGS_scale*(point[0] - pointMin[0]);
+		const int y = FLAGS_scale*(point[1] - pointMin[1]);
 		const int z = zScale*(point[2] - pointMin[2]);
 		   
 		if(x <0 || x >= heatMap.cols)
@@ -438,9 +420,12 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 	}*/
 	
 	
+	if(FLAGS_preview)
+	{
+		imshow("Preview", heatMap);
+		waitKey(0);
+	}
 	
-	/*imshow("Preview", heatMap);
-	waitKey(0);*/
 	
 	imwrite(imageName, heatMap);
 }
@@ -450,8 +435,8 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	const string & outputFolder, const string & scanNumber){
 
 	const float numZSimga = 2;
-	const int numX = scale * (pointMax[0] - pointMin[0]);
-	const int numY = scale * (pointMax[1] - pointMin[1]);
+	const int numX = FLAGS_scale * (pointMax[0] - pointMin[0]);
+	const int numY = FLAGS_scale * (pointMax[1] - pointMin[1]);
 	const int numZ = 100;
 
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
@@ -469,8 +454,8 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	
 
 	for(auto & point : points){
-		int x = floor((point[0]- pointMin[0]) * scale);
-		int y = floor((point[1] - pointMin[1]) * scale);
+		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
+		int y = floor((point[1] - pointMin[1]) * FLAGS_scale);
 		/*int z = floor(((point[2] - zNormFactors[0])/(zNormFactors[1]) 
 			+ numZSimga) * zScale);*/
 		int z = floor((point[2] - pointMin[2])*zScale);
@@ -496,8 +481,8 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					continue;
 
 				float ray[3];
-				ray[0] = i - cameraCenter[0]*scale;
-				ray[1] = j - cameraCenter[1]*scale;
+				ray[0] = i - cameraCenter[0]*FLAGS_scale;
+				ray[1] = j - cameraCenter[1]*FLAGS_scale;
 				ray[2] = k - cameraCenter[2]*zScale;
 				float length = sqrt(ray[0]*ray[0] + ray[1]*ray[1] + ray[2]*ray[2]);
 				float unitRay[3];
@@ -505,11 +490,11 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 				unitRay[1] = ray[1]/length;
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
-				for (int a = 1.2*(zScale+2*scale)/3; a < (int)floor(length); ++a)
+				for (int a = 1.2*(zScale+2*FLAGS_scale)/3; a < (int)floor(length); ++a)
 				{
 			
-					voxelHit[0] = floor(cameraCenter[0]*scale + a*unitRay[0]);
-					voxelHit[1] = floor(cameraCenter[1]*scale + a*unitRay[1]);
+					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
+					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
 					voxelHit[2] = floor(cameraCenter[2]*zScale + a*unitRay[2]);
 
 					if(voxelHit[0] < 0 || voxelHit[0] >= numX)
@@ -686,8 +671,12 @@ void displayCollapsed(const vector<VectorXi> & numTimesSeen,
 		} 
 	}
 
-	imshow("Preview", collapsedMap);
-	waitKey(500); 
+	if(FLAGS_preview)
+	{
+		imshow("Preview", collapsedMap);
+		waitKey(0); 
+	}
+	
 
 	imwrite(imageName, collapsedMap);
 }

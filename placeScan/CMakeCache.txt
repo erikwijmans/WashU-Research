@@ -540,6 +540,9 @@ QHULL_LIBRARY:FILEPATH=QHULL_LIBRARY-NOTFOUND
 //Path to a library.
 QHULL_LIBRARY_DEBUG:FILEPATH=QHULL_LIBRARY_DEBUG-NOTFOUND
 
+//The directory containing a CMake configuration file for gflags.
+gflags_DIR:PATH=/usr/local/lib/cmake/gflags
+
 //Value Computed by CMake
 placeScan_BINARY_DIR:STATIC=/home/erik/Projects/c++/placeScan
 

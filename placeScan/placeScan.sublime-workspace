@@ -4,6 +4,170 @@
 		"selected_items":
 		[
 			[
+				"FLAGS_N",
+				"FLAGS_numScans"
+			],
+			[
+				"vec",
+				"Vector3d"
+			],
+			[
+				"Ve",
+				"Vector3d"
+			],
+			[
+				"loa",
+				"loadInScans"
+			],
+			[
+				"rSs",
+				"rSSparse"
+			],
+			[
+				"rSS",
+				"rSSparse"
+			],
+			[
+				"Spar",
+				"SparseMatrix"
+			],
+			[
+				"scaN",
+				"scanName"
+			],
+			[
+				"place",
+				"placementName"
+			],
+			[
+				"FLA",
+				"FLAGS_visulization"
+			],
+			[
+				"DEF",
+				"DEFINE_bool"
+			],
+			[
+				"cro",
+				"cropped"
+			],
+			[
+				"Vec",
+				"Vector4i"
+			],
+			[
+				"sc",
+				"scores"
+			],
+			[
+				"of",
+				"ofstream"
+			],
+			[
+				"ou",
+				"outName"
+			],
+			[
+				"DE",
+				"DEFINE_bool"
+			],
+			[
+				"cur",
+				"currentFPNS"
+			],
+			[
+				"en",
+				"endl"
+			],
+			[
+				"end",
+				"endl"
+			],
+			[
+				"curF",
+				"currentFPNS"
+			],
+			[
+				"curS",
+				"currentScanNS"
+			],
+			[
+				"trim",
+				"trimScanPryamid"
+			],
+			[
+				"rss",
+				"rSSparsePyramid"
+			],
+			[
+				"tr",
+				"trimScanPryamid"
+			],
+			[
+				"FLAG",
+				"FLAGS_visulization"
+			],
+			[
+				"FLAGS_",
+				"FLAGS_startIndex"
+			],
+			[
+				"nu",
+				"numScansToProcess"
+			],
+			[
+				"fpS",
+				"fpSparse"
+			],
+			[
+				"disp",
+				"displayOutput"
+			],
+			[
+				"rSsp",
+				"rSSparseTrimmed"
+			],
+			[
+				"pr",
+				"privateScores"
+			],
+			[
+				"diF",
+				"diffEntropy"
+			],
+			[
+				"cont",
+				"const"
+			],
+			[
+				"fin",
+				"findPointsToAnalyzeV2"
+			],
+			[
+				"sca",
+				"scale"
+			],
+			[
+				"pos",
+				"posInfo"
+			],
+			[
+				"points",
+				"pointsToAnalyze"
+			],
+			[
+				"findP",
+				"findPointsToAnalyzeV2"
+			],
+			[
+				"sco",
+				"scores"
+			],
+			[
+				"out",
+				"output"
+			],
+			[
 				"po",
 				"points"
 			],
@@ -20,10 +184,6 @@
 				"rotation"
 			],
 			[
-				"sco",
-				"scores"
-			],
-			[
 				"glo",
 				"globalMins"
 			],
@@ -34,10 +194,6 @@
 			[
 				"curren",
 				"currentFP"
-			],
-			[
-				"rss",
-				"rSSparsePyramidTrimmed"
 			],
 			[
 				"poi",
@@ -80,10 +236,6 @@
 				"sigE"
 			],
 			[
-				"en",
-				"entropy"
-			],
-			[
 				"entro",
 				"entropyFileNames"
 			],
@@ -94,10 +246,6 @@
 			[
 				"xM",
 				"xMin"
-			],
-			[
-				"Vec",
-				"Vector2i"
 			],
 			[
 				"S",
@@ -112,16 +260,8 @@
 				"maxCol"
 			],
 			[
-				"out",
-				"outerSize"
-			],
-			[
 				"s",
 				"similarity"
-			],
-			[
-				"cur",
-				"currentFP"
 			],
 			[
 				"fp",
@@ -130,10 +270,6 @@
 			[
 				"cr",
 				"currentTag"
-			],
-			[
-				"nu",
-				"numOps"
 			],
 			[
 				"han",
@@ -172,10 +308,6 @@
 				"rSSparseTrimmed"
 			],
 			[
-				"rSS",
-				"rSSparse"
-			],
-			[
 				"glb",
 				"globalMins"
 			],
@@ -200,20 +332,8 @@
 				"points"
 			],
 			[
-				"sc",
-				"scores"
-			],
-			[
-				"sca",
-				"scanIndex"
-			],
-			[
 				"ve",
 				"Vector3i"
-			],
-			[
-				"fpS",
-				"fpScore"
 			],
 			[
 				"point",
@@ -232,10 +352,6 @@
 				"pointsToAnalyze"
 			],
 			[
-				"Ve",
-				"Vector2i"
-			],
-			[
 				"find",
 				"findPointsToAnalyze"
 			],
@@ -252,20 +368,12 @@
 				"diff"
 			],
 			[
-				"trim",
-				"trimmed"
-			],
-			[
 				"lev",
 				"level"
 			],
 			[
 				"Mat",
 				"MatrixXd"
-			],
-			[
-				"curF",
-				"currentFP"
 			],
 			[
 				"cuF",
@@ -284,16 +392,8 @@
 				"rSSparsePyramidTrimmed"
 			],
 			[
-				"tr",
-				"trimmed"
-			],
-			[
 				"tri",
 				"tripletList"
-			],
-			[
-				"findP",
-				"findPlacementPointBasedV2"
 			],
 			[
 				"num",
@@ -334,10 +434,6 @@
 			[
 				"arg",
 				"argv"
-			],
-			[
-				"cro",
-				"cropped"
 			],
 			[
 				"roF",
@@ -400,10 +496,6 @@
 				"scores"
 			],
 			[
-				"pr",
-				"pragma"
-			],
-			[
 				"maX",
 				"maxCount"
 			],
@@ -422,98 +514,6 @@
 			[
 				"fiF",
 				"fileFolderIn"
-			],
-			[
-				"roT",
-				"rotatedTrips"
-			],
-			[
-				"tir",
-				"tripletList"
-			],
-			[
-				"bi",
-				"binaryReader"
-			],
-			[
-				"In",
-				"InnerIterator"
-			],
-			[
-				"para",
-				"parallel"
-			],
-			[
-				"I",
-				"InnerIterator"
-			],
-			[
-				"fs",
-				"fpSparse"
-			],
-			[
-				"min",
-				"minScore"
-			],
-			[
-				"socre",
-				"scores"
-			],
-			[
-				"ros",
-				"rotatedScans"
-			],
-			[
-				"Spar",
-				"SparseMatrix"
-			],
-			[
-				"con",
-				"continue"
-			],
-			[
-				"be",
-				"bestRotated"
-			],
-			[
-				"_",
-				"_input"
-			],
-			[
-				"cv",
-				"cvNamedWindow"
-			],
-			[
-				"bes",
-				"bestScore"
-			],
-			[
-				"beS",
-				"bestScores"
-			],
-			[
-				"flo",
-				"floorPlan"
-			],
-			[
-				"end",
-				"endl"
-			],
-			[
-				"nor",
-				"normals"
-			],
-			[
-				"fl",
-				"floorPlan"
-			],
-			[
-				"V3",
-				"Vector3d"
-			],
-			[
-				"get",
-				"getRotationMatrix"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "placeScan.cpp",
 			"settings":
 			{
-				"buffer_size": 27263,
+				"buffer_size": 24932,
 				"line_ending": "Unix"
 			}
 		},
@@ -531,7 +531,7 @@
 			"file": "CMakeLists.txt",
 			"settings":
 			{
-				"buffer_size": 311,
+				"buffer_size": 313,
 				"line_ending": "Unix"
 			}
 		},
@@ -567,8 +567,8 @@
 	"build_varint": "",
 	"command_palette":
 	{
-		"height": 96.0,
-		"last_filter": "sie bar",
+		"height": 33.0,
+		"last_filter": "",
 		"selected_items":
 		[
 			[
@@ -762,6 +762,31 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"4",
+			"scan",
+			"Scan",
+			"scan",
+			"i",
+			"scan",
+			"exit(1)",
+			"scaneName",
+			"cout",
+			"FLAGS_preview",
+			"croppedInfo",
+			"scans[scanIndex]",
+			"currentFP",
+			"FLAGS_numsLevels",
+			"numLevels",
+			"rotationsFolder",
+			"scanFolder",
+			"startIndex",
+			"output",
+			"score",
+			"k",
+			"i",
+			"2*(k+1)",
+			"currentFPNS",
+			"createPyra",
 			"k+1",
 			"k",
 			"floorPlan",
@@ -864,32 +889,7 @@
 			"[1]",
 			"[0]",
 			"xProdcut",
-			"[3]",
-			"[2]",
-			"[1]",
-			"[0]",
-			"xProdcut.dot(xProdcut)",
-			"[1]",
-			"1",
-			"static_cast<int>(",
-			"static_cast<double>(",
-			"i",
-			"(",
-			",",
-			")",
-			"(",
-			"i",
-			"dst",
-			"d3",
-			"param",
-			"0",
-			"ave",
-			"sign",
-			"n1",
-			"nlhs",
-			"1",
-			"3",
-			"i"
+			"[3]"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -908,7 +908,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -917,15 +917,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 27263,
+						"buffer_size": 24932,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								16067,
-								16067
+								7090,
+								7090
 							]
 						],
 						"settings":
@@ -934,10 +934,10 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 9340.0,
+						"translation.y": 3186.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
@@ -946,15 +946,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 311,
+						"buffer_size": 313,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								262,
-								262
+								306,
+								306
 							]
 						],
 						"settings":
@@ -965,7 +965,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -991,7 +991,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2719.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 1,
@@ -1078,6 +1078,14 @@
 				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
 			],
 			[
+				"pal",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
+			[
+				"s",
+				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
+			],
+			[
 				"clou",
 				"~/Projects/c++/cloudNormalVisualization/cloudNormalVisualization.sublime-project"
 			],
@@ -1136,10 +1144,6 @@
 			[
 				"cl",
 				"~/Projects/c++/cloudNormals/cloudNormals.sublime-project"
-			],
-			[
-				"s",
-				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
 			],
 			[
 				"",

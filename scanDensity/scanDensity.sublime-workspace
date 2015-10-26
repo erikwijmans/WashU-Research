@@ -4,6 +4,22 @@
 		"selected_items":
 		[
 			[
+				"FLAG",
+				"FLAGS_preview"
+			],
+			[
+				"fla",
+				"FLAGS_pe"
+			],
+			[
+				"FL",
+				"FLAGS_numScans"
+			],
+			[
+				"bir",
+				"binaryNames"
+			],
+			[
 				"end",
 				"endTime"
 			],
@@ -498,22 +514,6 @@
 			[
 				"scr",
 				"srcRow"
-			],
-			[
-				"c",
-				"call〔function〕"
-			],
-			[
-				"fib",
-				"fib_sum"
-			],
-			[
-				"im",
-				"imageFolderPath"
-			],
-			[
-				"clock",
-				"clock_t"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "scanDensity.cpp",
 			"settings":
 			{
-				"buffer_size": 17145,
+				"buffer_size": 17061,
 				"line_ending": "Unix"
 			}
 		},
@@ -539,7 +539,7 @@
 			"file": "CMakeLists.txt",
 			"settings":
 			{
-				"buffer_size": 498,
+				"buffer_size": 535,
 				"line_ending": "Unix"
 			}
 		}
@@ -742,6 +742,22 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"cout",
+			"scale",
+			"#DEFINE",
+			"scale",
+			"Scale",
+			"scale",
+			"Scale",
+			"scale",
+			"Scale",
+			"scale",
+			"Scale",
+			"scale",
+			"Scale",
+			"scale",
+			"Scale",
+			"scale",
 			"i",
 			"cout",
 			"numZ",
@@ -853,23 +869,7 @@
 			"weight",
 			"b",
 			"xyVarList",
-			"c",
-			"Test",
-			"GurobiTest",
-			",",
-			"export",
-			"project",
-			"min",
-			"max",
-			"readInPath",
-			"csvToBinary",
-			"csvToBinary ",
-			"// number = fabs(number);",
-			"number = fabs(number);",
-			"tranpose",
-			"10",
-			"number = fabs(number);",
-			"f"
+			"c"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -897,15 +897,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 17145,
+						"buffer_size": 17061,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4131,
-								4131
+								2946,
+								2946
 							]
 						],
 						"settings":
@@ -914,7 +914,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2268.0,
+						"translation.y": 1384.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -942,8 +942,8 @@
 							"syntax": "Packages/C++/C++.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.x": -0.0,
+						"translation.y": 459.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 1,
@@ -955,15 +955,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 498,
+						"buffer_size": 535,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								498,
-								498
+								534,
+								534
 							]
 						],
 						"settings":
@@ -1042,12 +1042,20 @@
 	"select_project":
 	{
 		"height": 500.0,
-		"last_filter": "pla",
+		"last_filter": "plac",
 		"selected_items":
 		[
 			[
+				"plac",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
+			[
 				"pla",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
+			[
+				"pa",
+				"~/Projects/c++/VideoToPanorama/videoToPanorama.sublime-project"
 			],
 			[
 				"vido",
@@ -1063,10 +1071,6 @@
 			],
 			[
 				"pl",
-				"~/Projects/c++/placeScan/placeScan.sublime-project"
-			],
-			[
-				"plac",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[

@@ -110,6 +110,7 @@ scanDensity: /usr/local/lib/libopencv_cudabgsegm.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_cudaarithm.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_core.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_calib3d.so.3.0.0
+scanDensity: /usr/local/lib/libgflags.a
 scanDensity: /usr/local/lib/libopencv_cudawarping.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_objdetect.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_cudafilters.so.3.0.0
