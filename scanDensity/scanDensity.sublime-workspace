@@ -904,8 +904,8 @@
 						"selection":
 						[
 							[
-								2946,
-								2946
+								10306,
+								10306
 							]
 						],
 						"settings":
@@ -914,7 +914,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1384.0,
+						"translation.y": 6229.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -1042,9 +1042,13 @@
 	"select_project":
 	{
 		"height": 500.0,
-		"last_filter": "plac",
+		"last_filter": "place",
 		"selected_items":
 		[
+			[
+				"place",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
 			[
 				"plac",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
@@ -1076,10 +1080,6 @@
 			[
 				"cloud",
 				"~/Projects/c++/cloudNormalVisualization/cloudNormalVisualization.sublime-project"
-			],
-			[
-				"place",
-				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[
 				"vis",

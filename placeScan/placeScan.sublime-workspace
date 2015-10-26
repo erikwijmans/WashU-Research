@@ -4,6 +4,94 @@
 		"selected_items":
 		[
 			[
+				"blurS",
+				"blurScore"
+			],
+			[
+				"ptr",
+				"blurredScorePtr"
+			],
+			[
+				"blur",
+				"blurredScore"
+			],
+			[
+				"ro",
+				"rotationFile"
+			],
+			[
+				"bin",
+				"binaryName"
+			],
+			[
+				"sig",
+				"sigma"
+			],
+			[
+				"sco",
+				"scoreMatrix"
+			],
+			[
+				"score",
+				"scoreMatrix"
+			],
+			[
+				"rSS",
+				"rSSparsePyramidTrimmed"
+			],
+			[
+				"soc",
+				"scoreMatrix"
+			],
+			[
+				"min",
+				"minScore"
+			],
+			[
+				"size",
+				"sizeof"
+			],
+			[
+				"rotat",
+				"rotation"
+			],
+			[
+				"poInf",
+				"posInfo"
+			],
+			[
+				"FLApre",
+				"FLAGS_previewOut"
+			],
+			[
+				"rota",
+				"rotationFile"
+			],
+			[
+				"scans",
+				"scansToSparse"
+			],
+			[
+				"cro",
+				"croppedInfo"
+			],
+			[
+				"Vec",
+				"Vector4i"
+			],
+			[
+				"croppe",
+				"croppedInfo"
+			],
+			[
+				"nCC",
+				"nccScore"
+			],
+			[
+				"max",
+				"maxDimension"
+			],
+			[
 				"FLAGS_N",
 				"FLAGS_numScans"
 			],
@@ -21,10 +109,6 @@
 			],
 			[
 				"rSs",
-				"rSSparse"
-			],
-			[
-				"rSS",
 				"rSSparse"
 			],
 			[
@@ -46,14 +130,6 @@
 			[
 				"DEF",
 				"DEFINE_bool"
-			],
-			[
-				"cro",
-				"cropped"
-			],
-			[
-				"Vec",
-				"Vector4i"
 			],
 			[
 				"sc",
@@ -160,10 +236,6 @@
 				"findPointsToAnalyzeV2"
 			],
 			[
-				"sco",
-				"scores"
-			],
-			[
 				"out",
 				"output"
 			],
@@ -177,10 +249,6 @@
 			],
 			[
 				"rot",
-				"rotation"
-			],
-			[
-				"rota",
 				"rotation"
 			],
 			[
@@ -224,10 +292,6 @@
 				"scores"
 			],
 			[
-				"soc",
-				"score"
-			],
-			[
 				"sS",
 				"sigS"
 			],
@@ -254,10 +318,6 @@
 			[
 				"per",
 				"perimeter"
-			],
-			[
-				"max",
-				"maxCol"
 			],
 			[
 				"s",
@@ -360,10 +420,6 @@
 				"pointsToanalyze"
 			],
 			[
-				"score",
-				"scores"
-			],
-			[
 				"diff",
 				"diff"
 			],
@@ -444,10 +500,6 @@
 				"rotationFileNames"
 			],
 			[
-				"ro",
-				"rotationFileNames"
-			],
-			[
 				"scN",
 				"scanName"
 			],
@@ -462,58 +514,6 @@
 			[
 				"st",
 				"string"
-			],
-			[
-				"crF",
-				"currentFP"
-			],
-			[
-				"bei",
-				"begin"
-			],
-			[
-				"com",
-				"combinedScan"
-			],
-			[
-				"coM",
-				"colMax"
-			],
-			[
-				"row",
-				"rowMax"
-			],
-			[
-				"rR",
-				"rSSparse"
-			],
-			[
-				"do",
-				"double"
-			],
-			[
-				"scr",
-				"scores"
-			],
-			[
-				"maX",
-				"maxCount"
-			],
-			[
-				"lo",
-				"localMinima"
-			],
-			[
-				"so",
-				"scores"
-			],
-			[
-				"cloud",
-				"cloudNomral"
-			],
-			[
-				"fiF",
-				"fileFolderIn"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "placeScan.cpp",
 			"settings":
 			{
-				"buffer_size": 24932,
+				"buffer_size": 27800,
 				"line_ending": "Unix"
 			}
 		},
@@ -649,6 +649,7 @@
 	],
 	"file_history":
 	[
+		"/home/erik/tmp/tmp.c",
 		"/home/erik/Desktop/csim.c",
 		"/home/erik/.bashrc",
 		"/home/erik/.profile",
@@ -762,6 +763,9 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"i",
+			"Vector4i cropped = croppedInfo[minScore.rotation];",
+			"FLAGS_fp",
 			"4",
 			"scan",
 			"Scan",
@@ -886,10 +890,7 @@
 			"[4]",
 			"[3]",
 			"[2]",
-			"[1]",
-			"[0]",
-			"xProdcut",
-			"[3]"
+			"[1]"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -917,15 +918,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 24932,
+						"buffer_size": 27800,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								7090,
-								7090
+								27789,
+								27779
 							]
 						],
 						"settings":
@@ -934,7 +935,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 3186.0,
+						"translation.y": 15341.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,

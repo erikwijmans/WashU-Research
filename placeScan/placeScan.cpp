@@ -55,10 +55,11 @@ void findPointsToAnalyzeV2(const vector<posInfo> &, vector<Vector3i> &);
 void displayOutput(const vector<SparseMatrix<double> > &, const vector<int> & ,
 	const vector<posInfo> &);
 void savePlacement(const vector<posInfo> &, const vector<int> &, const string & outName);
-bool reshowPlacement(const string &);
+bool reshowPlacement(const string &, const string &);
 void loadInScans(const string &, const string &, vector<Mat> &);
 bool notInLocalMin(const int, const vector<int> &);
 void scansToSparse(const vector<Mat> &, vector<SparseMatrix<double> > &);
+void blurMinima(MatrixXd &, const vector<posInfo> &, int, int, int);
 
 static Mat floorPlan, fpColor;
 
@@ -112,23 +113,6 @@ int main(int argc, char *argv[])
 	}
 
 
-	/*Mat croppedFloorPlan (floorPlan.rows-500, floorPlan.cols-3000, CV_8UC1);
-	for (int i = 0; i < floorPlan.rows-500; ++i)
-	{
-		uchar * src = floorPlan.ptr<uchar>(i);
-		uchar * dst = croppedFloorPlan.ptr<uchar>(i);
-		for (int j = 1500; j < floorPlan.cols-1500; ++j)
-		{
-			dst[j-1500] = src[j];
-		}
-	}
-
-	cvNamedWindow("Preview", WINDOW_NORMAL);
-	imshow("Preview", croppedFloorPlan);
-	waitKey(0);
-	imwrite("DUC-floor-1_cropped.png", croppedFloorPlan);
-	exit(0);*/
-
 	SparseMatrix<double> fpSparse (floorPlan.rows, floorPlan.cols);
 	vector<Triplet<double> > tripletList;
 	for (int i = 0; i < floorPlan.rows; ++i)
@@ -143,22 +127,6 @@ int main(int argc, char *argv[])
 	}
 	fpSparse.setFromTriplets(tripletList.begin(), tripletList.end());
 	tripletList.clear();
-
-	/*Mat test (fpSparse.rows(), fpSparse.cols(), CV_8UC1, Scalar::all(255));
-	for (int i = 0; i < fpSparse.outerSize(); ++i)
-	{
-		for(SparseMatrix<double>::InnerIterator it (fpSparse, i); it; ++it)
-		{
-			test.at<uchar>(it.row(), it.col()) = 255 - it.value()*255;
-		}
-
-	}
-	cvNamedWindow("Preview", WINDOW_NORMAL);
-	imshow("Preview", test);
-	waitKey(0);*/
-
-	
-	
 	
 	vector<string> pointFileNames;
 	vector<string> entropyFileNames;
@@ -219,7 +187,7 @@ int main(int argc, char *argv[])
 		const string rotationFile = FLAGS_rotFolder + rotationFileNames[i];
 		if(FLAGS_replace)
 			analyzePlacement(fpSparse, scanName, rotationFile);
-		else if(!reshowPlacement(scanName))
+		else if(!reshowPlacement(scanName, rotationFile))
 			analyzePlacement(fpSparse, scanName, rotationFile);
 	}
 	
@@ -236,12 +204,13 @@ void analyzePlacement(const SparseMatrix<double> & fpSparse,
 	loadInScans(scanName, rotationFile, rotatedScans);
 	scansToSparse(rotatedScans, rSSparse);
 
-	vector<posInfo> scores;
+	
 	vector<int> localMinima;
 	vector<SparseMatrix<double> > fpPyramid;
 	vector<vector<SparseMatrix<double> > > rSSparsePyramid;
 	fpPyramid.push_back(fpSparse);
 	rSSparsePyramid.push_back(rSSparse);
+
 	createPyramid(fpPyramid, rSSparsePyramid);
 
 	vector<vector<SparseMatrix<double> > > rSSparsePyramidTrimmed;
@@ -264,11 +233,19 @@ void analyzePlacement(const SparseMatrix<double> & fpSparse,
 		}
 	}
 	
-	
+	vector<posInfo> scores;
+	MatrixXd scoreMatrix;
 	for (int k = FLAGS_numLevels; k > 0; --k)
 	{
 		findPlacementPointBasedV2(fpPyramid[k], rSSparsePyramidTrimmed[k], 
 			scores, pointsToAnalyze);
+		for (int i = 0; i < 4; ++i)
+		{
+			blurMinima(scoreMatrix, scores, 
+			fpPyramid[k].rows() - rSSparsePyramidTrimmed[k][i].rows(), 
+			fpPyramid[k].cols() - rSSparsePyramidTrimmed[k][i].cols(), i);
+		}
+		
 		findLocalMinima(scores, localMinima, 1);
 		findGlobalMinima(scores, localMinima);
 		findPointsToAnalyze(scores, localMinima, pointsToAnalyze);
@@ -276,6 +253,12 @@ void analyzePlacement(const SparseMatrix<double> & fpSparse,
 
 	findPlacementPointBasedV2(fpPyramid[0], rSSparsePyramidTrimmed[0], 
 			scores, pointsToAnalyze);
+	for (int i = 0; i < 4; ++i)
+		{
+			blurMinima(scoreMatrix, scores, 
+			fpPyramid[0].rows() - rSSparsePyramidTrimmed[0][i].rows(), 
+			fpPyramid[0].cols() - rSSparsePyramidTrimmed[0][i].cols(), i);
+		}
 	findLocalMinima(scores, localMinima, 3);
 	findGlobalMinima(scores, localMinima);
 
@@ -414,7 +397,7 @@ void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed,
 		imshow("Preview", output);
 		if(!FLAGS_quiteMode)
 			cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << endl;
-		waitKey(100);
+		waitKey(0);
 		
 		
 		~output;
@@ -464,12 +447,9 @@ void findLocalMinima(const vector<posInfo> & scores, vector<int> & localMinima,
 	const int bias){
 	localMinima.clear();
 	double averageScore = 0;
-	ofstream csv ("output.txt", ios::out);
 	for(auto & info : scores){
 		averageScore += info.score;
-		csv << info.x << "," << info.y << "," << info.score << endl;
 	}
-	csv.close();
 	averageScore /= scores.size();
 	double sigScores = 0;
 	for(auto & info : scores){
@@ -550,22 +530,6 @@ void createPyramid(vector<SparseMatrix<double> > & fpPyramid,
 
 	if(FLAGS_visulization)
 	{
-		for(auto & level: rSSparsePyramid){
-			for(auto & scan : level){
-				Mat test (scan.rows(), scan.cols(), CV_8UC1, Scalar::all(255));
-				for (int k = 0; k < scan.outerSize(); ++k)
-				{
-					for (SparseMatrix<double>::InnerIterator it (scan, k); it; ++it)
-					{
-						test.at<uchar>(it.row(), it.col()) = 255 - it.value()*255;
-					}
-				}
-				cvNamedWindow("Preview", WINDOW_NORMAL);
-				imshow("Preview", test);
-				waitKey(0);
-			}
-		}
-
 		for(auto & level: fpPyramid){
 			Mat test (level.rows(), level.cols(), CV_8UC1, Scalar::all(255));
 			for (int k = 0; k < level.outerSize(); ++k)
@@ -738,7 +702,7 @@ void findPlacementPointBasedV2(const SparseMatrix<double> & fp,
 			const double nccScore = pq/sqrt(pp*qq);	
 
 			const double placement = (diffScore - fpScore);
-			const double score = (placement > 0) ? placement*diffEntropy 
+			const double score = (placement > 0) ? placement*diffEntropy
 				: placement/diffEntropy;
 
 			posInfo tmp;
@@ -844,11 +808,14 @@ void findPointsToAnalyzeV2(const vector<posInfo> & scores, vector<Vector3i> & po
 
 void savePlacement(const vector<posInfo> & scores, const vector<int> & localMinima, 
 	const string & outName){
-	ofstream out (outName, ios::out | ios::binary);
-	ofstream outB (outName.substr(0, outName.find(".") + ".dat", ios::out | ios::binary);
+	ofstream out (outName, ios::out);
+	ofstream outB (outName.substr(0, outName.find(".")) + ".dat", ios::out | ios::binary);
 	out << "Score x y rotation NCC" << endl;
-	const int numMin = localMinima.size() + globalMins.size();
-	outB.write(reinterpret_cast<const char *>(&numMin), sizeof(int));
+	const int numLoc = localMinima.size();
+	const int numGlob = globalMins.size();
+	outB.write(reinterpret_cast<const char *>(&numLoc), sizeof(int));
+	outB.write(reinterpret_cast<const char *>(&numGlob), sizeof(int));
+
 
 	for(auto index : localMinima){
 		posInfo minScore = scores[index];
@@ -883,9 +850,13 @@ bool reshowPlacement(const string & scanName, const string & rotationFile){
 	int numScans;
 	in.read(reinterpret_cast<char *>(&numScans), sizeof(int));
 
-	for (int i = 0; i < count; ++i)
+	cout << "showing localMinima" << endl;
+	for (int i = 0; i < numScans; ++i)
 	{
-		/* code */
+		posInfo minScore;
+		in.read(reinterpret_cast<char *>(&minScore), sizeof(posInfo));
+		Mat bestScan = rotatedScans[minScore.rotation];
+
 	}
 
 	return true;
@@ -903,8 +874,7 @@ bool notInLocalMin(const int i, const vector<int> & localMinima){
 	}
 	return true;
 
-	/*if(i == localMinima[localMinima.size()/2])
-	{
+	/*if(i == localMinima[localMinima.size()/2]){
 		return false;
 	}else if( i < localMinima[localMinima.size()/2]){
 		return notInLocalMin(i, 
@@ -913,4 +883,92 @@ bool notInLocalMin(const int i, const vector<int> & localMinima){
 		return notInLocalMin(i, 
 			vector<int>(localMinima.begin() + localMinima.size()/2, localMinima.end()));
 	}*/
+}
+
+void blurMinima(MatrixXd & scoreMatrix, const vector<posInfo> & scores, 
+	int rows, int cols, int rotNumber){
+	
+	scoreMatrix = MatrixXd::Zero(rows, cols);
+	MatrixXd kernel (5,5);
+	const double sigma = 1.25;
+	for (int i = -2; i < kernel.rows()-2; ++i)
+	{
+		for (int j = -2; j < kernel.cols()-2; ++j)
+		{
+			kernel(i+2,j+2) = 1.0/(2*PI*sigma*sigma)*exp(-1.0*static_cast<double>(i*i + j*j)/(2*sigma*sigma));
+		}
+	}
+
+	const double * kernlPtr = kernel.data();
+
+	for(auto minScore : scores){
+		if(minScore.rotation == rotNumber)
+			scoreMatrix(minScore.y, minScore.x) = minScore.score;
+	}
+
+	MatrixXd blurredScore (scoreMatrix);
+	for (int i = 2; i < scoreMatrix.rows() - 2; ++i)
+	{
+		for (int j = 2; j < scoreMatrix.cols() - 2; ++j)
+		{
+			const MatrixXd toBlur = scoreMatrix.block(i-2, j-2, 5, 5);
+			const double * blurPtr = toBlur.data();
+			double value = 0;
+			for (int i = 0; i < kernel.size(); ++i)
+			{
+				value += (*(kernlPtr + i))*(*(blurPtr + i));
+			}
+			blurredScore(i,j) = value;
+		}
+	}
+	scoreMatrix = blurredScore;
+
+	double aveScore = 0;
+	int count = 0;
+	const double * scoreMatrixPtr =scoreMatrix.data();
+	for (int i = 0; i < scoreMatrix.size(); ++i)
+	{
+		if(*(scoreMatrixPtr + i) != 0)
+		{
+			aveScore += *(scoreMatrixPtr + i);
+			count ++;
+		}
+	}
+	aveScore /= count;
+	double sigScores = 0;
+	
+	for (int i = 0; i <scoreMatrix.size(); ++i)
+	{
+		if(*(scoreMatrixPtr + i) != 0)
+		{
+			const double tmp = *(scoreMatrixPtr + i) - aveScore;
+			sigScores += tmp*tmp;
+		}
+		
+	}
+	sigScores /= count;
+	sigScores = sqrt(sigScores);
+
+
+	if(FLAGS_visulization)
+	{
+		Mat blurScore (scoreMatrix.rows(), scoreMatrix.cols(), CV_8UC1, Scalar::all(255));
+		for (int i = 0; i < blurScore.rows; ++i)
+		{
+			uchar * dst = blurScore.ptr<uchar>(i);
+			for (int j = 0; j < blurScore.cols; ++j)
+			{
+				if(scoreMatrix(i,j) != 0)
+				{
+					const int gray = max(0, min(255,
+						 static_cast<int>(255.0 * (
+						 	((scoreMatrix(i,j) - aveScore)/(2.0*sigScores) + 1.0)/2.0))));
+					dst[j] = 255 - gray;
+				}
+			}
+		}
+		cvNamedWindow("Preview", WINDOW_NORMAL);
+		imshow("Preview", blurScore);
+		waitKey(0);
+	}	
 }
