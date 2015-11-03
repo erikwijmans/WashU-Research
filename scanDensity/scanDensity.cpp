@@ -47,21 +47,25 @@ static Mat heatMap;
 
 DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
 DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
-DEFINE_bool(quiteMode, false, "Turns of all print statements");
+DEFINE_bool(quiteMode, false, "Turns of all extrenous statements");
 DEFINE_bool(preview, true, "Turns on previews of the output");
 DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/binaryFiles/",
 	"Path to binary files");
 DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/",
 	"Path to output folder");
+DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/zeros/",
+	"Path to folder where the pixel cordinates of (0,0) will be written to");
 DEFINE_double(scale, 73.5, "scale used to size the density maps");
 DEFINE_int32(startIndex, 0, "Number to start with");
-DEFINE_int32(numScans, -1, "Number to process, ");
+DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
 
 
 
 int main(int argc, char *argv[])
 {
-
+	string usage = "This program takes a folder"; 
+	usage+=" of binary point clouds and turns them into their floorplans.";
+	// gflags::SetUsageMessage(usage);
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 	
 	size_t startTime, endTime;
@@ -106,8 +110,7 @@ int main(int argc, char *argv[])
 
 void analyzeScan(const string & fileName, const string & outputFolder){
 	const string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
-	if(!FLAGS_quiteMode)
-		cout << scanNumber << endl;
+	cout << scanNumber << endl;
     ifstream scanFile (fileName, ios::in | ios::binary);
 
     int columns, rows;
@@ -127,9 +130,9 @@ void analyzeScan(const string & fileName, const string & outputFolder){
 		
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
 			continue;
-		if(point[0]*point[0] + point[1]*point[1] < 1){
+		if(point[0]*point[0] + point[1]*point[1] < 1)
 			continue;
-		}
+		
 	  	
 	    points.push_back(point);
 	}
@@ -175,9 +178,19 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 	sigmaY = sqrt(sigmaY);
 	sigmaZ = sqrt(sigmaZ);
 
-	double dX = 1.1*7*sigmaX;
-	double dY = 1.1*7*sigmaX;
-	double dZ = 1.1*7*sigmaZ;
+	if(!FLAGS_quiteMode)
+	{
+		cout << "averageX: " << averageX << endl;
+		cout << "averageY: " << averageY << endl;
+		cout << "averageZ: " << averageZ << endl;
+		cout << "sigmaX: " << sigmaX << endl;
+		cout << "sigmaY: " << sigmaY << endl;
+		cout << "sigmaZ: " << sigmaZ << endl;
+	}
+
+	double dX = 1.1*9*sigmaX;
+	double dY = 1.1*9*sigmaX;
+	double dZ = 1.1*6*sigmaZ;
 
     pointMin[0] = averageX - dX/2;
   	pointMin[1] = averageY - dY/2;
@@ -194,7 +207,7 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 void examinePointEvidence(const vector<Vector3f > & points,
 	const float* pointMin, const float * pointMax, 
 	const string & outputFolder, const string & scanNumber){
-	const int numZ = 100;
+	const int numZ = 120;
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	const int numCols = FLAGS_scale * (pointMax[0] - pointMin[0]);
@@ -204,6 +217,17 @@ void examinePointEvidence(const vector<Vector3f > & points,
 
 	vector<VectorXf> numTimesSeen (heatMap.rows, VectorXf::Zero(heatMap.cols));
 	vector<MatrixXi> numTimesSeen3D (heatMap.rows, MatrixXi::Zero(heatMap.cols, numZ));
+
+	Vector2d zeroZero (0,0);
+	zeroZero[0] -= pointMin[0];
+	zeroZero[1] -= pointMin[1];
+	zeroZero *= FLAGS_scale;
+	zeroZero[0] = static_cast<int>(zeroZero[0]);
+	zeroZero[1] = static_cast<int>(zeroZero[1]);
+	const string zeroName = FLAGS_zerosFolder + "DUC_point_" + scanNumber + ".dat";
+	ofstream out (zeroName, ios::out | ios::binary);
+	out.write(reinterpret_cast<const char *> (&zeroZero), sizeof(Vector2d));
+	out.close();
 
 
 	// PointCloud<PointXYZ> cloud;
@@ -228,7 +252,7 @@ void examinePointEvidence(const vector<Vector3f > & points,
 	}
 	// io::savePLYFileBinary("output.ply",cloud);
 
-	MatrixXf entropy = MatrixXf::Zero (heatMap.rows, heatMap.cols);
+	// MatrixXf entropy = MatrixXf::Zero (heatMap.rows, heatMap.cols);
 	MatrixXf total = MatrixXf::Zero (heatMap.rows, heatMap.cols);
 	for(int i = 0; i < heatMap.rows; ++i)
 	{
@@ -318,14 +342,14 @@ void examinePointEvidence(const vector<Vector3f > & points,
 		}
 	}
 	string imageName = outputFolder + "DUC_entropy_" + scanNumber + ".png";
-	displayPointEvenidence(numTimesSeen, imageName, 2);*/
+	displayPointEvenidence(numTimesSeen, imageName, 2);
 
 	for(auto & v : numTimesSeen){
 		for (int i = 0; i < v.size(); ++i)
 		{
 			*(v.data() + i) = 0;
 		}
-	}
+	}*/
 
 
 	for (int y = 0; y < total.rows(); ++y)
@@ -335,23 +359,9 @@ void examinePointEvidence(const vector<Vector3f > & points,
 			numTimesSeen[y][x] = total(y,x);
 		}
 	}
-	/*for(auto & point : points){
-	 	const int x = scale*(point[0] - pointMin[0]);
-		const int y = scale*(point[1] - pointMin[1]);
-		const int z = zScale*(point[2] - pointMin[2]);
-		   
-		if(x <0 || x >= heatMap.cols)
-			continue;
-		if(y < 0 || y >= heatMap.rows)
-			continue; 
-		if( z < 0 || z >= numZ)
-			continue;
-		
-	    numTimesSeen[x][y] +=1; 
-	}*/
 
 	const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
-	displayPointEvenidence(numTimesSeen, imageName, 2);
+	displayPointEvenidence(numTimesSeen, imageName, 3);
 }
 
 void displayPointEvenidence(const vector<VectorXf> & numTimesSeen, 
@@ -360,12 +370,16 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 	double average, sigma;
 	average = sigma = 0;
 	int count = 0;
+	float minV = 1e10;
+	float maxV = 0;
 	for(auto & v: numTimesSeen){
+		const float * dataPtr = v.data();
 		for(int i = 0; i < v.size(); ++i){
-			if(*(v.data() + i) != 0){
+			if(*(dataPtr+ i) != 0){
 				count++;
-				average+= *(v.data() + i);
-				
+				average+= *(dataPtr + i);
+				minV = min(minV, *(dataPtr+i));
+				maxV = max(maxV, *(dataPtr + i));
 			}
 		}
 	}
@@ -374,15 +388,24 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 	average = average/count;
 
 	for(auto & v: numTimesSeen){
+		const float * dataPtr = v.data();
 		for(int i = 0; i < v.size(); ++i){
-			if(*(v.data() + i) !=0)
-				sigma += (*(v.data() + i) - average)*(*(v.data() + i)- average);
+			if(*(dataPtr + i) !=0)
+				sigma += (*(dataPtr + i) - average)*(*(dataPtr + i)- average);
 		}
 	}
 
 	sigma = sigma/(count-1);
 	sigma = sqrt(sigma);
 
+
+	if(!FLAGS_quiteMode)
+	{
+		cout << "Average     Sigma" << endl << average << "     " << sigma << endl;
+		cout << "Max     Min" << endl << maxV << "      " << minV << endl;
+	}
+
+	
 	for (int i = 0; i < heatMap.rows; ++i)
 	{
 		uchar * dst = heatMap.ptr<uchar>(i);
@@ -391,7 +414,7 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 		{
 			if(numTimesSeen[i][j] != 0){
 				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (numTimesSeen[i][j] - average - 1.5*sigma) 
+					 static_cast<int>(255.0 * (numTimesSeen[i][j] -average - 1.5*sigma) 
 					 	/ (bias * sigma))));
 				dst[j] = 255 - gray;
 				/*int red, green, blue;
@@ -409,11 +432,13 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 				dst[j*3 + 2] = red;*/
 			}
 		} 
-	} 
+	}
 
-	/*for (int y = heatMap.rows/2; y <= heatMap.rows/2+20; ++y)
+
+
+	/*for (int y = heatMap.rows/2; y <= heatMap.rows/2+3; ++y)
 	{
-		for (int x = heatMap.cols/2+120; x <= heatMap.cols/2+140; ++x)
+		for (int x = heatMap.cols/2; x <= heatMap.cols/2+3; ++x)
 		{
 			heatMap.at<uchar>(y,x) = 0;
 		}

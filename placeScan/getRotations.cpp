@@ -140,9 +140,7 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M)
 	
 	int m = static_cast<int>(N.size()/3.0);
 	
-	int id;
-	double x,y,z;
-	double param[4];
+	
 	double maxInliers = 0;
 	double K = 1.0e5;
 	int k=0;
@@ -171,7 +169,7 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M)
 			ndata[1] = N[3*i+1];
 			ndata[2] = N[3*i+2];
 
-			if(acos(abs(nest.dot(ndata))) < 0.03)
+			if(acos(abs(nest.dot(ndata))) < 0.02)
 				numInliers++;
 		}
 
@@ -199,9 +197,7 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 	int m = static_cast<int>(N.size()/3);
     
 	
-	int id;
-	double x,y,z;
-	double param[4];
+	
 	double maxInliers = 0;
 	double K = 1.0e5;
 	int k=0;
@@ -232,7 +228,7 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 			ndata[1] = N[3*i+1];
 			ndata[2] = N[3*i+2];
 
-			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.03)
+			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02)
 				numInliers++;
 		}
 

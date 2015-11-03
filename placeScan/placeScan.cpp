@@ -1,77 +1,41 @@
-#include <Eigen/Eigen>
-#include <Eigen/StdVector>
-#include <Eigen/Sparse>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-#include <gflags/gflags.h>
-#include <stdio.h>
+#include "placeScan.h"
+
+
 #include <iostream>
-#include <string>
 #include <dirent.h>
-#include <vector>
 #include <fstream>
 #include <math.h>
 #include <time.h>
-#include <omp.h>
+
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 
 using namespace cv;
 using namespace std;
 using namespace Eigen;
 
-const float fpScale = 86.0*3.28084;  /*pixels per meter */
+constexpr float fpScale = 86.0*3.28084;  /*pixels per meter */
 /*Something like 75 is looking more likely however...Maybe the scanner
 isn't in meters?*/
-const double PI = 3.14159265;
-
-
-typedef struct
-{
-	double score = 0;
-	double entropy = 0;
-	double NCC = 0;
-	int rotation = 0;
-	int x = 0;
-	int y = 0;
-	
-} posInfo;
-
-#pragma omp declare reduction (merge : std::vector<posInfo> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-#pragma omp declare reduction (merge : std::vector<int> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-
-
-
-void analyzePlacement(const SparseMatrix<double> &, const string &, const string &);
-void findLocalMinima(const vector<posInfo> &, vector<int> &, const int);
-void createPyramid(vector<SparseMatrix<double> > &, vector<vector<SparseMatrix<double> > > &);
-void trimScanPryamid(const vector<vector<SparseMatrix<double> > > &, 
-	vector<vector<SparseMatrix<double> > > &);
-void findPlacementPointBasedV2(const SparseMatrix<double> &, 
-	const vector<SparseMatrix<double> > &, vector<posInfo> &, const vector<Vector3i> &);
-void findPointsToAnalyze(const vector<posInfo> &, const vector<int> &, vector<Vector3i> &);
-void findGlobalMinima(const vector<posInfo> &, const vector<int> &);
-void findPointsToAnalyzeV2(const vector<posInfo> &, vector<Vector3i> &);
-void displayOutput(const vector<SparseMatrix<double> > &, const vector<int> & ,
-	const vector<posInfo> &);
-void savePlacement(const vector<posInfo> &, const vector<int> &, const string & outName);
-bool reshowPlacement(const string &, const string &);
-void loadInScans(const string &, const string &, vector<Mat> &);
-bool notInLocalMin(const int, const vector<int> &);
-void scansToSparse(const vector<Mat> &, vector<SparseMatrix<double> > &);
-void blurMinima(MatrixXd &, const vector<posInfo> &, int, int, int);
-
+constexpr double PI = 3.14159265;
 static Mat floorPlan, fpColor;
+static vector<Vector3i> truePlacement;
+static vector<int> globalMins;
+static int levelNum = 10;
+static vector<Vector2d> zeroZero;
 
-vector<Vector4i> croppedInfo;
-vector<int> globalMins;
 
 DEFINE_bool(visulization, false, 
-	"Turns on all visulization options that do not impact performance");
+	"Turns on all visualization options that do not impact performance");
 DEFINE_bool(previewIn, false, "Turns on a preview of the scan before it is placed");
 DEFINE_bool(previewOut, true, "Shows a preview of the scans placement before saving");
-DEFINE_bool(replace, false, "Forces the program to redo the placemet of all scans given");
-DEFINE_bool(quiteMode, false, "Turns of all status reports");
+DEFINE_bool(replace, false, "Forces the program to redo the placement of all scans given");
+DEFINE_bool(quiteMode, false, "Very minimal status reports");
+DEFINE_bool(tinyPreviewIn, false, "Shows the input scan before any processing");
+DEFINE_bool(save, true, "Saves the placements to file");
+DEFINE_bool(debugMode, false, 
+	"Turns save off, turns on replace, and forces the program to display the correct placement according to the placement files specified by the preDone flag");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
 	"Path to the floor plan that the scan should be placed on");
 DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/",
@@ -80,6 +44,8 @@ DEFINE_string(rotFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/rotatio
 	"Path to folder containing the dominate direction rotations");
 DEFINE_string(preDone, "/home/erik/Projects/3DscanData/DUC/placementOptions/",
 	"Path to folder containing previous placements of a scan");
+DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/zeros/",
+	"Path to folder where the pixel coordinates of (0,0) are");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");
@@ -89,6 +55,11 @@ int main(int argc, char *argv[])
 {
 
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
+	if(FLAGS_debugMode)
+	{
+		FLAGS_save = false;
+		FLAGS_replace = true;
+	}
 
 	floorPlan = imread(FLAGS_floorPlan, 0);
 	if(!floorPlan.data){
@@ -100,37 +71,20 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < fpColor.rows; ++i)
 	{
 		uchar * dst = fpColor.ptr<uchar>(i);
-		uchar * src = floorPlan.ptr<uchar>(i);
+		const uchar * src = floorPlan.ptr<uchar>(i);
 		for (int j = 0; j < fpColor.cols; ++j)
 		{
 			if(src[j]!=255)
 			{
-				dst[j*3] = 0;
-				dst[j*3+1] = 0;
-				dst[j*3+2] = 0;
+				dst[j*3] = 128;
+				dst[j*3+1] = 128;
+				dst[j*3+2] = 128;
 			}
 		}
 	}
 
-
-	SparseMatrix<double> fpSparse (floorPlan.rows, floorPlan.cols);
-	vector<Triplet<double> > tripletList;
-	for (int i = 0; i < floorPlan.rows; ++i)
-	{
-		const uchar * src = floorPlan.ptr<uchar>(i);
-		for (int j = 0; j < floorPlan.cols; ++j)
-		{
-			if(src[j] == 255)
-				continue;
-			tripletList.push_back(Triplet<double> (i,j, 1.0-(double)src[j]/255.0));
-		}
-	}
-	fpSparse.setFromTriplets(tripletList.begin(), tripletList.end());
-	tripletList.clear();
-	
 	vector<string> pointFileNames;
-	vector<string> entropyFileNames;
-
+	
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (FLAGS_dmFolder.data())) != NULL) {
@@ -140,10 +94,6 @@ int main(int argc, char *argv[])
 	  	if(fileName != ".." && fileName != "." 
 	  		&& fileName.find("point") != string::npos){
 	  		pointFileNames.push_back(fileName);
-	  	} else if(fileName != ".." && fileName != "." 
-	  		&& fileName.find("entropy") != string::npos)
-	  	{
-	  		entropyFileNames.push_back(fileName);
 	  	}
 	  }
 	  closedir (dir);
@@ -169,15 +119,31 @@ int main(int argc, char *argv[])
 	  return EXIT_FAILURE;
 	}
 
-	if(entropyFileNames.size() != rotationFileNames.size() || 
-		entropyFileNames.size() != pointFileNames.size()){
+	vector<string> zerosFileNames;
+	if ((dir = opendir (FLAGS_zerosFolder.data())) != NULL) {
+	  /* Add all the files and directories to a vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	string fileName = ent->d_name;
+	  	if(fileName != ".." && fileName != "." ){
+	  		zerosFileNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  return EXIT_FAILURE;
+	}
+
+	if(pointFileNames.size() != rotationFileNames.size()){
 		cout << "Not the same number of scans as rotations!" << endl;
 		exit(-1);
 	}
 
-	sort(entropyFileNames.begin(), entropyFileNames.end());
+
 	sort(rotationFileNames.begin(), rotationFileNames.end());
 	sort(pointFileNames.begin(), pointFileNames.end());
+	sort(zerosFileNames.begin(), zerosFileNames.end());
 	
 	if(FLAGS_numScans == -1)
 		FLAGS_numScans = pointFileNames.size()-FLAGS_startIndex;
@@ -185,36 +151,80 @@ int main(int argc, char *argv[])
 	for(int i = FLAGS_startIndex; i< FLAGS_startIndex + FLAGS_numScans; ++i){
 		const string scanName = FLAGS_dmFolder + pointFileNames[i];
 		const string rotationFile = FLAGS_rotFolder + rotationFileNames[i];
+		const string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
 		if(FLAGS_replace)
-			analyzePlacement(fpSparse, scanName, rotationFile);
-		else if(!reshowPlacement(scanName, rotationFile))
-			analyzePlacement(fpSparse, scanName, rotationFile);
+			analyzePlacement(floorPlan, scanName, rotationFile, zerosFile);
+		else if(!reshowPlacement(scanName, rotationFile, zerosFile))
+			analyzePlacement(floorPlan, scanName, rotationFile, zerosFile);
 	}
 	
 	return 0;
 }
 
-void analyzePlacement(const SparseMatrix<double> & fpSparse,
-	const string & scanName, const string & rotationFile){
+void analyzePlacement(const Mat & fp, const string & scanName, 
+	const string & rotationFile, const string & zerosFile){
 	if(!FLAGS_quiteMode)
-		cout << scanName << endl << rotationFile << endl;
+		cout << rotationFile << endl;
+	cout << scanName << endl;
+
+	Mat element = getStructuringElement(MORPH_RECT, Size(6,6));
+	Mat fpEroded (fp.rows, fp.cols, CV_8UC1);
+	erode(fp, fpEroded, element);
 	
-	vector<SparseMatrix<double> > rSSparse;
 	vector<Mat> rotatedScans;
-	loadInScans(scanName, rotationFile, rotatedScans);
-	scansToSparse(rotatedScans, rSSparse);
+	loadInScans(scanName, rotationFile, rotatedScans, zerosFile);
+	vector<Mat> erodedScans;
+
+	for(auto scan : rotatedScans){
+		Mat dst (scan.rows, scan.cols, CV_8UC1);
+		erode(scan, dst, element);
+		erodedScans.push_back(dst);
+	}
+
+	/*for(int i = 0; i< 4; i++){
+		cvNamedWindow("Preview1", WINDOW_NORMAL);
+		imshow("Preview1", erodedScans[i]);
+		cvNamedWindow("Preview2", WINDOW_NORMAL);
+		imshow("Preview2", rotatedScans[i]);
+		waitKey(0);
+	}
 
 	
-	vector<int> localMinima;
-	vector<SparseMatrix<double> > fpPyramid;
-	vector<vector<SparseMatrix<double> > > rSSparsePyramid;
-	fpPyramid.push_back(fpSparse);
-	rSSparsePyramid.push_back(rSSparse);
+	cvNamedWindow("Preview", WINDOW_NORMAL);
+	imshow("Preview", fpEroded);
+	waitKey(0);*/
 
+	vector<SparseMatrix<double> > erodedSSparse;
+	vector<SparseMatrix<double> > rSSparse;
+	for (int i = 0; i < rotatedScans.size(); ++i)
+	{
+		SparseMatrix<double> eroded, scan;
+		scanToSparse(erodedScans[i], eroded);
+		scanToSparse(rotatedScans[i], scan);
+		erodedSSparse.push_back(eroded);
+		rSSparse.push_back(scan);
+	}
+	
+
+	SparseMatrix<double> fpSparse, erodedFpSparse;
+	scanToSparse(fp, fpSparse);
+	scanToSparse(fpEroded, erodedFpSparse);
+
+
+	vector<SparseMatrix<double> > fpPyramid = {fpSparse};
+	vector<vector<SparseMatrix<double> > > rSSparsePyramid = {rSSparse};
 	createPyramid(fpPyramid, rSSparsePyramid);
+	
+	
+	
+	vector<SparseMatrix<double> > erodedFpPyramid = {erodedFpSparse};
+	vector<vector<SparseMatrix<double> > > erodedSparsePyramid = {erodedSSparse};
+	createPyramid(erodedFpPyramid, erodedSparsePyramid);
 
+	vector<vector<SparseMatrix<double> > > erodedSparsePyramidTrimmed;
 	vector<vector<SparseMatrix<double> > > rSSparsePyramidTrimmed;
-	trimScanPryamid(rSSparsePyramid, rSSparsePyramidTrimmed);
+	trimScanPryamids(rSSparsePyramid, rSSparsePyramidTrimmed, 
+		erodedSparsePyramid, erodedSparsePyramidTrimmed);
 
 	vector<Vector3i> pointsToAnalyze;
 	for(int k = 0; k < rSSparse.size(); ++k)
@@ -232,46 +242,65 @@ void analyzePlacement(const SparseMatrix<double> & fpSparse,
 			}
 		}
 	}
+
+	if(FLAGS_debugMode)
+		loadInTruePlacement(scanName);
 	
 	vector<posInfo> scores;
-	MatrixXd scoreMatrix;
-	for (int k = FLAGS_numLevels; k > 0; --k)
+	vector<MatrixXd> scoreMatricies;
+	vector<int> localMinima;
+	Vector4i rows, cols;
+	for (int k = FLAGS_numLevels; k >= 0; --k)
 	{
-		findPlacementPointBasedV2(fpPyramid[k], rSSparsePyramidTrimmed[k], 
-			scores, pointsToAnalyze);
-		for (int i = 0; i < 4; ++i)
+		levelNum = k;
+		if(k == 0)
 		{
-			blurMinima(scoreMatrix, scores, 
-			fpPyramid[k].rows() - rSSparsePyramidTrimmed[k][i].rows(), 
-			fpPyramid[k].cols() - rSSparsePyramidTrimmed[k][i].cols(), i);
+			for(auto & v : truePlacement){
+				pointsToAnalyze.push_back(v);
+			}
+		}
+		findPlacementPointBasedV2(fpPyramid[k], rSSparsePyramidTrimmed[k],
+			erodedFpPyramid[k], erodedSparsePyramidTrimmed[k], 
+			scores, pointsToAnalyze);
+		/*for (int i = 0; i < 4; ++i)
+		{
+			rows[i] = fpPyramid[k].rows() - rSSparsePyramidTrimmed[k][i].rows();
+			cols[i] = fpPyramid[k].cols() - rSSparsePyramidTrimmed[k][i].cols();
+		}
+		blurMinima(scoreMatricies, scores, rows, cols);*/
+		if(k!=0)
+		{
+			findLocalMinima(scores, localMinima, 1.0);
+			findGlobalMinima(scores, localMinima);
+			findPointsToAnalyze(scores, localMinima, pointsToAnalyze);
 		}
 		
-		findLocalMinima(scores, localMinima, 1);
-		findGlobalMinima(scores, localMinima);
-		findPointsToAnalyze(scores, localMinima, pointsToAnalyze);
 	}
 
-	findPlacementPointBasedV2(fpPyramid[0], rSSparsePyramidTrimmed[0], 
-			scores, pointsToAnalyze);
-	for (int i = 0; i < 4; ++i)
-		{
-			blurMinima(scoreMatrix, scores, 
-			fpPyramid[0].rows() - rSSparsePyramidTrimmed[0][i].rows(), 
-			fpPyramid[0].cols() - rSSparsePyramidTrimmed[0][i].cols(), i);
-		}
-	findLocalMinima(scores, localMinima, 3);
+	findLocalMinima(scores, localMinima, 2.5);
 	findGlobalMinima(scores, localMinima);
 
+	if(FLAGS_save)
+	{
+		const string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
+		+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".txt";
+		
+		savePlacement(scores, localMinima, placementName);
+	}
+	
 	if(FLAGS_visulization || FLAGS_previewOut)
 		displayOutput(rSSparsePyramidTrimmed[0], localMinima, scores);
-
-	const string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
-	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".txt";
-	savePlacement(scores, localMinima, placementName);
+	if(FLAGS_debugMode)
+	{
+		/*findPlacementPointBasedV2(fpPyramid[k], rSSparsePyramidTrimmed[k],
+			erodedFpPyramid[k], erodedSparsePyramidTrimmed[k], 
+			scores, truePlacement);*/
+		displayTruePlacement(rSSparsePyramidTrimmed[0], scores);
+	}
 }
 
 void loadInScans(const string & scanName, const string & rotationFile, 
-	vector<Mat> & rotatedScans){
+	vector<Mat> & rotatedScans, const string & zerosFile){
 	ifstream binaryReader (rotationFile, ios::in | ios::binary);
 	vector<Matrix3d> R (4);
 	for (int i = 0; i < R.size(); ++i)
@@ -281,7 +310,17 @@ void loadInScans(const string & scanName, const string & rotationFile,
 	}
 
 	binaryReader.close();
-	
+
+	binaryReader.open(zerosFile, ios::in | ios::binary);
+	zeroZero.clear();
+	zeroZero.resize(4);
+	for (int i = 0; i < 4; ++i)
+	{
+		binaryReader.read(reinterpret_cast<char *>(&zeroZero[i]),
+			sizeof(Vector2d));
+		binaryReader.seekg(0);
+	}
+	binaryReader.close();
 
 	Mat scan = imread(scanName, 0);
 	
@@ -289,10 +328,21 @@ void loadInScans(const string & scanName, const string & rotationFile,
 		cout << "Error reading scan" << endl;
 		exit(1);
 	}
+	if(FLAGS_tinyPreviewIn)
+	{
+		cvNamedWindow("Preview", WINDOW_NORMAL);
+		imshow("Preview", scan);
+		waitKey(0);
+	}
+
 	const int maxDimension = max(1.1*scan.rows, 1.1*scan.cols);
 	const int colOffset = (maxDimension - scan.cols)/2;
 	const int rowOffset = (maxDimension - scan.rows)/2;
-	croppedInfo.push_back(Vector4i (maxDimension, 0, 0, 0));
+	for (int i = 0; i < 4; ++i)
+	{
+		zeroZero[i][0] += colOffset;
+		zeroZero[i][0] += rowOffset;
+	}
 
 	Mat widenedScan (maxDimension, maxDimension, CV_8UC1, Scalar::all(255));
 	for (int i = 0; i < scan.rows; ++i)
@@ -307,6 +357,7 @@ void loadInScans(const string & scanName, const string & rotationFile,
 
 	const Vector3d center (widenedScan.cols/2.0, widenedScan.rows/2.0, 0.0);
 
+	int i = 0;
 	for(auto & rot : R)
 	{
 		Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, Scalar::all(255));
@@ -325,7 +376,16 @@ void loadInScans(const string & scanName, const string & rotationFile,
 			}
 		}
 		rotatedScans.push_back(rScan);
+
+		
+		Vector3d tmp (zeroZero[i][0], zeroZero[i][1], 0.0);
+		tmp = rot*(tmp - center) + center;
+		zeroZero[i][0] = tmp[0];
+		zeroZero[i][0] = tmp[1];
+		i++;
 	}
+
+
 
 	if(FLAGS_visulization || FLAGS_previewIn)
 	{
@@ -337,29 +397,24 @@ void loadInScans(const string & scanName, const string & rotationFile,
 	}
 }
 
-void scansToSparse(const vector<Mat> & rotatedScans, 
-	vector<SparseMatrix<double> > & rSSparse){
+void scanToSparse(const Mat & scan, SparseMatrix<double> & sparse){
 	vector<Triplet<double> > tripletList;
-	for(auto scan : rotatedScans){
-		for (int i = 0; i < scan.rows; ++i)
-		{
-			uchar * src = scan.ptr<uchar>(i);
-			for (int j = 0; j < scan.cols; ++j)
-			{
-				if(src[j] == 255)
-					continue;
-				double confidence = 1.0 -(double)src[j]/255.0;
-				tripletList.push_back(Triplet<double> (i,j,confidence));
-			}
-		}
-		SparseMatrix<double> sScan (scan.rows, scan.cols);
-		sScan.setFromTriplets(tripletList.begin(), tripletList.end());
-		
 
-		rSSparse.push_back(sScan);
-		tripletList.clear();
+	for (int i = 0; i < scan.rows; ++i)
+	{
+		const uchar * src = scan.ptr<uchar>(i);
+		for (int j = 0; j < scan.cols; ++j)
+		{
+			if(src[j] == 255)
+				continue;
+			double confidence = 1.0 -(double)src[j]/255.0;
+			tripletList.push_back(Triplet<double> (i,j,confidence));
+		}
 	}
+	sparse = SparseMatrix<double> (scan.rows, scan.cols);
+	sparse.setFromTriplets(tripletList.begin(), tripletList.end());
 }
+
 
 void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed, 
 	const vector<int> & localMinima, const vector<posInfo> & scores){
@@ -370,7 +425,7 @@ void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed,
 	}
 	
 	cvNamedWindow("Preview", WINDOW_NORMAL);
-	imshow("Preview", floorPlan);
+	imshow("Preview", fpColor);
 	waitKey(0);
 
 
@@ -397,6 +452,8 @@ void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed,
 		imshow("Preview", output);
 		if(!FLAGS_quiteMode)
 			cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << endl;
+			cout << minScore.yasu << "      " << minScore.yasu2 << endl;
+			cout << minScore.scanPixels << "    " << minScore.fpPixels << endl << endl;
 		waitKey(0);
 		
 		
@@ -434,7 +491,8 @@ void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed,
 		if(!FLAGS_quiteMode)
 		{
 			cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << endl;
-			cout << "NCC: " << minScore.NCC << endl;
+			cout << minScore.yasu << "      " << minScore.yasu2 << endl;
+			cout << minScore.scanPixels << "    " << minScore.fpPixels << endl << endl;
 		}
 		
 		waitKey(0);
@@ -444,7 +502,7 @@ void displayOutput(const vector<SparseMatrix<double> > & rSSparseTrimmed,
 
 
 void findLocalMinima(const vector<posInfo> & scores, vector<int> & localMinima, 
-	const int bias){
+	const float bias){
 	localMinima.clear();
 	double averageScore = 0;
 	for(auto & info : scores){
@@ -466,7 +524,7 @@ void findLocalMinima(const vector<posInfo> & scores, vector<int> & localMinima,
 
 	const double cutOff = averageScore - bias*sigScores;
 	int i;
-	#pragma omp parallel for shared(i, scores) reduction(merge: localMinima) reduction(merge: globalMins)
+	// #pragma omp parallel for shared(i, scores) reduction(merge: localMinima) reduction(merge: globalMins)
 	for (i = 1; i < (scores.size() - 1); ++i)
 	{
 		double lHS = scores[i-1].score - scores[i].score;
@@ -490,9 +548,9 @@ void createPyramid(vector<SparseMatrix<double> > & fpPyramid,
 
 		MatrixXd currentFPNS = MatrixXd(currentFP);
 		
-		for (int j = 0; j < (currentFP.rows() -1); j+=2)
+		for (int j = 0; j < (currentFPNS.rows() -1); j+=2)
 		{
-			for (int k = 0; k < (currentFP.cols() -1); k+=2)
+			for (int k = 0; k < (currentFPNS.cols() -1); k+=2)
 			{
 				double maxV = max(currentFPNS(j,k),max(currentFPNS(j,k+1),
 					max(currentFPNS(j+1,k), currentFPNS(j+1,k+1))));
@@ -546,35 +604,56 @@ void createPyramid(vector<SparseMatrix<double> > & fpPyramid,
 	}
 }
 
-void trimScanPryamid(const vector<vector<SparseMatrix<double> > > & rSSparsePyramid,
-	vector<vector<SparseMatrix<double> > > & rSSparsePyramidTrimmed){
-	vector<Triplet<double> > tripletList;
-	for(auto & level : rSSparsePyramid){
-		vector<SparseMatrix<double> > levelTrimmed;
-		for(auto & scan : level){
+void trimScanPryamids(const vector<vector<SparseMatrix<double> > > & rSSparsePyramid,
+	vector<vector<SparseMatrix<double> > > & rSSparsePyramidTrimmed, 
+	const vector<vector<SparseMatrix<double> > > & erodedSparsePyramid,
+	vector<vector<SparseMatrix<double> > > & erodedSparsePyramidTrimmed){
 
-			SparseMatrix<double> threshHolded (scan.rows(), scan.cols());
-			for (int k = 0; k < scan.outerSize(); ++k)
+	vector<Triplet<double> > tripletList;
+	int first4 = 0;
+	for(int level = 0; level < rSSparsePyramid.size(); ++level){
+		vector<SparseMatrix<double> > levelTrimmed;
+		vector<SparseMatrix<double> > erodedLevelTrimed;
+		for(int i = 0; i < rSSparsePyramid[level].size(); ++i){
+			const SparseMatrix<double> * scan = &rSSparsePyramid[level][i];
+			const SparseMatrix<double> * erodedScan = &erodedSparsePyramid[level][i];
+
+			SparseMatrix<double> scanThreshHolded (scan->rows(), scan->cols());
+			SparseMatrix<double> eScanThreshHolded (erodedScan->rows(), erodedScan->cols());
+
+			for (int k = 0; k < scan->outerSize(); ++k)
 			{
-				for (SparseMatrix<double>::InnerIterator it (scan, k); it; ++it)
+				for (SparseMatrix<double>::InnerIterator it (*scan, k); it; ++it)
 				{
 					if(it.value() > 0.85){
 						tripletList.push_back(Triplet<double> (it.row(), it.col(), it.value()));
 					}
 				}
 			}
-			threshHolded.setFromTriplets(tripletList.begin(), tripletList.end());
+			scanThreshHolded.setFromTriplets(tripletList.begin(), tripletList.end());
+			tripletList.clear();
+
+			for (int k = 0; k < erodedScan->outerSize(); ++k)
+			{
+				for (SparseMatrix<double>::InnerIterator it (*erodedScan, k); it; ++it)
+				{
+					if(it.value() > 0.85){
+						tripletList.push_back(Triplet<double> (it.row(), it.col(), it.value()));
+					}
+				}
+			}
+			eScanThreshHolded.setFromTriplets(tripletList.begin(), tripletList.end());
 			tripletList.clear();
 
 
 			int minRow, minCol, maxRow, maxCol;
 			maxRow = maxCol = 0;
-			minRow = threshHolded.rows();
-			minCol = threshHolded.cols();
+			minRow = scanThreshHolded.rows();
+			minCol = scanThreshHolded.cols();
 
-			for (int k = 0; k < threshHolded.outerSize(); ++k)
+			for (int k = 0; k < scanThreshHolded.outerSize(); ++k)
 			{
-				for (SparseMatrix<double>::InnerIterator it (threshHolded, k); it; ++it)
+				for (SparseMatrix<double>::InnerIterator it (scanThreshHolded, k); it; ++it)
 				{
 					if(it.value() !=0){
 						maxRow = max(maxRow, it.row());
@@ -586,15 +665,25 @@ void trimScanPryamid(const vector<vector<SparseMatrix<double> > > & rSSparsePyra
 				}
 			}
 
-			SparseMatrix<double> trimmed = threshHolded.block(minRow, minCol, 
+			SparseMatrix<double> trimmed = scanThreshHolded.block(minRow, minCol, 
 				maxRow - minRow, maxCol - minCol);
+			SparseMatrix<double> erodedTrimmed = eScanThreshHolded.block(minRow, minCol, 
+				maxRow - minRow, maxCol - minCol);
+			if(first4 < 4 )
+			{
+				zeroZero[first4][0] -= minCol;
+				zeroZero[first4][1] -= minRow;
+				++first4;
+			}
+			
 			trimmed.makeCompressed();
 			levelTrimmed.push_back(trimmed);
-			croppedInfo.push_back(Vector4i (minRow, minCol, maxRow, maxCol));
+			erodedLevelTrimed.push_back(erodedTrimmed);
 		}
+		assert(levelTrimmed.size() == 4);
 		rSSparsePyramidTrimmed.push_back(levelTrimmed);
+		erodedSparsePyramidTrimmed.push_back(erodedLevelTrimed);
 	}
-	
 
 	if(FLAGS_visulization)
 	{
@@ -617,16 +706,18 @@ void trimScanPryamid(const vector<vector<SparseMatrix<double> > > & rSSparsePyra
 }
 
 void findPlacementPointBasedV2(const SparseMatrix<double> & fp, 
-	const vector<SparseMatrix<double> > & scans, vector<posInfo> & scores,
+	const vector<SparseMatrix<double> > & scans,const SparseMatrix<double> & fpE, 
+	const vector<SparseMatrix<double> > & scansE, vector<posInfo> & scores,
 	const vector<Vector3i> & points){
-	scores.clear();
+	
 	if(!FLAGS_quiteMode)
 		cout << points.size() << endl;
 
+	scores.clear();
 	scores.reserve(points.size());
 
 
-	#pragma omp parallel shared(fp, scans, points)
+	#pragma omp parallel shared(fp, scans, points, scansE)
 	{
 		vector<posInfo> privateScores;
 		#pragma omp for nowait schedule(static)
@@ -647,43 +738,98 @@ void findPlacementPointBasedV2(const SparseMatrix<double> & fp,
 			SparseMatrix<double> currentFP = fp.block(point[1], point[0], 
 				scans[scanIndex].rows(), scans[scanIndex].cols());
 			currentFP.makeCompressed();
+
 			if(currentFP.nonZeros() == 0)
 				continue;
 
+			SparseMatrix<double> currentFPE = fpE.block(point[1], point[0], 
+				scans[scanIndex].rows(), scans[scanIndex].cols());
+			currentFPE.makeCompressed();
+
 			double fpScore = currentFP.squaredNorm();
 
-			SparseMatrix<double> diff = currentFP - scans[scanIndex];
+			SparseMatrix<double> diff = scans[scanIndex] - currentFPE;
 			diff.makeCompressed();
 
-			/*Mat test (diff.rows(), diff.cols(), CV_8UC1, Scalar::all(255));
-			for (int i = 0; i < diff.outerSize(); ++i)
+			/*if(point[0] == static_cast<int>(1187.0/pow(2, levelNum)) &&
+				point[1] == static_cast<int>(183.0/pow(2,levelNum)))
 			{
-				for(SparseMatrix<double>::InnerIterator it (diff, i); it; ++it)
+				Mat test (diff.rows(), diff.cols(), CV_8UC1, Scalar::all(128));
+				for (int i = 0; i < diff.outerSize(); ++i)
 				{
-					test.at<uchar>(it.row(), it.col()) = 255 - abs(it.value())*255;
+					for(SparseMatrix<double>::InnerIterator it (diff, i); it; ++it)
+					{
+						
+						test.at<uchar>(it.row(), it.col()) = max(0,min(255,
+							static_cast<int>(it.value()*128 +128)));
+					}
 				}
-			}
-			cvNamedWindow("Preview", WINDOW_NORMAL);
-			imshow("Preview", test);
-			waitKey(0);*/
+				cvNamedWindow("Preview", WINDOW_NORMAL);
+				imshow("Preview", test);
+				
+
+				Mat test2 (currentFP.rows(), currentFP.cols(), CV_8UC1, Scalar::all(128));
+				for (int i = 0; i < currentFP.outerSize(); ++i)
+				{
+					for(SparseMatrix<double>::InnerIterator it (currentFP, i); it; ++it)
+					{
+						
+						test2.at<uchar>(it.row(), it.col()) = max(0,min(255,
+							static_cast<int>(it.value()*128 +128)));
+					}
+				}
+				cvNamedWindow("Preview2", WINDOW_NORMAL);
+				imshow("Preview2", test2);
+
+				Mat test3 (scans[scanIndex].rows(), scans[scanIndex].cols(), CV_8UC1, Scalar::all(128));
+				for (int i = 0; i < scans[scanIndex].outerSize(); ++i)
+				{
+					for(SparseMatrix<double>::InnerIterator it (scans[scanIndex], i); it; ++it)
+					{
+						
+						test3.at<uchar>(it.row(), it.col()) = max(0,min(255,
+							static_cast<int>(it.value()*128 +128)));
+					}
+				}
+				cvNamedWindow("Preview3", WINDOW_NORMAL);
+				imshow("Preview3", test3);
+				waitKey(0);
+			}*/
+			
 
 			double diffScore = diff.squaredNorm();
+			double scanFPsetDiff = 0;
+			double fpScanSetDiff = 0;
+
 			
 			double diffEntropy = 0;
 			for(int i = 0; i < diff.outerSize(); ++i){
 				for(SparseMatrix<double>::InnerIterator it (diff, i); it; ++it){
-					if(it.value() != 0){
+					if(it.value() > 0){
 						const double tmp = it.value()*it.value()/diffScore;
 						diffEntropy -= tmp*log(tmp);
-						
-					}	
+						scanFPsetDiff += it.value();
+						/*++scanFPsetDiff;*/
+					}
 				}
 			}
+
+			diff = currentFP - scansE[scanIndex];
+			for(int i = 0; i < diff.outerSize(); ++i){
+				for(SparseMatrix<double>::InnerIterator it (diff, i); it; ++it){
+					if(it.value() > 0){
+						fpScanSetDiff += it.value();
+						/*++fpScanSetDiff;*/
+					}
+				}
+			}
+
+			
 
 
 			
 
-			MatrixXd currentFPNS = MatrixXd(currentFP);
+			/*MatrixXd currentFPNS = MatrixXd(currentFP);
 			MatrixXd currentScanNS = MatrixXd(scans[scanIndex]);
 			const double fpMean = currentFPNS.mean();
 			const double scanMean = currentScanNS.mean();
@@ -699,19 +845,25 @@ void findPlacementPointBasedV2(const SparseMatrix<double> & fp,
 				qq += diffQ*diffQ;
 				pp += diffP*diffP;
 			}
-			const double nccScore = pq/sqrt(pp*qq);	
+			const double nccScore = pq/sqrt(pp*qq);	*/
 
-			const double placement = (diffScore - fpScore);
-			const double score = (placement > 0) ? placement*diffEntropy
+			const double placement = diffScore - fpScore;
+			const double scoreV1 = (placement > 0) ? placement*diffEntropy
 				: placement/diffEntropy;
+			const double scoreV2 = scanFPsetDiff + 
+				max(0.0, fpScanSetDiff - 0.5*scanFPsetDiff)*0.05;
+			const double scoreV3 = scanFPsetDiff/scans[scanIndex].nonZeros() + fpScanSetDiff/currentFP.nonZeros();
 
 			posInfo tmp;
 			tmp.x = point[0];
 			tmp.y = point[1];
-			tmp.score = score;
+			tmp.score = scoreV3;
+			tmp.yasu = scanFPsetDiff;
+			tmp.yasu2 = fpScanSetDiff;
+			tmp.scanPixels = scans[scanIndex].nonZeros();
+			tmp.fpPixels = currentFP.nonZeros();
 			tmp.rotation = scanIndex;
 			tmp.entropy = diffEntropy;
-			tmp.NCC = nccScore;
 			privateScores.push_back(tmp);
 			
 
@@ -813,50 +965,138 @@ void savePlacement(const vector<posInfo> & scores, const vector<int> & localMini
 	out << "Score x y rotation NCC" << endl;
 	const int numLoc = localMinima.size();
 	const int numGlob = globalMins.size();
-	outB.write(reinterpret_cast<const char *>(&numLoc), sizeof(int));
-	outB.write(reinterpret_cast<const char *>(&numGlob), sizeof(int));
-
-
+	outB.write(reinterpret_cast<const char *>(&numLoc), sizeof(numLoc));
+	outB.write(reinterpret_cast<const char *>(&numGlob), sizeof(numGlob));
+	out << "localMinima: " << endl;
 	for(auto index : localMinima){
 		posInfo minScore = scores[index];
+		minScore.x += zeroZero[minScore.rotation][0];
+		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "
-			<< minScore.y  << " " << minScore.rotation
-			<< " " << minScore.NCC << endl;
-		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(posInfo));
+			<< minScore.y << " " << minScore.rotation << endl;
+		
+		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(minScore));
 	}
-	out << endl;
+	out << endl << "globalMins: " << endl;
 	for(auto index : globalMins){
 		posInfo minScore = scores[index];
+		minScore.x += zeroZero[minScore.rotation][0];
+		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "
-			<< minScore.y  << " " << minScore.rotation
-			<< " " << minScore.NCC << endl;
-		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(posInfo));
+			<< minScore.y  << " " << minScore.rotation << endl;
+		
+		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(minScore));
 	}
 	out.close();
 	outB.close();
-	croppedInfo.clear();
 }
 
-bool reshowPlacement(const string & scanName, const string & rotationFile){
+bool reshowPlacement(const string & scanName, const string & rotationFile,
+	const string & zerosFile){
 	const string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
+	if(!FLAGS_quiteMode)
+		cout << placementName << endl;
+
 	ifstream in (placementName, ios::in | ios::binary);
 	if(!in.is_open())
 		return false;
 	if(!FLAGS_previewOut)
 		return true;
-	vector<Mat> rotatedScans;
-	loadInScans(scanName, rotationFile, rotatedScans);
-	int numScans;
-	in.read(reinterpret_cast<char *>(&numScans), sizeof(int));
 
-	cout << "showing localMinima" << endl;
-	for (int i = 0; i < numScans; ++i)
+	
+	vector<Mat> rotatedScans;
+	loadInScans(scanName, rotationFile, rotatedScans, zerosFile);
+
+	vector<Mat> trimmedScans;
+	trimScans(rotatedScans, trimmedScans);
+	
+
+	int numLoc, numGlob;
+	in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
+	in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
+
+	cvNamedWindow("Preview", WINDOW_NORMAL);
+
+	if(!FLAGS_quiteMode)
+		cout << "Showing localMinima, " << numLoc << endl;
+	vector<posInfo> scores;
+	for (int i = 0; i < numLoc; ++i)
 	{
 		posInfo minScore;
-		in.read(reinterpret_cast<char *>(&minScore), sizeof(posInfo));
-		Mat bestScan = rotatedScans[minScore.rotation];
+		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
+		minScore.x -= zeroZero[minScore.rotation][0];
+		minScore.y -= zeroZero[minScore.rotation][1];
+		
+		Mat bestScan = trimmedScans[minScore.rotation];
 
+		const int xOffset = minScore.x;
+		const int yOffset = minScore.y;
+		Mat output (floorPlan.rows, floorPlan.cols, CV_8UC3, Scalar::all(255));
+		fpColor.copyTo(output);
+		
+		for (int i = 0; i < bestScan.rows; ++i)
+		{
+			uchar * src = bestScan.ptr<uchar>(i);
+			uchar * dst = output.ptr<uchar>(i + yOffset);
+			for (int j = 0; j < bestScan.cols; ++j)
+			{
+				if(src[j]!=255){
+					dst[j*3 + xOffset*3] = 0;
+					dst[j*3 + xOffset*3 + 1] = 0;
+					dst[j*3 + xOffset*3 + 2] = 255 - src[j];
+				}
+			}
+		}
+		if(!FLAGS_quiteMode)
+		{
+			cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << endl;
+			cout << minScore.yasu << "      " << minScore.yasu2 << endl;
+			cout << minScore.scanPixels << "    " << minScore.fpPixels << endl << endl;
+		}
+
+		imshow("Preview", output);
+		waitKey(0);
+	}
+
+	if(!FLAGS_quiteMode)
+		cout << "Showing globalMins, " << numGlob << endl;
+	for (int i = 0; i < numGlob; ++i)
+	{
+		posInfo minScore;
+		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
+		minScore.x -= zeroZero[minScore.rotation][0];
+		minScore.y -= zeroZero[minScore.rotation][1];
+		
+		Mat bestScan = trimmedScans[minScore.rotation];
+
+		const int xOffset = minScore.x;
+		const int yOffset = minScore.y;
+		Mat output (floorPlan.rows, floorPlan.cols, CV_8UC3, Scalar::all(255));
+		fpColor.copyTo(output);
+		
+		for (int i = 0; i < bestScan.rows; ++i)
+		{
+			uchar * src = bestScan.ptr<uchar>(i);
+			uchar * dst = output.ptr<uchar>(i + yOffset);
+			for (int j = 0; j < bestScan.cols; ++j)
+			{
+				if(src[j]!=255){
+					dst[j*3 + xOffset*3] = 0;
+					dst[j*3 + xOffset*3 + 1] = 0;
+					dst[j*3 + xOffset*3 + 2] = 255 - src[j];
+				}
+			}
+		}
+		if(!FLAGS_quiteMode)
+		{
+			cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << endl;
+			cout << minScore.yasu << "      " << minScore.yasu2 << endl;
+			cout << minScore.scanPixels << "    " << minScore.fpPixels << endl << endl;
+		}
+
+		imshow("Preview", output);
+		waitKey(0);
 	}
 
 	return true;
@@ -868,13 +1108,7 @@ bool notInLocalMin(const int i, const vector<int> & localMinima){
 	if(localMinima.size() == 1)
 		return !(i == localMinima[0]);
 
-	for(auto & num : localMinima){
-		if(i == num)
-			return false;
-	}
-	return true;
-
-	/*if(i == localMinima[localMinima.size()/2]){
+	if(i == localMinima[localMinima.size()/2]){
 		return false;
 	}else if( i < localMinima[localMinima.size()/2]){
 		return notInLocalMin(i, 
@@ -882,13 +1116,18 @@ bool notInLocalMin(const int i, const vector<int> & localMinima){
 	} else{
 		return notInLocalMin(i, 
 			vector<int>(localMinima.begin() + localMinima.size()/2, localMinima.end()));
-	}*/
+	}
 }
 
-void blurMinima(MatrixXd & scoreMatrix, const vector<posInfo> & scores, 
-	int rows, int cols, int rotNumber){
+void blurMinima(vector<MatrixXd> & scoreMatricies, const vector<posInfo> & scores, 
+	const Vector4i & rows, const Vector4i & cols){
+	scoreMatricies.clear();
+
+	for (int i = 0; i < rows.size(); ++i)
+	{
+		scoreMatricies.push_back(MatrixXd::Zero(rows[i], cols[i]));
+	}
 	
-	scoreMatrix = MatrixXd::Zero(rows, cols);
 	MatrixXd kernel (5,5);
 	const double sigma = 1.25;
 	for (int i = -2; i < kernel.rows()-2; ++i)
@@ -902,73 +1141,180 @@ void blurMinima(MatrixXd & scoreMatrix, const vector<posInfo> & scores,
 	const double * kernlPtr = kernel.data();
 
 	for(auto minScore : scores){
-		if(minScore.rotation == rotNumber)
-			scoreMatrix(minScore.y, minScore.x) = minScore.score;
+		if(minScore.rotation == 0)
+			scoreMatricies[0](minScore.y, minScore.x) = minScore.score;
+
+		if(minScore.rotation == 1)
+			scoreMatricies[1](minScore.y, minScore.x) = minScore.score;
+
+		if(minScore.rotation == 2)
+			scoreMatricies[2](minScore.y, minScore.x) = minScore.score;
+
+		if(minScore.rotation == 3)
+			scoreMatricies[3](minScore.y, minScore.x) = minScore.score;
 	}
 
-	MatrixXd blurredScore (scoreMatrix);
-	for (int i = 2; i < scoreMatrix.rows() - 2; ++i)
+	for (int k = 0; k < rows.size(); ++k)
 	{
-		for (int j = 2; j < scoreMatrix.cols() - 2; ++j)
+		MatrixXd blurredScore = MatrixXd::Zero(rows[k], cols[k]);
+		for (int i = 2; i < rows[k] - 2; ++i)
 		{
-			const MatrixXd toBlur = scoreMatrix.block(i-2, j-2, 5, 5);
-			const double * blurPtr = toBlur.data();
-			double value = 0;
-			for (int i = 0; i < kernel.size(); ++i)
+			for (int j = 2; j < cols[k] - 2; ++j)
 			{
-				value += (*(kernlPtr + i))*(*(blurPtr + i));
+				const MatrixXd toBlur = scoreMatricies[k].block(i-2, j-2, 5, 5);
+				const double * blurPtr = toBlur.data();
+				double value = 0;
+				for (int a = 0; a < kernel.size(); ++a)
+				{
+					value += (*(kernlPtr + a))*(*(blurPtr + a));
+				}
+				blurredScore(i,j) = value;
 			}
-			blurredScore(i,j) = value;
 		}
+		scoreMatricies[k] = blurredScore;
 	}
-	scoreMatrix = blurredScore;
+	
 
 	double aveScore = 0;
 	int count = 0;
-	const double * scoreMatrixPtr =scoreMatrix.data();
-	for (int i = 0; i < scoreMatrix.size(); ++i)
+	for (int k = 0; k < rows.size(); ++k)
 	{
-		if(*(scoreMatrixPtr + i) != 0)
+		const double * scoreMatrixPtr = scoreMatricies[k].data();
+		for (int i = 0; i < scoreMatricies[k].size(); ++i)
 		{
-			aveScore += *(scoreMatrixPtr + i);
-			count ++;
+			if(*(scoreMatrixPtr + i) != 0)
+			{
+				aveScore += *(scoreMatrixPtr + i);
+				count ++;
+			}
 		}
 	}
+	
 	aveScore /= count;
 	double sigScores = 0;
 	
-	for (int i = 0; i <scoreMatrix.size(); ++i)
+	for (int k = 0; k < rows.size(); ++k)
 	{
-		if(*(scoreMatrixPtr + i) != 0)
+		const double * scoreMatrixPtr = scoreMatricies[k].data();
+		for (int i = 0; i <scoreMatricies[k].size(); ++i)
 		{
-			const double tmp = *(scoreMatrixPtr + i) - aveScore;
-			sigScores += tmp*tmp;
+			if(*(scoreMatrixPtr + i) != 0)
+			{
+				const double tmp = *(scoreMatrixPtr + i) - aveScore;
+				sigScores += tmp*tmp;
+			}
+			
 		}
-		
 	}
+
+	
 	sigScores /= count;
 	sigScores = sqrt(sigScores);
 
 
 	if(FLAGS_visulization)
 	{
-		Mat blurScore (scoreMatrix.rows(), scoreMatrix.cols(), CV_8UC1, Scalar::all(255));
-		for (int i = 0; i < blurScore.rows; ++i)
+		for (int k = 0; k < rows.size(); ++k)
 		{
-			uchar * dst = blurScore.ptr<uchar>(i);
-			for (int j = 0; j < blurScore.cols; ++j)
+			Mat blurScore (rows[k], cols[k], CV_8UC1, Scalar::all(255));
+			for (int i = 0; i < blurScore.rows; ++i)
 			{
-				if(scoreMatrix(i,j) != 0)
+				uchar * dst = blurScore.ptr<uchar>(i);
+				for (int j = 0; j < blurScore.cols; ++j)
 				{
-					const int gray = max(0, min(255,
-						 static_cast<int>(255.0 * (
-						 	((scoreMatrix(i,j) - aveScore)/(2.0*sigScores) + 1.0)/2.0))));
-					dst[j] = 255 - gray;
+					if(scoreMatricies[k](i,j) != 0)
+					{
+						const int gray = max(0, min(255,
+							 static_cast<int>(255.0 * (
+							 	((scoreMatricies[k](i,j) - aveScore)/(3.0*sigScores) + 1.0)/2.0))));
+						dst[j] = 255 - gray;
+					}
+				}
+			}
+			cvNamedWindow("Preview", WINDOW_NORMAL);
+			imshow("Preview", blurScore);
+			waitKey(0);
+		}
+		
+	}	
+}
+
+void trimScans(const vector<Mat> & rotatedScans, vector<Mat> & trimmedScans){
+	int k = 0;
+	for(auto scan : rotatedScans){
+		int minRow = scan.rows;
+		int minCol = scan.cols;
+		int maxRow = 0;
+		int maxCol = 0;
+
+		for (int i = 0; i < scan.rows; ++i)
+		{
+			const uchar * src = scan.ptr<uchar>(i);
+			for (int j = 0; j < scan.cols; ++j)
+			{
+				if(src[j]!=255){
+					minRow = min(i, minRow);
+					minCol = min(j, minCol);
+					maxRow = max(i, maxRow);
+					maxCol = max(j, maxCol);
 				}
 			}
 		}
-		cvNamedWindow("Preview", WINDOW_NORMAL);
-		imshow("Preview", blurScore);
-		waitKey(0);
-	}	
+
+		Mat trimmedScan (maxRow - minRow, maxCol - minCol, CV_8UC1);
+		for (int i = minRow; i < maxRow; ++i)
+		{
+			const uchar * src = scan.ptr<uchar>(i);
+			uchar * dst = trimmedScan.ptr<uchar>(i-minRow);
+			for (int j = minCol; j < maxCol; ++j)
+			{
+				dst[j-minCol] = src[j];
+			}
+		}
+
+		trimmedScans.push_back(trimmedScan);
+		zeroZero[k][0] -= minCol;
+		zeroZero[k][1] -= minRow;
+		k++;
+	}
+}
+
+void loadInTruePlacement(const string & scanName){
+	const string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
+	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
+	cout << placementName << endl;
+	ifstream in (placementName, ios::in | ios::binary);
+
+	int numLoc, numGlob;
+	in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
+	in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
+
+	vector<posInfo> tmp (numLoc + numGlob);
+	for (int i = 0; i < numLoc + numGlob; ++i)
+	{
+		in.read(reinterpret_cast<char *>(&tmp[i]), sizeof(posInfo));
+	}
+
+	truePlacement.clear();
+	for(auto & s : tmp){
+		Vector3i tmp2 (s.x - zeroZero[s.rotation][0], 
+			s.y - zeroZero[s.rotation][1], s.rotation);
+		truePlacement.push_back(tmp2);
+	}
+}
+
+void displayTruePlacement(const vector<SparseMatrix<double> > & rSSparseTrimmed,
+	const vector<posInfo> & scores){
+
+	vector<int> tmp;
+	const int offset = scores.size() - truePlacement.size();
+	for (int i = 0; i < truePlacement.size(); ++i)
+	{
+		tmp.push_back(offset + i);
+	}
+
+	cout << "displaying true placement" << endl;
+	globalMins.clear();
+	displayOutput(rSSparseTrimmed, tmp, scores);
+
 }

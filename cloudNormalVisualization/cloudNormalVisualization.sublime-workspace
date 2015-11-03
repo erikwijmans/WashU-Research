@@ -897,7 +897,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -913,8 +913,8 @@
 						"selection":
 						[
 							[
-								2756,
-								2756
+								3697,
+								3697
 							]
 						],
 						"settings":
@@ -924,10 +924,10 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 561.0,
+						"translation.y": 1785.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
@@ -955,7 +955,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -1023,9 +1023,13 @@
 	"select_project":
 	{
 		"height": 500.0,
-		"last_filter": "scan",
+		"last_filter": "pla",
 		"selected_items":
 		[
+			[
+				"pla",
+				"~/Projects/c++/placeScan/placeScan.sublime-project"
+			],
 			[
 				"scan",
 				"~/Projects/c++/scanDensity/scanDensity.sublime-project"
@@ -1060,10 +1064,6 @@
 			],
 			[
 				"plac",
-				"~/Projects/c++/placeScan/placeScan.sublime-project"
-			],
-			[
-				"pla",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[

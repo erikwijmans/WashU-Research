@@ -3,6 +3,7 @@
 
 CMakeFiles/placeScan.dir/placeScan.cpp.o
  /home/erik/Projects/c++/placeScan/placeScan.cpp
+ /home/erik/Projects/c++/placeScan/placeScan.h
  /usr/local/include/Eigen/Cholesky
  /usr/local/include/Eigen/Core
  /usr/local/include/Eigen/Dense

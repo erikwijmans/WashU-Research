@@ -4,6 +4,50 @@
 		"selected_items":
 		[
 			[
+				"Vec",
+				"Vector2d"
+			],
+			[
+				"siz",
+				"sizeof"
+			],
+			[
+				"DUC_",
+				"DUC_point_"
+			],
+			[
+				"zero",
+				"zeroZero"
+			],
+			[
+				"zer",
+				"zeroZero"
+			],
+			[
+				"DE",
+				"DEFINE_string"
+			],
+			[
+				"end",
+				"endl"
+			],
+			[
+				"data",
+				"dataPtr"
+			],
+			[
+				"av",
+				"average"
+			],
+			[
+				"flag",
+				"FLAGS_quiteMode"
+			],
+			[
+				"Aver",
+				"averageX"
+			],
+			[
 				"FLAG",
 				"FLAGS_preview"
 			],
@@ -18,10 +62,6 @@
 			[
 				"bir",
 				"binaryNames"
-			],
-			[
-				"end",
-				"endTime"
 			],
 			[
 				"size",
@@ -224,10 +264,6 @@
 				"MatrixXi"
 			],
 			[
-				"Vec",
-				"VectorXi"
-			],
-			[
 				"zS",
 				"zScale"
 			],
@@ -258,10 +294,6 @@
 			[
 				"hi",
 				"hitsPerVoxel"
-			],
-			[
-				"av",
-				"average"
 			],
 			[
 				"sig",
@@ -482,38 +514,6 @@
 			[
 				"di",
 				"dimensions"
-			],
-			[
-				"read",
-				"readInGivenX"
-			],
-			[
-				"Rea",
-				"readInGivenX"
-			],
-			[
-				"ri",
-				"reinterpret_cast"
-			],
-			[
-				"A",
-				"APrime"
-			],
-			[
-				"N",
-				"NULL"
-			],
-			[
-				"tim",
-				"time2"
-			],
-			[
-				"cilk",
-				"cilk_for"
-			],
-			[
-				"scr",
-				"srcRow"
 			]
 		]
 	},
@@ -523,7 +523,7 @@
 			"file": "scanDensity.cpp",
 			"settings":
 			{
-				"buffer_size": 17061,
+				"buffer_size": 18084,
 				"line_ending": "Unix"
 			}
 		},
@@ -539,7 +539,7 @@
 			"file": "CMakeLists.txt",
 			"settings":
 			{
-				"buffer_size": 535,
+				"buffer_size": 316,
 				"line_ending": "Unix"
 			}
 		}
@@ -633,6 +633,7 @@
 	],
 	"file_history":
 	[
+		"/usr/local/include/gflags/gflags.h",
 		"/home/erik/Libraries/pcl-pcl-1.7.2/CMakeLists.txt",
 		"/home/erik/Projects/3DscanData/DUC/metaData/DUC_001.txt",
 		"/home/erik/Projects/c++/VideoToPanorama/VideoToPanorama.cpp",
@@ -742,6 +743,11 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"v.data()",
+			"usagemess",
+			"sigmaX",
+			"averageX",
+			"boundingBox",
 			"cout",
 			"scale",
 			"#DEFINE",
@@ -864,12 +870,7 @@
 			"VideoToPanorama",
 			"i",
 			"img",
-			"gX",
-			"/*+2*F-2*/",
-			"weight",
-			"b",
-			"xyVarList",
-			"c"
+			"gX"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -897,15 +898,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 17061,
+						"buffer_size": 18084,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								10306,
-								10306
+								3298,
+								3298
 							]
 						],
 						"settings":
@@ -914,7 +915,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 6229.0,
+						"translation.y": 6654.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -946,7 +947,7 @@
 						"translation.y": 459.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -955,15 +956,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 535,
+						"buffer_size": 316,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								534,
-								534
+								258,
+								258
 							]
 						],
 						"settings":
@@ -974,7 +975,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -1042,11 +1043,11 @@
 	"select_project":
 	{
 		"height": 500.0,
-		"last_filter": "place",
+		"last_filter": "pla",
 		"selected_items":
 		[
 			[
-				"place",
+				"pla",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[
@@ -1054,7 +1055,7 @@
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[
-				"pla",
+				"place",
 				"~/Projects/c++/placeScan/placeScan.sublime-project"
 			],
 			[
