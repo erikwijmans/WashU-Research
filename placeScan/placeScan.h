@@ -1,5 +1,5 @@
-#ifndef PLACE_SCAN_H
-#define PLACE_SCAN_H
+#ifndef PLACE_SCAN_H_
+#define PLACE_SCAN_H_
 
 #include <vector>
 #include <string>
@@ -28,6 +28,7 @@ DECLARE_string(zerosFolder);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
 DECLARE_int32(numLevels);
+DECLARE_int32(metricNumber);
 
 typedef struct
 {
@@ -47,56 +48,59 @@ typedef struct
 #pragma omp declare reduction (merge : std::vector<int> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
 
+namespace place{
+	void analyzePlacement(const cv::Mat &, const std::string &, 
+	const std::string &, const std::string &);
 
-void analyzePlacement(const cv::Mat &, const std::string &, 
-const std::string &, const std::string &);
+	void findLocalMinima(const std::vector<posInfo> &, std::vector<int> &, const float);
 
-void findLocalMinima(const std::vector<posInfo> &, std::vector<int> &, const float);
+	void createPyramid(std::vector<Eigen::SparseMatrix<double> > &, 
+		std::vector<std::vector<Eigen::SparseMatrix<double> > > &);
 
-void createPyramid(std::vector<Eigen::SparseMatrix<double> > &, 
-	std::vector<std::vector<Eigen::SparseMatrix<double> > > &);
+	void trimScanPryamids(const std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
+		std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
+		const std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
+		std::vector<std::vector<Eigen::SparseMatrix<double> > > &);
 
-void trimScanPryamids(const std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
-	std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
-	const std::vector<std::vector<Eigen::SparseMatrix<double> > > &, 
-	std::vector<std::vector<Eigen::SparseMatrix<double> > > &);
+	void findPlacementPointBasedV2(const Eigen::SparseMatrix<double> &, 
+		const std::vector<Eigen::SparseMatrix<double> > &, const Eigen::SparseMatrix<double> &, 
+		const std::vector<Eigen::SparseMatrix<double> > &, 
+		std::vector<posInfo> &, const std::vector<Eigen::Vector3i> &);
 
-void findPlacementPointBasedV2(const Eigen::SparseMatrix<double> &, 
-	const std::vector<Eigen::SparseMatrix<double> > &, const Eigen::SparseMatrix<double> &, 
-	const std::vector<Eigen::SparseMatrix<double> > &, 
-	std::vector<posInfo> &, const std::vector<Eigen::Vector3i> &);
+	void findPointsToAnalyze(const std::vector<posInfo> &, const std::vector<int> &, 
+		std::vector<Eigen::Vector3i> &);
 
-void findPointsToAnalyze(const std::vector<posInfo> &, const std::vector<int> &, 
-	std::vector<Eigen::Vector3i> &);
+	void findGlobalMinima(const std::vector<posInfo> &, const std::vector<int> &);
 
-void findGlobalMinima(const std::vector<posInfo> &, const std::vector<int> &);
+	void findPointsToAnalyzeV2(const std::vector<posInfo> &, std::vector<Eigen::Vector3i> &);
 
-void findPointsToAnalyzeV2(const std::vector<posInfo> &, std::vector<Eigen::Vector3i> &);
+	void displayOutput(const std::vector<Eigen::SparseMatrix<double> > &, const std::vector<int> & ,
+		const std::vector<posInfo> &);
 
-void displayOutput(const std::vector<Eigen::SparseMatrix<double> > &, const std::vector<int> & ,
-	const std::vector<posInfo> &);
+	void savePlacement(const std::vector<posInfo> &, const std::vector<int> &, 
+		const std::string & outName);
 
-void savePlacement(const std::vector<posInfo> &, const std::vector<int> &, 
-	const std::string & outName);
+	bool reshowPlacement(const std::string &, const std::string &, const std::string &);
 
-bool reshowPlacement(const std::string &, const std::string &, const std::string &);
+	void loadInScans(const std::string &, const std::string &, 
+		std::vector<cv::Mat> &, const std::string &);
 
-void loadInScans(const std::string &, const std::string &, 
-	std::vector<cv::Mat> &, const std::string &);
+	bool notInLocalMin(const int, const std::vector<int> &);
 
-bool notInLocalMin(const int, const std::vector<int> &);
+	void scanToSparse(const cv::Mat &, Eigen::SparseMatrix<double> &);
 
-void scanToSparse(const cv::Mat &, Eigen::SparseMatrix<double> &);
+	void blurMinima(std::vector<Eigen::MatrixXd> &, const std::vector<posInfo> &, 
+		const Eigen::Vector4i &, const Eigen::Vector4i &);
 
-void blurMinima(std::vector<Eigen::MatrixXd> &, const std::vector<posInfo> &, 
-	const Eigen::Vector4i &, const Eigen::Vector4i &);
+	void trimScans(const std::vector<cv::Mat> &, std::vector<cv::Mat> &);
 
-void trimScans(const std::vector<cv::Mat> &, std::vector<cv::Mat> &);
+	void loadInTruePlacement(const std::string &);
 
-void loadInTruePlacement(const std::string &);
+	void displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> > &,
+		const std::vector<posInfo> &);
 
-void displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> > &,
-	const std::vector<posInfo> &);
+	Eigen::MatrixXd distanceTransform(Eigen::MatrixXd &, Eigen::MatrixXd &);
+}
 
 
 
