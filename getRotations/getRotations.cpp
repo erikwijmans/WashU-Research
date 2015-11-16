@@ -290,7 +290,7 @@ static Matrix3d crossProductMatrix(const Vector3d & vector) {
 
 
 Matrix3d getRotationMatrix(const Vector3d & end, const Vector3d & start) {
-	if(acos(abs(start.dot(end))) < 0.01) {
+	if(acos(abs(start.dot(end))) < 0.03) {
 		if( start.dot(end) > 0)
 			return Matrix3d::Identity();
 		if(start.dot(end) < 0)

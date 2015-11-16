@@ -163,6 +163,8 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 	std::vector<cv::Mat> toTrim;
 	int i = 0;
 	for(auto & rot : R) {
+		using namespace std;
+		cout << "R: " << rot << endl << endl;
 		cv::Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, cv::Scalar::all(255));
 		for (int i = 0; i < widenedScan.rows; ++i) {
 			uchar * dst = rScan.ptr<uchar>(i);
