@@ -49,9 +49,55 @@ include CMakeFiles/placeScan.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/placeScan.dir/flags.make
 
+CMakeFiles/placeScan.dir/confidence.cpp.o: CMakeFiles/placeScan.dir/flags.make
+CMakeFiles/placeScan.dir/confidence.cpp.o: confidence.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles $(CMAKE_PROGRESS_1)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/placeScan.dir/confidence.cpp.o"
+	/usr/bin/g++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/placeScan.dir/confidence.cpp.o -c /home/erik/Projects/c++/placeScan/confidence.cpp
+
+CMakeFiles/placeScan.dir/confidence.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/placeScan.dir/confidence.cpp.i"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/erik/Projects/c++/placeScan/confidence.cpp > CMakeFiles/placeScan.dir/confidence.cpp.i
+
+CMakeFiles/placeScan.dir/confidence.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/placeScan.dir/confidence.cpp.s"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/erik/Projects/c++/placeScan/confidence.cpp -o CMakeFiles/placeScan.dir/confidence.cpp.s
+
+CMakeFiles/placeScan.dir/confidence.cpp.o.requires:
+.PHONY : CMakeFiles/placeScan.dir/confidence.cpp.o.requires
+
+CMakeFiles/placeScan.dir/confidence.cpp.o.provides: CMakeFiles/placeScan.dir/confidence.cpp.o.requires
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/confidence.cpp.o.provides.build
+.PHONY : CMakeFiles/placeScan.dir/confidence.cpp.o.provides
+
+CMakeFiles/placeScan.dir/confidence.cpp.o.provides.build: CMakeFiles/placeScan.dir/confidence.cpp.o
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.o: CMakeFiles/placeScan.dir/flags.make
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.o: placeScanHelper.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles $(CMAKE_PROGRESS_2)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/placeScan.dir/placeScanHelper.cpp.o"
+	/usr/bin/g++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/placeScan.dir/placeScanHelper.cpp.o -c /home/erik/Projects/c++/placeScan/placeScanHelper.cpp
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/placeScan.dir/placeScanHelper.cpp.i"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/erik/Projects/c++/placeScan/placeScanHelper.cpp > CMakeFiles/placeScan.dir/placeScanHelper.cpp.i
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/placeScan.dir/placeScanHelper.cpp.s"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/erik/Projects/c++/placeScan/placeScanHelper.cpp -o CMakeFiles/placeScan.dir/placeScanHelper.cpp.s
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.requires:
+.PHONY : CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.requires
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.provides: CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.requires
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.provides.build
+.PHONY : CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.provides
+
+CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.provides.build: CMakeFiles/placeScan.dir/placeScanHelper.cpp.o
+
 CMakeFiles/placeScan.dir/placeScan.cpp.o: CMakeFiles/placeScan.dir/flags.make
 CMakeFiles/placeScan.dir/placeScan.cpp.o: placeScan.cpp
-	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles $(CMAKE_PROGRESS_1)
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles $(CMAKE_PROGRESS_3)
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/placeScan.dir/placeScan.cpp.o"
 	/usr/bin/g++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/placeScan.dir/placeScan.cpp.o -c /home/erik/Projects/c++/placeScan/placeScan.cpp
 
@@ -72,14 +118,43 @@ CMakeFiles/placeScan.dir/placeScan.cpp.o.provides: CMakeFiles/placeScan.dir/plac
 
 CMakeFiles/placeScan.dir/placeScan.cpp.o.provides.build: CMakeFiles/placeScan.dir/placeScan.cpp.o
 
+CMakeFiles/placeScan.dir/dt.cpp.o: CMakeFiles/placeScan.dir/flags.make
+CMakeFiles/placeScan.dir/dt.cpp.o: dt.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles $(CMAKE_PROGRESS_4)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/placeScan.dir/dt.cpp.o"
+	/usr/bin/g++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/placeScan.dir/dt.cpp.o -c /home/erik/Projects/c++/placeScan/dt.cpp
+
+CMakeFiles/placeScan.dir/dt.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/placeScan.dir/dt.cpp.i"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/erik/Projects/c++/placeScan/dt.cpp > CMakeFiles/placeScan.dir/dt.cpp.i
+
+CMakeFiles/placeScan.dir/dt.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/placeScan.dir/dt.cpp.s"
+	/usr/bin/g++  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/erik/Projects/c++/placeScan/dt.cpp -o CMakeFiles/placeScan.dir/dt.cpp.s
+
+CMakeFiles/placeScan.dir/dt.cpp.o.requires:
+.PHONY : CMakeFiles/placeScan.dir/dt.cpp.o.requires
+
+CMakeFiles/placeScan.dir/dt.cpp.o.provides: CMakeFiles/placeScan.dir/dt.cpp.o.requires
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/dt.cpp.o.provides.build
+.PHONY : CMakeFiles/placeScan.dir/dt.cpp.o.provides
+
+CMakeFiles/placeScan.dir/dt.cpp.o.provides.build: CMakeFiles/placeScan.dir/dt.cpp.o
+
 # Object files for target placeScan
 placeScan_OBJECTS = \
-"CMakeFiles/placeScan.dir/placeScan.cpp.o"
+"CMakeFiles/placeScan.dir/confidence.cpp.o" \
+"CMakeFiles/placeScan.dir/placeScanHelper.cpp.o" \
+"CMakeFiles/placeScan.dir/placeScan.cpp.o" \
+"CMakeFiles/placeScan.dir/dt.cpp.o"
 
 # External object files for target placeScan
 placeScan_EXTERNAL_OBJECTS =
 
+placeScan: CMakeFiles/placeScan.dir/confidence.cpp.o
+placeScan: CMakeFiles/placeScan.dir/placeScanHelper.cpp.o
 placeScan: CMakeFiles/placeScan.dir/placeScan.cpp.o
+placeScan: CMakeFiles/placeScan.dir/dt.cpp.o
 placeScan: CMakeFiles/placeScan.dir/build.make
 placeScan: /usr/local/lib/libopencv_videostab.so.3.0.0
 placeScan: /usr/local/lib/libopencv_videoio.so.3.0.0
@@ -135,7 +210,10 @@ placeScan: CMakeFiles/placeScan.dir/link.txt
 CMakeFiles/placeScan.dir/build: placeScan
 .PHONY : CMakeFiles/placeScan.dir/build
 
+CMakeFiles/placeScan.dir/requires: CMakeFiles/placeScan.dir/confidence.cpp.o.requires
+CMakeFiles/placeScan.dir/requires: CMakeFiles/placeScan.dir/placeScanHelper.cpp.o.requires
 CMakeFiles/placeScan.dir/requires: CMakeFiles/placeScan.dir/placeScan.cpp.o.requires
+CMakeFiles/placeScan.dir/requires: CMakeFiles/placeScan.dir/dt.cpp.o.requires
 .PHONY : CMakeFiles/placeScan.dir/requires
 
 CMakeFiles/placeScan.dir/clean:

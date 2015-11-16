@@ -115,6 +115,54 @@ placeScan/fast:
 	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/build
 .PHONY : placeScan/fast
 
+confidence.o: confidence.cpp.o
+.PHONY : confidence.o
+
+# target to build an object file
+confidence.cpp.o:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/confidence.cpp.o
+.PHONY : confidence.cpp.o
+
+confidence.i: confidence.cpp.i
+.PHONY : confidence.i
+
+# target to preprocess a source file
+confidence.cpp.i:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/confidence.cpp.i
+.PHONY : confidence.cpp.i
+
+confidence.s: confidence.cpp.s
+.PHONY : confidence.s
+
+# target to generate assembly for a file
+confidence.cpp.s:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/confidence.cpp.s
+.PHONY : confidence.cpp.s
+
+dt.o: dt.cpp.o
+.PHONY : dt.o
+
+# target to build an object file
+dt.cpp.o:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/dt.cpp.o
+.PHONY : dt.cpp.o
+
+dt.i: dt.cpp.i
+.PHONY : dt.i
+
+# target to preprocess a source file
+dt.cpp.i:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/dt.cpp.i
+.PHONY : dt.cpp.i
+
+dt.s: dt.cpp.s
+.PHONY : dt.s
+
+# target to generate assembly for a file
+dt.cpp.s:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/dt.cpp.s
+.PHONY : dt.cpp.s
+
 placeScan.o: placeScan.cpp.o
 .PHONY : placeScan.o
 
@@ -139,6 +187,30 @@ placeScan.cpp.s:
 	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/placeScan.cpp.s
 .PHONY : placeScan.cpp.s
 
+placeScanHelper.o: placeScanHelper.cpp.o
+.PHONY : placeScanHelper.o
+
+# target to build an object file
+placeScanHelper.cpp.o:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/placeScanHelper.cpp.o
+.PHONY : placeScanHelper.cpp.o
+
+placeScanHelper.i: placeScanHelper.cpp.i
+.PHONY : placeScanHelper.i
+
+# target to preprocess a source file
+placeScanHelper.cpp.i:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/placeScanHelper.cpp.i
+.PHONY : placeScanHelper.cpp.i
+
+placeScanHelper.s: placeScanHelper.cpp.s
+.PHONY : placeScanHelper.s
+
+# target to generate assembly for a file
+placeScanHelper.cpp.s:
+	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/placeScanHelper.cpp.s
+.PHONY : placeScanHelper.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -148,9 +220,18 @@ help:
 	@echo "... edit_cache"
 	@echo "... placeScan"
 	@echo "... rebuild_cache"
+	@echo "... confidence.o"
+	@echo "... confidence.i"
+	@echo "... confidence.s"
+	@echo "... dt.o"
+	@echo "... dt.i"
+	@echo "... dt.s"
 	@echo "... placeScan.o"
 	@echo "... placeScan.i"
 	@echo "... placeScan.s"
+	@echo "... placeScanHelper.o"
+	@echo "... placeScanHelper.i"
+	@echo "... placeScanHelper.s"
 .PHONY : help
 
 

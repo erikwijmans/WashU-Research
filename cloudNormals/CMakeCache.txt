@@ -76,7 +76,7 @@ CMAKE_BUILD_TYPE:STRING=
 CMAKE_COLOR_MAKEFILE:BOOL=ON
 
 //CXX compiler.
-CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/c++
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++-4.9
 
 //Flags used by the compiler during all build types.
 CMAKE_CXX_FLAGS:STRING=
@@ -425,6 +425,9 @@ cloudNormals_BINARY_DIR:STATIC=/home/erik/Projects/c++/cloudNormals
 
 //Value Computed by CMake
 cloudNormals_SOURCE_DIR:STATIC=/home/erik/Projects/c++/cloudNormals
+
+//The directory containing a CMake configuration file for gflags.
+gflags_DIR:PATH=/usr/local/lib/cmake/gflags
 
 
 ########################

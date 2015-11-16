@@ -103,6 +103,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named csvToBinary
+
+# Build rule for target.
+csvToBinary: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 csvToBinary
+.PHONY : csvToBinary
+
+# fast build rule for target.
+csvToBinary/fast:
+	$(MAKE) -f CMakeFiles/csvToBinary.dir/build.make CMakeFiles/csvToBinary.dir/build
+.PHONY : csvToBinary/fast
+
+#=============================================================================
 # Target rules for targets named scanDensity
 
 # Build rule for target.
@@ -114,6 +127,30 @@ scanDensity: cmake_check_build_system
 scanDensity/fast:
 	$(MAKE) -f CMakeFiles/scanDensity.dir/build.make CMakeFiles/scanDensity.dir/build
 .PHONY : scanDensity/fast
+
+csvToBinary.o: csvToBinary.cpp.o
+.PHONY : csvToBinary.o
+
+# target to build an object file
+csvToBinary.cpp.o:
+	$(MAKE) -f CMakeFiles/csvToBinary.dir/build.make CMakeFiles/csvToBinary.dir/csvToBinary.cpp.o
+.PHONY : csvToBinary.cpp.o
+
+csvToBinary.i: csvToBinary.cpp.i
+.PHONY : csvToBinary.i
+
+# target to preprocess a source file
+csvToBinary.cpp.i:
+	$(MAKE) -f CMakeFiles/csvToBinary.dir/build.make CMakeFiles/csvToBinary.dir/csvToBinary.cpp.i
+.PHONY : csvToBinary.cpp.i
+
+csvToBinary.s: csvToBinary.cpp.s
+.PHONY : csvToBinary.s
+
+# target to generate assembly for a file
+csvToBinary.cpp.s:
+	$(MAKE) -f CMakeFiles/csvToBinary.dir/build.make CMakeFiles/csvToBinary.dir/csvToBinary.cpp.s
+.PHONY : csvToBinary.cpp.s
 
 scanDensity.o: scanDensity.cpp.o
 .PHONY : scanDensity.o
@@ -145,9 +182,13 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
+	@echo "... csvToBinary"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... scanDensity"
+	@echo "... csvToBinary.o"
+	@echo "... csvToBinary.i"
+	@echo "... csvToBinary.s"
 	@echo "... scanDensity.o"
 	@echo "... scanDensity.i"
 	@echo "... scanDensity.s"

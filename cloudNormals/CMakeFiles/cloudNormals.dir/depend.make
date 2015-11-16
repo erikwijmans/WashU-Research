@@ -240,6 +240,9 @@ CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/flann/util/sa
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/flann/util/saving.h
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/flann/util/serialization.h
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/flann/util/timer.h
+CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/gflags/gflags.h
+CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/gflags/gflags_declare.h
+CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/gflags/gflags_gflags.h
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/pcl-1.7/pcl/ModelCoefficients.h
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/pcl-1.7/pcl/PCLHeader.h
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: /usr/local/include/pcl-1.7/pcl/PCLImage.h

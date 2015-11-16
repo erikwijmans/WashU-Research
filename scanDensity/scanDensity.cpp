@@ -49,33 +49,26 @@ DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
 DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
 DEFINE_bool(quiteMode, false, "Turns of all extrenous statements");
 DEFINE_bool(preview, true, "Turns on previews of the output");
-DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/binaryFiles/",
+DEFINE_bool(redo, false, "Recreates the density map even if it already exists");
+DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/",
 	"Path to binary files");
-DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/",
+DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
 	"Path to output folder");
-DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/densityMaps/zeros/",
+DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
 	"Path to folder where the pixel cordinates of (0,0) will be written to");
 DEFINE_double(scale, 73.5, "scale used to size the density maps");
 DEFINE_int32(startIndex, 0, "Number to start with");
 DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
 
 
-
 int main(int argc, char *argv[])
 {
-	string usage = "This program takes a folder"; 
-	usage+=" of binary point clouds and turns them into their floorplans.";
-	// gflags::SetUsageMessage(usage);
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
+
 	
-	size_t startTime, endTime;
-	startTime = clock();
 	cvNamedWindow("Preview", WINDOW_NORMAL);
 
 	vector<string> binaryNames;
-
-	
-
 	
 	DIR *dir;
 	struct dirent *ent;
@@ -103,39 +96,63 @@ int main(int argc, char *argv[])
 	}
 	
 	
-	
+	cout << "Scan Density Done!" << endl;
 
 	return 0;
 }
 
 void analyzeScan(const string & fileName, const string & outputFolder){
 	const string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
-	cout << scanNumber << endl;
-    ifstream scanFile (fileName, ios::in | ios::binary);
+	if(!FLAGS_quiteMode)
+		cout << scanNumber << endl;
 
-    int columns, rows;
-   	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
-   	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
-    
+	if(FLAGS_pe && !FLAGS_redo) {
+		const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
+		cv::Mat img = imread(imageName);
+		if(img.data)
+			return;
+	}
+	if(FLAGS_fe && !FLAGS_redo) {
+		const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
+		cv::Mat img = imread(imageName);
+		if(img.data)
+			return;
+	}
 
-    
-    float pointMax [3], pointMin[3];
-    pointMax[0] = pointMax[1] = pointMax[2] 
-    	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
-    
-    vector<Vector3f > points;
-    for (int k = 0; k < columns * rows; ++k) {
-	    Vector3f point;
+	if(!FLAGS_pe && !FLAGS_fe && !FLAGS_redo) {
+		const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
+		cv::Mat img = imread(imageName);
+		const string imageName2 = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
+		cv::Mat img2 = imread(imageName2);
+		if(img.data && img2.data)
+			return;
+	}
+
+  ifstream scanFile (fileName, ios::in | ios::binary);
+
+  int columns, rows;
+ 	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
+ 	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
+  
+
+  
+  float pointMax [3], pointMin[3];
+  pointMax[0] = pointMax[1] = pointMax[2] 
+  	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
+  
+  vector<Vector3f > points;
+  for (int k = 0; k < columns * rows; ++k) {
+    Vector3f point;
 		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(Vector3f));
-		
+	
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
 			continue;
 		if(point[0]*point[0] + point[1]*point[1] < 1)
 			continue;
-		
-	  	
-	    points.push_back(point);
+  	
+    points.push_back(point);
 	}
+
 	scanFile.close();
 
 	float  zNormFactors [2];
@@ -192,8 +209,8 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 	double dY = 1.1*9*sigmaX;
 	double dZ = 1.1*6*sigmaZ;
 
-    pointMin[0] = averageX - dX/2;
-  	pointMin[1] = averageY - dY/2;
+  pointMin[0] = averageX - dX/2;
+	pointMin[1] = averageY - dY/2;
 	pointMin[2] = averageZ - dZ/2;
 
 	pointMax[0] = averageX + dX/2;
@@ -207,7 +224,7 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 void examinePointEvidence(const vector<Vector3f > & points,
 	const float* pointMin, const float * pointMax, 
 	const string & outputFolder, const string & scanNumber){
-	const int numZ = 120;
+	const int numZ = 100;
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	const int numCols = FLAGS_scale * (pointMax[0] - pointMin[0]);
@@ -361,7 +378,8 @@ void examinePointEvidence(const vector<Vector3f > & points,
 	}
 
 	const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
-	displayPointEvenidence(numTimesSeen, imageName, 3);
+	displayPointEvenidence(numTimesSeen, imageName, 2.0);
+
 }
 
 void displayPointEvenidence(const vector<VectorXf> & numTimesSeen, 
@@ -414,7 +432,7 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 		{
 			if(numTimesSeen[i][j] != 0){
 				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (numTimesSeen[i][j] -average - 1.5*sigma) 
+					 static_cast<int>(255.0 * (numTimesSeen[i][j] - average - 1.5*sigma) 
 					 	/ (bias * sigma))));
 				dst[j] = 255 - gray;
 				/*int red, green, blue;
@@ -450,7 +468,6 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 		imshow("Preview", heatMap);
 		waitKey(0);
 	}
-	
 	
 	imwrite(imageName, heatMap);
 }

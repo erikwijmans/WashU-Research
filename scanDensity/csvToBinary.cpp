@@ -8,24 +8,27 @@
 #include <time.h>
 #include <algorithm>
 
+#include <gflags/gflags.h>
+
+DEFINE_bool(redo, false, "Redo all the cloud_normals");
+DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/", 
+	"Path to binary files");
+DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/PTXFiles/",
+ "Path to Output");
+
 using namespace std;
 void csvToBinary(const string &, const string &);
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-
-	if(argc <3){
-		cout << "Usage:  csvToBinary <csvFileFolder>/ <binaryFileFolder>/" << endl;
-		return -1;
-	}
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
 
 	std::vector<string> csvFileNames;
-	const char * fileFolderIn = argv[1];
-	const char * fileFolderOut = argv[2];
+	
 	
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir (fileFolderIn)) != NULL) {
+	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
 	  /* Add all the files and directories to a vector */
 	  while ((ent = readdir (dir)) != NULL) {
 	  	string fileName = ent->d_name;
@@ -43,8 +46,8 @@ int main(int argc, char const *argv[])
 	sort(csvFileNames.begin(), csvFileNames.end());
 	for (int i = 0; i < csvFileNames.size(); ++i)
 	{
-		string csvFileName = fileFolderIn + csvFileNames[i];
-		string binaryFileName = fileFolderOut + 
+		const string csvFileName = FLAGS_inFolder + csvFileNames[i];
+		const string binaryFileName = FLAGS_outFolder + 
 			csvFileNames[i].substr(0,csvFileNames[i].find(".")) + ".dat";
 		csvToBinary(csvFileName, binaryFileName);
 	}
@@ -54,21 +57,29 @@ int main(int argc, char const *argv[])
 }
 
 void csvToBinary(const string & fileNameIn, const string& fileNameOut){
-	cout << fileNameIn << endl << fileNameOut << endl;
+
+	if(!FLAGS_redo) {
+		ifstream out (fileNameOut, ios::in | ios::binary);
+		if(out.is_open())
+			return;
+	}
+
 	ifstream scanFile (fileNameIn, ios::in);
-    ofstream binaryFile (fileNameOut, ios::out | ios::binary);
-    int columns, rows;
-   	scanFile >> columns >> rows;
-    string line;
+  ofstream binaryFile (fileNameOut, ios::out | ios::binary);
+  
+  
+  int columns, rows;
+ 	scanFile >> columns >> rows;
+  string line;
 
-    binaryFile.write(reinterpret_cast<const char *> (& columns), sizeof(int));
-    binaryFile.write(reinterpret_cast<const char *> (& rows), sizeof(int));
+  binaryFile.write(reinterpret_cast<const char *> (& columns), sizeof(int));
+  binaryFile.write(reinterpret_cast<const char *> (& rows), sizeof(int));
 
 
-    for (int i = 0; i < 9; ++i)
-    {
-    	getline(scanFile, line);
-    }
+  for (int i = 0; i < 9; ++i)
+  {
+  	getline(scanFile, line);
+  }
 
 	size_t i = 0;
     for (int k = 0; k < columns * rows; ++k) {
@@ -94,16 +105,8 @@ void csvToBinary(const string & fileNameIn, const string& fileNameOut){
 					sizeof(float));
 			}
 		}
-
-		if((i % 2000000) == 0)
-	    	cout << "." << flush;
-	    
-
-	    
 	    i++;
-
 	}
-	cout << "Done" << endl;
 	scanFile.close();
 	binaryFile.close();
 }

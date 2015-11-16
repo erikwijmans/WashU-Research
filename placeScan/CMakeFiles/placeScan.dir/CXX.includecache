@@ -6,25 +6,21 @@
 
 #IncludeRegexTransform: 
 
-/home/erik/Projects/c++/placeScan/placeScan.cpp
-placeScan.h
-/home/erik/Projects/c++/placeScan/placeScan.h
-iostream
--
+/home/erik/Projects/c++/placeScan/placeScanHelper.cpp
+placeScan_placeScanHelper.h
+/home/erik/Projects/c++/placeScan/placeScan_placeScanHelper.h
 dirent.h
--
-fstream
--
-math.h
--
-time.h
 -
 opencv2/highgui.hpp
 -
 opencv2/imgproc.hpp
 -
+iostream
+-
+fstream
+-
 
-/home/erik/Projects/c++/placeScan/placeScan.h
+/home/erik/Projects/c++/placeScan/placeScan_placeScanHelper.h
 vector
 -
 string
@@ -38,8 +34,6 @@ Eigen/Sparse
 opencv2/core.hpp
 -
 gflags/gflags.h
--
-omp.h
 -
 
 /usr/local/include/Eigen/Cholesky

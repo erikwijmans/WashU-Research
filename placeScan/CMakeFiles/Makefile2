@@ -59,7 +59,7 @@ CMAKE_BINARY_DIR = /home/erik/Projects/c++/placeScan
 CMakeFiles/placeScan.dir/all:
 	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/depend
 	$(MAKE) -f CMakeFiles/placeScan.dir/build.make CMakeFiles/placeScan.dir/build
-	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles  1
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/placeScan/CMakeFiles  1 2 3 4
 	@echo "Built target placeScan"
 .PHONY : CMakeFiles/placeScan.dir/all
 
@@ -69,7 +69,7 @@ all: CMakeFiles/placeScan.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/placeScan.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/erik/Projects/c++/placeScan/CMakeFiles 1
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/erik/Projects/c++/placeScan/CMakeFiles 4
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/placeScan.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/erik/Projects/c++/placeScan/CMakeFiles 0
 .PHONY : CMakeFiles/placeScan.dir/rule

@@ -53,15 +53,15 @@ CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: CMakeFiles/cloudNormals.dir/flag
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o: cloudNormals.cpp
 	$(CMAKE_COMMAND) -E cmake_progress_report /home/erik/Projects/c++/cloudNormals/CMakeFiles $(CMAKE_PROGRESS_1)
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o -c /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp
+	/usr/bin/g++-4.9   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o -c /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp
 
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloudNormals.dir/cloudNormals.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp > CMakeFiles/cloudNormals.dir/cloudNormals.cpp.i
+	/usr/bin/g++-4.9  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp > CMakeFiles/cloudNormals.dir/cloudNormals.cpp.i
 
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloudNormals.dir/cloudNormals.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp -o CMakeFiles/cloudNormals.dir/cloudNormals.cpp.s
+	/usr/bin/g++-4.9  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/erik/Projects/c++/cloudNormals/cloudNormals.cpp -o CMakeFiles/cloudNormals.dir/cloudNormals.cpp.s
 
 CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o.requires:
 .PHONY : CMakeFiles/cloudNormals.dir/cloudNormals.cpp.o.requires
@@ -334,6 +334,7 @@ cloudNormals: /usr/local/lib/libvtkverdict-6.3.so.1
 cloudNormals: /usr/local/lib/libvtkIOPLY-6.3.so.1
 cloudNormals: /usr/local/lib/libvtkImagingStencil-6.3.so.1
 cloudNormals: /usr/local/lib/libvtkFiltersHyperTree-6.3.so.1
+cloudNormals: /usr/local/lib/libgflags.a
 cloudNormals: /usr/local/lib/libpcl_common.so
 cloudNormals: /usr/local/lib/libpcl_octree.so
 cloudNormals: /usr/local/lib/libpcl_io.so

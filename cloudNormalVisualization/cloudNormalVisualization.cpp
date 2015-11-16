@@ -152,7 +152,6 @@ int main(int argc, char const *argv[])
   ptxFile.close();
 
   cout << cloud->points.size() << endl;
-  io::savePLYFileBinary ("output.ply", *cloud);
 
   // Create the normal estimation class, and pass the input dataset to it
   NormalEstimationOMP<PointXYZRGB, Normal> ne;

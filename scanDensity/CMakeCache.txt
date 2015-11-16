@@ -114,7 +114,7 @@ CMAKE_OBJCOPY:FILEPATH=/usr/bin/objcopy
 CMAKE_OBJDUMP:FILEPATH=/usr/bin/objdump
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=scanDensity
+CMAKE_PROJECT_NAME:STATIC=csvToBinary
 
 //Path to a program.
 CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
@@ -287,6 +287,12 @@ OpenCV_LIB_DIR_DBG:PATH=
 
 //Path where release OpenCV libraries are located
 OpenCV_LIB_DIR_OPT:PATH=
+
+//Value Computed by CMake
+csvToBinary_BINARY_DIR:STATIC=/home/erik/Projects/c++/scanDensity
+
+//Value Computed by CMake
+csvToBinary_SOURCE_DIR:STATIC=/home/erik/Projects/c++/scanDensity
 
 //The directory containing a CMake configuration file for gflags.
 gflags_DIR:PATH=/usr/local/lib/cmake/gflags

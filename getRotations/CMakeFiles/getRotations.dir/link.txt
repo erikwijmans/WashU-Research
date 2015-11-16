@@ -1,0 +1,1 @@
+/usr/bin/g++-4.9    -std=c++14 -Ofast -pthread -fopenmp    CMakeFiles/getRotations.dir/getRotations.cpp.o  -o getRotations -rdynamic /usr/local/lib/libgflags.a 

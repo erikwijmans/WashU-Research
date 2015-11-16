@@ -10,6 +10,7 @@
 #include <vector>
 #include <fstream>
 #include <algorithm>
+#include <gflags/gflags.h>
 
 using namespace std;
 using namespace Eigen;
@@ -19,12 +20,16 @@ using namespace pcl;
 void calculateNormals(const string &, const string &);
 void createBoundingBox(float *, float*, const vector<Vector3f> &);
 
-int main(int argc, char const *argv[])
+DEFINE_bool(redo, false, "Redo all the cloud_normals");
+DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/", 
+	"Path to binary files");
+DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/cloudNormals/",
+ "Path to Output");
+
+int main(int argc, char *argv[])
 {
-	if(argc != 3){
-		cout << "Usage: dominateDirections.o <pathToPoints>/ <pathToOutput>/" << endl;
-		return -1;
-	}
+	
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
 	
 	std::vector<string> pointClouds;
 	const char * fileFolderIn = argv[1];
@@ -32,27 +37,27 @@ int main(int argc, char const *argv[])
 	
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir (fileFolderIn)) != NULL) {
+	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
 	  /* Add all the files and directories to a vector */
-	  while ((ent = readdir (dir)) != NULL) {
-	  	string fileName = ent->d_name;
-	  	if(fileName != ".." && fileName != "."){
-	  		pointClouds.push_back(fileName);
-	  	}
-	  }
-	  closedir (dir);
+		while ((ent = readdir (dir)) != NULL) {
+			string fileName = ent->d_name;
+			if(fileName != ".." && fileName != "."){
+				pointClouds.push_back(fileName);
+			}
+		}
+		closedir (dir);
 	}  else {
 	  /* could not open directory */
-	  perror ("");
-	  return EXIT_FAILURE;
+		perror ("");
+		return EXIT_FAILURE;
 	}
 
 	sort(pointClouds.begin(), pointClouds.end());
 	for(auto & pointCloud : pointClouds)
 	{
-		const string pointCloudName = fileFolderIn + pointCloud;
-		const string normalCloudName = fileFolderOut + 
-			pointCloud.substr(0,pointCloud.find(".")) + ".dat";
+		const string pointCloudName = FLAGS_inFolder + pointCloud;
+		const string normalCloudName = FLAGS_outFolder + 
+		pointCloud.substr(0,pointCloud.find(".")) + ".dat";
 		calculateNormals(pointCloudName, normalCloudName);
 	}
 	
@@ -62,25 +67,30 @@ int main(int argc, char const *argv[])
 
 void calculateNormals(const string & inFile, const string & outFile){
 	ifstream scanFile (inFile, ios::in | ios::binary);
-	cout << outFile << endl;
 
-    int columns, rows;
-   	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
-   	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
-    
-    vector<Vector3f > points;
-    for (int k = 0; k < columns*rows; ++k) {
-	    Vector3f point;
-		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(float)*3);
+	if(!FLAGS_redo) {
+		ifstream out (outFile, ios::binary | ios::in);
+		if(out.is_open())
+			return;
+	}
+
+	int columns, rows;
+	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
+	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
+
+	vector<Vector3f > points;
+	for (int k = 0; k < columns*rows; ++k) {
+		Vector3f point;
+		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
 
 		if (k% 5 != 0)
 			continue;
 
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
 			continue;
-	  	
 
-	    points.push_back(point);
+
+		points.push_back(point);
 	}
 
 	scanFile.close();
@@ -110,7 +120,7 @@ void calculateNormals(const string & inFile, const string & outFile){
 	// Create an empty kdtree representation, and pass it to the normal estimation object.
 	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
 	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree 
-		(new pcl::search::KdTree<pcl::PointXYZ> ());
+	(new pcl::search::KdTree<pcl::PointXYZ> ());
 	ne.setSearchMethod (tree);
 
 	// Output datasets
@@ -121,10 +131,6 @@ void calculateNormals(const string & inFile, const string & outFile){
 
 	// Compute the features
 	ne.compute (*cloud_normals);
-
-
-	cout << "Cloud size: " << cloud->points.size() << endl;
-	cout << "Normal size: " << cloud_normals->points.size() << endl;
 
 	ofstream binaryFile (outFile, ios::out | ios::binary);
 	size_t size = cloud_normals->points.size();
@@ -151,8 +157,7 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	double averageX, averageY, sigmaX, sigmaY, averageZ, sigmaZ;
 	averageX = averageY = sigmaX = sigmaY = averageZ = sigmaZ = 0;
 
-	for (auto & point : points)
-	{
+	for (auto & point : points) {
 		averageX += point[0];
 		averageY += point[1];
 		averageZ += point[2];
@@ -161,8 +166,7 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	averageY = averageY/points.size();
 	averageZ = averageZ/points.size();
 
-	for (auto & point : points)
-	{
+	for (auto & point : points) {
 		sigmaX += (point[0] - averageX)*(point[0] - averageX);
 		sigmaY += (point[1] - averageY)*(point[1] - averageY);
 		sigmaZ += (point[2] - averageZ)*(point[2] - averageZ);
@@ -178,8 +182,8 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	double dY = 1.1*5*sigmaX;
 	double dZ = 1.1*5*sigmaZ;
 
-    pointMax[0] = pointMax[1] = pointMax[2] 
-    	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
+	pointMax[0] = pointMax[1] = pointMax[2] 
+	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
 	for(auto & point : points){
 		if(point[0] <= (averageX - dX/2) || (point[0] >= averageX + dX/2) ||
 			(point[1] <= averageY - dY/2) || (point[1] >= averageY + dY/2) ||
@@ -187,11 +191,8 @@ void createBoundingBox(float * pointMin, float * pointMax,
 			continue;
 
 		for (int a = 0; a < 3; ++a) {
-	  		pointMax[a] = max(pointMax[a], point[a]);
-	  		pointMin[a] = min(pointMin[a], point[a]);
-	  	}
-
-			
+			pointMax[a] = max(pointMax[a], point[a]);
+			pointMin[a] = min(pointMin[a], point[a]);
+		}
 	}
-
 }
