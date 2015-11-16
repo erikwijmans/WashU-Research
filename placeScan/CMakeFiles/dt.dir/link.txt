@@ -1,1 +1,0 @@
-/usr/bin/g++    -std=c++14 -Ofast -fopenmp    CMakeFiles/dt.dir/dt.cpp.o  -o dt  -L/usr/local/cuda/lib64 -rdynamic 

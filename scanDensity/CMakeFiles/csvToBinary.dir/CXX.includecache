@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/erik/Projects/c++/scanDensity/csvToBinary.cpp
+/Users/erikwijmans/c++/scanDensity/csvToBinary.cpp
 stdio.h
 -
 iostream

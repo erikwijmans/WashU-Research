@@ -1,6 +1,6 @@
 /*Scanner units are proabaly in meters */
-#include <Eigen/Dense>
-#include <Eigen/StdVector>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/StdVector>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>

@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/placeScan.dir/confidence.cpp.o"
-  "CMakeFiles/placeScan.dir/placeScanHelper.cpp.o"
-  "CMakeFiles/placeScan.dir/placeScan.cpp.o"
   "CMakeFiles/placeScan.dir/dt.cpp.o"
+  "CMakeFiles/placeScan.dir/placeScan.cpp.o"
+  "CMakeFiles/placeScan.dir/placeScanHelper.cpp.o"
   "placeScan.pdb"
   "placeScan"
 )

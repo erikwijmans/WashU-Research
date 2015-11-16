@@ -1,7 +1,7 @@
 #ifndef DT_HPP_
 #define DT_HPP_
 
-#include <Eigen/Eigen>
+#include <eigen3/Eigen/Eigen>
 
 
 namespace dt{

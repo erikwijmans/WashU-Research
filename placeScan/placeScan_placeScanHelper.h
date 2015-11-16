@@ -5,9 +5,9 @@
 #include <vector>
 #include <string>
 
-#include <Eigen/Eigen>
-#include <Eigen/StdVector>
-#include <Eigen/Sparse>
+#include <eigen3/Eigen/Eigen>
+#include <eigen3/Eigen/StdVector>
+#include <eigen3/Eigen/Sparse>
 #include <opencv2/core.hpp>
 #include <gflags/gflags.h>
 
