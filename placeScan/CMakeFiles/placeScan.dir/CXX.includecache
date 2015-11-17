@@ -6,9 +6,55 @@
 
 #IncludeRegexTransform: 
 
-/home/erik/Projects/c++/placeScan/placeScanHelper.cpp
+/Users/erikwijmans/c++/placeScan/confidence.cpp
+placeScan_confidence.h
+/Users/erikwijmans/c++/placeScan/placeScan_confidence.h
+math.h
+-
+iostream
+-
+fstream
+-
+vector
+-
+string
+-
+algorithm
+-
+
+/Users/erikwijmans/c++/placeScan/dt.cpp
+dt.hpp
+/Users/erikwijmans/c++/placeScan/dt.hpp
+math.h
+-
+
+/Users/erikwijmans/c++/placeScan/dt.hpp
+eigen3/Eigen/Eigen
+-
+
+/Users/erikwijmans/c++/placeScan/placeScan.cpp
+placeScan_placeScan.h
+/Users/erikwijmans/c++/placeScan/placeScan_placeScan.h
+placeScan_confidence.h
+/Users/erikwijmans/c++/placeScan/placeScan_confidence.h
+iostream
+-
+fstream
+-
+math.h
+-
+time.h
+-
+opencv2/highgui.hpp
+-
+opencv2/imgproc.hpp
+-
+opencv2/core/eigen.hpp
+-
+
+/Users/erikwijmans/c++/placeScan/placeScanHelper.cpp
 placeScan_placeScanHelper.h
-/home/erik/Projects/c++/placeScan/placeScan_placeScanHelper.h
+/Users/erikwijmans/c++/placeScan/placeScan_placeScanHelper.h
 dirent.h
 -
 opencv2/highgui.hpp
@@ -20,7 +66,17 @@ iostream
 fstream
 -
 
-/home/erik/Projects/c++/placeScan/placeScan_placeScanHelper.h
+/Users/erikwijmans/c++/placeScan/placeScan_confidence.h
+placeScan_placeScanHelper.h
+/Users/erikwijmans/c++/placeScan/placeScan_placeScanHelper.h
+
+/Users/erikwijmans/c++/placeScan/placeScan_placeScan.h
+placeScan_placeScanHelper.h
+/Users/erikwijmans/c++/placeScan/placeScan_placeScanHelper.h
+omp.h
+-
+
+/Users/erikwijmans/c++/placeScan/placeScan_placeScanHelper.h
 vector
 -
 string
@@ -34,12 +90,6 @@ eigen3/Eigen/Sparse
 opencv2/core.hpp
 -
 gflags/gflags.h
--
-
-/usr/local/include/Eigen/src/Core/util/MKL_support.h
-mkl.h
--
-mkl_lapacke.h
 -
 
 /usr/local/include/eigen3/Eigen/Cholesky
@@ -1418,6 +1468,10 @@ inttypes.h
 
 /usr/local/include/gflags/gflags_gflags.h
 
+/usr/local/include/omp.h
+stdlib.h
+-
+
 /usr/local/include/opencv2/calib3d.hpp
 opencv2/core.hpp
 /usr/local/include/opencv2/opencv2/core.hpp
@@ -1525,6 +1579,10 @@ complex
 -
 ostream
 -
+
+/usr/local/include/opencv2/core/eigen.hpp
+opencv2/core.hpp
+/usr/local/include/opencv2/core/opencv2/core.hpp
 
 /usr/local/include/opencv2/core/mat.hpp
 opencv2/core/matx.hpp

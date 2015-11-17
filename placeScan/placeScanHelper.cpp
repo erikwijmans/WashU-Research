@@ -303,6 +303,7 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
+
 	if(!FLAGS_quiteMode)
 		std::cout << "Showing localMinima, " << numLoc << std::endl;
 	std::vector<posInfo> scores;
