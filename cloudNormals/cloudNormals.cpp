@@ -81,7 +81,7 @@ void calculateNormals(const string & inFile, const string & outFile){
 	vector<Vector3f > points;
 	for (int k = 0; k < columns*rows; ++k) {
 		Vector3f point;
-		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
+		scanFile.read(reinterpret_cast<char *> (&point), sizeof(point));
 
 		if (k% 5 != 0)
 			continue;

@@ -31,7 +31,6 @@ DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/
 	"Path to binary files");
 DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/cloudNormals/",
 	"Path to Output");
-DEFINE_int32(startIndex, 0 , "bleh");
 
 int main(int argc, char *argv[])
 {
@@ -74,9 +73,8 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	const string number = normalsFileName.substr(normalsFileName.find(".") - 3, 3);
 	const string rotOut = outputFolder + "DUC_rotation_" + number + ".dat";
 
-	if(FLAGS_verbose)
-		cout << number << endl;
-	
+	cout << number << endl;
+		
 	if(!FLAGS_redo) {
 		ifstream out (rotOut, ios::in | ios::binary);
 		if(out.is_open())
@@ -114,13 +112,13 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	int index = 0;
 	for (auto & normal : normals)
 	{
-		if(abs(normal.dot(d1)) <0.01)
+		if(abs(normal.dot(d1)) < 0.03)
 		{	
 			N2.resize(index*3 + 3);
 			N2[index*3] = normal[0];
 			N2[index*3 + 1] = normal[1];
 			N2[index*3 + 2] = normal[2];
-			index++;
+			++index;
 		}
 	}
 
@@ -135,9 +133,9 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 
 	vector<Matrix3d> R (4);
 
-	if(abs(d1[2]) < 0.01)
+	if(abs(d1[2]) < 0.02)
 		getMajorAngles(d1, R);
-	else if( abs(d2[2]) < 0.01)
+	else if( abs(d2[2]) < 0.02)
 		getMajorAngles(d2, R);
 	else
 		getMajorAngles(d3, R);
@@ -181,7 +179,7 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M)
 				ndata[1] = N[3*i+1];
 				ndata[2] = N[3*i+2];
 
-				if(acos(abs(nest.dot(ndata))) < 0.02)
+				if(acos(abs(nest.dot(ndata))) < 0.03)
 					numInliers++;
 			}
 
@@ -240,7 +238,7 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 				ndata[1] = N[3*i+1];
 				ndata[2] = N[3*i+2];
 
-				if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02)
+				if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.03)
 					numInliers++;
 			}
 

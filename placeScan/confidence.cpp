@@ -14,7 +14,7 @@ void confidence::findMostConfidentPlacements(std::vector<moreInfo> & info) {
   std::vector<std::string> rotationFileNames;
   std::vector<std::string> zerosFileNames;
 
-  place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames);
+  place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, NULL);
   const int numScans = pointFileNames.size();
 
   std::vector<moreInfo> scoreInfo;
@@ -25,7 +25,8 @@ void confidence::findMostConfidentPlacements(std::vector<moreInfo> & info) {
   }
 
   std::vector<int> localMins;
-  confidence::findLocalMinima(scoreInfo, localMins);
+  confidence::findLocalMinima(scoreInfo, localMins,
+   pointFileNames, rotationFileNames, zerosFileNames);
 
   for (auto & index : localMins) {
     info.push_back(scoreInfo[index]);
@@ -55,11 +56,28 @@ void confidence::loadInPlacement(const std::string & scanName,
 
   for (auto s : scoretmp)
     if (s.score == minScore)
-      scoreVec.push_back({s, scanNum});
-  }
+      scoreVec.push_back({s, 0.0, scanNum});
+  
+}
 
-  void confidence::findLocalMinima(const std::vector<moreInfo> & scoreInfo,
-    std::vector<int> & localMins) {
+void confidence::findLocalMinima(const std::vector<moreInfo> & scoreInfo,
+  std::vector<int> & localMins,
+  std::vector<std::string> & pointFileNames, 
+  std::vector<std::string> & rotationFileNames, 
+  std::vector<std::string> & zerosFileNames) {
+
+    Eigen::MatrixXd fpNS = Eigen::MatrixXd(place::scanToSparse(floorPlan));
+    for(int i = 0; i < scoreInfo.size(); ++i) {
+      const std::string scanName = FLAGS_dmFolder + pointFileNames[scoreInfo[i].scanNum];
+      const std::string rotName = FLAGS_rotFolder + rotationFileNames[scoreInfo[i].scanNum];
+      const std::string zeroName = FLAGS_zerosFolder + zerosFileNames[scoreInfo[i].scanNum];
+      std::vector<cv::Mat> rotatedScans;
+      place::loadInScans(scanName, rotName, &zeroName, rotatedScans);
+
+
+    }
+
+
     double aveUnexp = 0;
     for (int i = 0; i < scoreInfo.size(); ++i) {
       const posInfo * current = &scoreInfo[i].s;
@@ -85,7 +103,8 @@ void confidence::loadInPlacement(const std::string & scanName,
     }
   }
 
-/*void confidence::lineInersectionKernel(){
+double confidence::TKernel(Eigen::MatrixXd & currentScanNS, 
+  Eigen::MatrixXd & currentFPNS) {
   Eigen::MatrixXd kernel (5,5);
   for(int i = 0; i < 5; ++i) {
     kernel(i,2) = 1;
@@ -93,8 +112,6 @@ void confidence::loadInPlacement(const std::string & scanName,
   }
   kernel(3,3) = 0;
   Eigen::MatrixXd kernelT = kernel.transpose();
-  Eigen::MatrixXd currentFPNS = Eigen::MatrixXd(currentFP);
-  Eigen::MatrixXd currentScanNS = Eigen::MatrixXd(currentScan);
 
 
   Eigen::MatrixXd diff = currentScanNS - currentFPNS;
@@ -116,5 +133,5 @@ void confidence::loadInPlacement(const std::string & scanName,
       }
     }
   }
-  score = std::max(score1, score2);
-}*/
+  double score = std::max(score1, score2);
+}

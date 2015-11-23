@@ -25,17 +25,16 @@ using namespace Eigen;
 
 
 
-void examinePointEvidence(const vector<Vector3f > &, const float *, const float *,
+void examinePointEvidence(const vector<Vector3f> &, const float *, const float *,
 	const string &, const string &);
-void createBoundingBox(float *, float *, float*, const vector<Vector3f > &);
-void examineFreeSpaceEvidence(const vector<Vector3f > &, const float*,
-	const float*, const float*, 
+void createBoundingBox(float *, float *, const vector<Vector3f> &);
+void examineFreeSpaceEvidence(const vector<Vector3f> &, const float*, const float *,
 	const string &, const string &);
 void showSlices(const vector<MatrixXi>  &, const int, const int, const int);
 void collapseFreeSpaceEvidence(const vector<MatrixXi> &, const int, const int,
 	const int, const string &, const string &);
-void displayCollapsed(const vector<VectorXi> &, const int, const int, const string &);
-void displayPointEvenidence(const vector<VectorXf> &, const string &, const int);
+void displayCollapsed(const MatrixXd &, const int, const int, const string &);
+void displayPointEvenidence(const MatrixXf &, const string &, const int);
 
 void analyzeScan(const string &, const string &);
 
@@ -47,8 +46,8 @@ static Mat heatMap;
 
 DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
 DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
-DEFINE_bool(quiteMode, false, "Turns of all extrenous statements");
-DEFINE_bool(preview, true, "Turns on previews of the output");
+DEFINE_bool(quiteMode, true, "Turns of all extrenous statements");
+DEFINE_bool(preview, false, "Turns on previews of the output");
 DEFINE_bool(redo, false, "Recreates the density map even if it already exists");
 DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/",
 	"Path to binary files");
@@ -90,10 +89,12 @@ int main(int argc, char *argv[])
 	sort(binaryNames.begin(), binaryNames.end());
 	if(FLAGS_numScans == -1)
 		FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
+
 	for(int i = FLAGS_startIndex; i < FLAGS_startIndex + FLAGS_numScans; ++i){
 		const string binaryFilePath = FLAGS_inFolder + binaryNames[i];
 		analyzeScan(binaryFilePath, FLAGS_outFolder);
 	}
+	
 	
 	
 	cout << "Scan Density Done!" << endl;
@@ -140,10 +141,10 @@ void analyzeScan(const string & fileName, const string & outputFolder){
   pointMax[0] = pointMax[1] = pointMax[2] 
   	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
   
-  vector<Vector3f > points;
+  vector<Vector3f> points;
   for (int k = 0; k < columns * rows; ++k) {
     Vector3f point;
-		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(Vector3f));
+		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
 	
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
 			continue;
@@ -155,20 +156,19 @@ void analyzeScan(const string & fileName, const string & outputFolder){
 
 	scanFile.close();
 
-	float  zNormFactors [2];
-	createBoundingBox(pointMin, pointMax, zNormFactors, points);
+	createBoundingBox(pointMin, pointMax, points);
 
 	if(FLAGS_pe || (!FLAGS_pe && !FLAGS_fe))
 		examinePointEvidence(points, pointMin, pointMax, outputFolder, scanNumber);
 
 	if(FLAGS_fe || (!FLAGS_pe && !FLAGS_fe))
-		examineFreeSpaceEvidence(points, pointMin, pointMax, zNormFactors, outputFolder, scanNumber);
+		examineFreeSpaceEvidence(points, pointMin, pointMax, outputFolder, scanNumber);
 }
 
 
 
-void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
-	const vector<Vector3f > & points){
+void createBoundingBox(float * pointMin, float * pointMax,
+	const vector<Vector3f> & points){
 	double averageX, averageY, sigmaX, sigmaY, averageZ, sigmaZ;
 	averageX = averageY = sigmaX = sigmaY = averageZ = sigmaZ = 0;
 
@@ -216,19 +216,16 @@ void createBoundingBox(float * pointMin, float * pointMax, float * zNormFactors,
 	pointMax[0] = averageX + dX/2;
 	pointMax[1] = averageY + dY/2;
 	pointMax[2] = averageZ + dZ/2;
-
-	zNormFactors[0] = averageZ;
-	zNormFactors[1] = sigmaZ;
 } 
 
-void examinePointEvidence(const vector<Vector3f > & points,
+void examinePointEvidence(const vector<Vector3f> & points,
 	const float* pointMin, const float * pointMax, 
 	const string & outputFolder, const string & scanNumber){
 	const int numZ = 100;
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	const int numCols = FLAGS_scale * (pointMax[0] - pointMin[0]);
-	const int numRows = FLAGS_scale * (pointMax[1] - pointMin[0]);
+	const int numRows = FLAGS_scale * (pointMax[1] - pointMin[1]);
 
 	heatMap = Mat (numRows, numCols, CV_8UC1, Scalar::all(255));
 
@@ -269,7 +266,6 @@ void examinePointEvidence(const vector<Vector3f > & points,
 	}
 	// io::savePLYFileBinary("output.ply",cloud);
 
-	// MatrixXf entropy = MatrixXf::Zero (heatMap.rows, heatMap.cols);
 	MatrixXf total = MatrixXf::Zero (heatMap.rows, heatMap.cols);
 	for(int i = 0; i < heatMap.rows; ++i)
 	{
@@ -284,105 +280,12 @@ void examinePointEvidence(const vector<Vector3f > & points,
 		}
 	}
 
-	/*for(int i = 0; i < heatMap.cols; ++i)
-	{
-		for (int j = 0; j < heatMap.rows; ++j)
-		{
-			if(total(i,j) == 0)
-				continue;
-			for (int k = 0; k < numZ; ++k)
-			{
-				if(numTimesSeen3D[i](j,k) != 0)
-				{
-					const double tmp = 1.0/total(i,j);
-					entropy(i,j) -= tmp*log(tmp);
-				}
-				
-			}
-		}
-	}
-
-	float aveEntropy, sigEntropy, aveTotal, sigTotal;
-	aveTotal = aveEntropy = sigTotal = sigEntropy = 0;
-	int eCount = 0;
-	int tCount = 0;
-	for (int i = 0; i < entropy.size(); ++i)
-	{
-		if(*(total.data() + i) != 0)
-		{
-			aveTotal += *(total.data() + i);
-			tCount ++ ;
-		}
-		if(*(entropy.data() + i) !=0)
-		{
-			aveEntropy += *(entropy.data() + i);
-			eCount++;
-		}	
-	}
-
-	aveTotal /= tCount;
-	aveEntropy /= eCount;
-
-	for (int i = 0; i < entropy.size(); ++i)
-	{
-		if(*(entropy.data() + i) !=0)
-			sigEntropy += (*(entropy.data() + i) - aveEntropy)*
-				(*(entropy.data() + i) - aveEntropy);
-		if(*(total.data() + i) !=0)
-			sigTotal += (*(total.data() + i) - aveTotal)*
-				(*(total.data() + i) - aveTotal);
-	}
-
-	
-	sigEntropy /= eCount;
-	sigTotal /= tCount;
-	sigEntropy = sqrt(sigEntropy);
-	sigTotal = sqrt(sigTotal);
-	
-	for (int i = 0; i < entropy.size(); ++i)
-	{
-		*(total.data() + i) = max(0.0, min(1.0,
-			((*(total.data() + i) - aveTotal)/sigTotal + 1.0)/ 2.0));
-
-		*(entropy.data() + i) = max(0.0, min(1.0,
-			((*(entropy.data() + i) - aveEntropy)/sigEntropy + 1.0)/ 2.0));
-
-		
-	}
-
-
-	for(int i = 0; i < heatMap.cols; ++i)
-	{
-		for (int j = 0; j < heatMap.rows; ++j)
-		{
-			numTimesSeen[i][j] = sqrt(entropy(i,j)*total(i,j));
-		}
-	}
-	string imageName = outputFolder + "DUC_entropy_" + scanNumber + ".png";
-	displayPointEvenidence(numTimesSeen, imageName, 2);
-
-	for(auto & v : numTimesSeen){
-		for (int i = 0; i < v.size(); ++i)
-		{
-			*(v.data() + i) = 0;
-		}
-	}*/
-
-
-	for (int y = 0; y < total.rows(); ++y)
-	{
-		for (int x = 0; x < total.cols(); ++x)
-		{
-			numTimesSeen[y][x] = total(y,x);
-		}
-	}
-
 	const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
-	displayPointEvenidence(numTimesSeen, imageName, 2.0);
+	displayPointEvenidence(total, imageName, 2.0);
 
 }
 
-void displayPointEvenidence(const vector<VectorXf> & numTimesSeen, 
+void displayPointEvenidence(const MatrixXf & numTimesSeen, 
 	const string & imageName,
 	const int bias){
 	double average, sigma;
@@ -390,27 +293,22 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 	int count = 0;
 	float minV = 1e10;
 	float maxV = 0;
-	for(auto & v: numTimesSeen){
-		const float * dataPtr = v.data();
-		for(int i = 0; i < v.size(); ++i){
-			if(*(dataPtr+ i) != 0){
-				count++;
-				average+= *(dataPtr + i);
-				minV = min(minV, *(dataPtr+i));
-				maxV = max(maxV, *(dataPtr + i));
-			}
+	const float * dataPtr = numTimesSeen.data();
+	for(int i = 0; i < numTimesSeen.size(); ++i) {
+		if(*(dataPtr+ i) != 0){
+			count++;
+			average+= *(dataPtr + i);
+			minV = min(minV, *(dataPtr+i));
+			maxV = max(maxV, *(dataPtr + i));
 		}
 	}
 
 
 	average = average/count;
 
-	for(auto & v: numTimesSeen){
-		const float * dataPtr = v.data();
-		for(int i = 0; i < v.size(); ++i){
-			if(*(dataPtr + i) !=0)
-				sigma += (*(dataPtr + i) - average)*(*(dataPtr + i)- average);
-		}
+	for(int i = 0; i < numTimesSeen.size(); ++i) {
+		if(*(dataPtr + i) !=0)
+			sigma += (*(dataPtr + i) - average)*(*(dataPtr + i)- average);
 	}
 
 	sigma = sigma/(count-1);
@@ -430,9 +328,9 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 		
 		for (int j = 0; j < heatMap.cols; ++j)
 		{
-			if(numTimesSeen[i][j] != 0){
+			if(numTimesSeen(i,j) != 0){
 				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (numTimesSeen[i][j] - average - 1.5*sigma) 
+					 static_cast<int>(255.0 * (numTimesSeen(i,j) - average - 1.5*sigma) 
 					 	/ (bias * sigma))));
 				dst[j] = 255 - gray;
 				/*int red, green, blue;
@@ -473,7 +371,7 @@ void displayPointEvenidence(const vector<VectorXf> & numTimesSeen,
 }
 
 void examineFreeSpaceEvidence(const vector<Vector3f> & points, 
-	const float* pointMin, const float * pointMax, const float * zNormFactors,
+	const float* pointMin, const float * pointMax,
 	const string & outputFolder, const string & scanNumber){
 
 	const float numZSimga = 2;
@@ -485,22 +383,15 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	float cameraCenter [3];
 	cameraCenter[0] = -1*pointMin[0];
 	cameraCenter[1] = -1*pointMin[1];
-	/*cameraCenter[2] = (-1*pointMin[2] - zNormFactors[0])
-		/(zNormFactors[1]) + numZSimga;*/
 	cameraCenter[2] = -1*pointMin[2];
 
 	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
 	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numY, numZ));
-	vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numX, numY));
 
-	
-
-	for(auto & point : points){
+	for(auto & point : points) {
 		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
 		int y = floor((point[1] - pointMin[1]) * FLAGS_scale);
-		/*int z = floor(((point[2] - zNormFactors[0])/(zNormFactors[1]) 
-			+ numZSimga) * zScale);*/
-		int z = floor((point[2] - pointMin[2])*zScale);
+		int z = floor((point[2] - pointMin[2]) * zScale);
 
 		if(x < 0 || x >= numX)
 			continue;
@@ -513,12 +404,9 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	}
 
 
-	for (int k = 0; k < numZ; ++k)
-	{
-		for (int j = 0; j < numY; ++j)
-		{
-			for (int i = 0; i < numX; ++i)
-			{
+	for (int k = 0; k < numZ; ++k) {
+		for (int j = 0; j < numY; ++j) {
+			for (int i = 0; i < numX; ++i) {
 				if(pointsPerVoxel[k](j,i)==0)
 					continue;
 
@@ -532,8 +420,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 				unitRay[1] = ray[1]/length;
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
-				for (int a = 1.2*(zScale+2*FLAGS_scale)/3; a < (int)floor(length); ++a)
-				{
+				for (int a = 0; a < (int)floor(length); ++a) {
 			
 					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
@@ -546,17 +433,15 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					if(voxelHit[2] < 0 || voxelHit[2] >= numZ)
 						continue;
 
-					numTimesSeen[voxelHit[2]](voxelHit[0], voxelHit[1])
-						+= pointsPerVoxel[k](j,i);
 					numTimesSeen4C[voxelHit[0]](voxelHit[1], voxelHit[2])
 						+= pointsPerVoxel[k](j,i);
 
 				}
-				
 			}
-			
 		}
 	}
+
+
 
 	collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
 	 outputFolder, scanNumber);
@@ -632,7 +517,7 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 	const int numZ, const int numY, const int numX,
 	const string & outputFolder, const string & scanNumber){
 
-	vector<VectorXi> collapsedMean (numY, VectorXi::Zero(numX));
+	MatrixXd collapsedMean = MatrixXd::Zero(numY, numX);
 
 	for (int i = 0; i < numX; ++i)
 	{
@@ -642,15 +527,15 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 			int count = 0;
 			for (int k = 0; k < numZ; ++k)
 			{
-				if(numTimesSeen[i](j,k) == 0)
-					continue;
-				mean += (double)numTimesSeen[i](j,k);
-				count++;
+				if(numTimesSeen[i](j,k) != 0) {
+					mean += static_cast<double>(numTimesSeen[i](j,k));
+					count++;
+				}
 			}
 			if(count == 0)
 				continue;
-			mean = mean/(double)count;
-			collapsedMean[j][i] = mean;
+			mean = mean/count;
+			collapsedMean(j,i) = mean;
 		}
 	}
 	const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
@@ -659,32 +544,32 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 	
 }
 
-void displayCollapsed(const vector<VectorXi> & numTimesSeen, 
+void displayCollapsed(const MatrixXd & numTimesSeen, 
 	const int numX, const int numY,
 	const string & imageName){
-	float average, sigma;
+	double average, sigma;
 	average, sigma = 0;
 	size_t count = 0;
-	for(auto & v : numTimesSeen){
-		for(int i = 0; i < v.size(); ++i){
-			if(*(v.data() + i) == 0)
-				continue;
-			average += *(v.data() + i);
-			count++;
+	const double * vPtr = numTimesSeen.data();
+	
+	for(int i = 0; i < numTimesSeen.size(); ++i) {
+		if(*(vPtr + i) != 0) {
+			average += *(vPtr + i);
+			++count;
 		}
+		
 	}
+
 	average = average/count;
 
-	for(auto & v : numTimesSeen){
-		for(int i = 0; i < v.size(); ++i){
-			if(*(v.data() + i)!=0)
-				sigma += (*(v.data() + i)-average)*( *(v.data() + i)-average);
-		}
+	for(int i = 0; i < numTimesSeen.size(); ++i){
+		if(*(vPtr + i)!=0)
+			sigma += (*(vPtr + i)-average)*(*(vPtr + i)-average);
 	}
 	sigma = sigma/(count - 1);
 	sigma = sqrt(sigma);
 
-	Mat collapsedMap (numY, numX, CV_8UC3, Scalar::all(255));
+	Mat collapsedMap (numY, numX, CV_8UC1, Scalar::all(255));
 
 	for (int j = 0; j < collapsedMap.rows; ++j)
 	{
@@ -692,11 +577,12 @@ void displayCollapsed(const vector<VectorXi> & numTimesSeen,
 		
 		for (int i = 0; i < collapsedMap.cols; ++i)
 		{
-			if(numTimesSeen[j][i] != 0){
+			if(numTimesSeen(j,i) != 0){
 				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (numTimesSeen[j][i]
-					  - average) / ((3 * sigma) + 1.0) / 2.0)));
-				int red, green, blue;
+					 static_cast<int>(255.0 *((numTimesSeen(j,i)
+					  - average) / (1.0*sigma) + 1.0) / 2.0)));
+				dst[i] = 255 - gray;
+				/*int red, green, blue;
 				if (gray < 128) {
 					red = 0;
 					blue = 2 * gray;
@@ -708,7 +594,7 @@ void displayCollapsed(const vector<VectorXi> & numTimesSeen,
 				}
 				dst[i*3] = blue;
 				dst[i*3 +1] = green;
-				dst[i*3 + 2] = red;
+				dst[i*3 + 2] = red;*/
 			}
 		} 
 	}
