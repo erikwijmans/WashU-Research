@@ -525,12 +525,13 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
 			
 			Eigen::SparseMatrix<double>  currentFPE = fpE.block(point[1], point[0], 
 				currentScan.rows(), currentScan.cols());
+			currentFPE.prune(1.0);
 
 			Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
 
 			for(int i = 0; i < diff.outerSize(); ++i) {
 				for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-					if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
+					if(it.value() > 0 /*&& currentMask(it.row(), it.col()) != 0*/)
 						scanFPsetDiff += it.value();
 				}
 			}
@@ -538,15 +539,15 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
 			diff = currentFP - scansE[scanIndex];
 			for(int i = 0; i < diff.outerSize(); ++i) {
 				for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-					if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
+					if(it.value() > 0 /*&& currentMask(it.row(), it.col()) != 0*/)
 						fpScanSetDiff += it.value();
 				}
 			}
 
-			/*const double score = 3.0/(2.0*currentScan.nonZeros()/scanFPsetDiff 
-				+ currentFP.nonZeros()/fpScanSetDiff);*/
-			const double score = scanFPsetDiff/numPixelsUnderMask[scanIndex]
-				+fpScanSetDiff/numFPPixelsUM;
+			const double score = 3.0/(2.0*currentScan.nonZeros()/scanFPsetDiff 
+				+ currentFP.nonZeros()/fpScanSetDiff);
+			/*const double score = scanFPsetDiff/numPixelsUnderMask[scanIndex]
+				+fpScanSetDiff/numFPPixelsUM;*/
 
 
 			posInfo tmp;
