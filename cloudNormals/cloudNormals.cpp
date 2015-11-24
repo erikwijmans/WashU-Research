@@ -21,6 +21,7 @@ void calculateNormals(const string &, const string &);
 void createBoundingBox(float *, float*, const vector<Vector3f> &);
 
 DEFINE_bool(redo, false, "Redo all the cloud_normals");
+DEFINE_bool(verbose, false, "Print more things");
 DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/", 
 	"Path to binary files");
 DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/cloudNormals/",
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
 
 void calculateNormals(const string & inFile, const string & outFile){
 	ifstream scanFile (inFile, ios::in | ios::binary);
+	cout << inFile << endl;
 
 	if(!FLAGS_redo) {
 		ifstream out (outFile, ios::binary | ios::in);
@@ -78,20 +80,24 @@ void calculateNormals(const string & inFile, const string & outFile){
 	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
 	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
 
+	int count = 0;
 	vector<Vector3f > points;
 	for (int k = 0; k < columns*rows; ++k) {
 		Vector3f point;
-		scanFile.read(reinterpret_cast<char *> (&point), sizeof(point));
-
-		if (k% 5 != 0)
-			continue;
+		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
 
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
+			continue;
+
+		++count;
+		if(count%7 != 0)
 			continue;
 
 
 		points.push_back(point);
 	}
+	if(FLAGS_verbose)
+		cout << points.size () << endl;
 
 	scanFile.close();
 
@@ -112,6 +118,8 @@ void calculateNormals(const string & inFile, const string & outFile){
 		PointXYZ point (points[i][0], points[i][1], points[i][2]);
 		cloud->points.push_back(point);
 	}
+	if(FLAGS_verbose)
+		cout << cloud->points.size() << endl;
 
 	// Create the normal estimation class, and pass the input dataset to it
 	NormalEstimationOMP<PointXYZ, Normal> ne;
@@ -145,7 +153,7 @@ void calculateNormals(const string & inFile, const string & outFile){
 		normals[1] = cloud_normals->points[i].normal_y;
 		normals[2] = cloud_normals->points[i].normal_z;
 		
-		binaryFile.write(reinterpret_cast<const char *> (&normals),
+		binaryFile.write(reinterpret_cast<const char *> (&normals[0]),
 			sizeof(Vector3f));
 	}
 
@@ -178,21 +186,15 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	sigmaY = sqrt(sigmaY);
 	sigmaZ = sqrt(sigmaZ);
 
-	double dX = 1.1*5*sigmaX;
-	double dY = 1.1*5*sigmaX;
+	double dX = 1.1*7*sigmaX;
+	double dY = 1.1*7*sigmaY;
 	double dZ = 1.1*5*sigmaZ;
 
-	pointMax[0] = pointMax[1] = pointMax[2] 
-	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
-	for(auto & point : points){
-		if(point[0] <= (averageX - dX/2) || (point[0] >= averageX + dX/2) ||
-			(point[1] <= averageY - dY/2) || (point[1] >= averageY + dY/2) ||
-			(point[2] <= averageZ - dZ/2 || point[2] >= averageZ + dZ/2))
-			continue;
+	pointMin[0] = averageX - dX/2;
+	pointMin[1] = averageY - dY/2;
+	pointMin[2] = averageZ - dZ/2;
 
-		for (int a = 0; a < 3; ++a) {
-			pointMax[a] = max(pointMax[a], point[a]);
-			pointMin[a] = min(pointMin[a], point[a]);
-		}
-	}
+	pointMax[0] = averageX + dX/2;
+	pointMax[1] = averageY + dY/2;
+	pointMax[2] = averageZ + dZ/2;
 }

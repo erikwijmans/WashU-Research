@@ -134,7 +134,6 @@ void analyzeScan(const string & fileName, const string & outputFolder){
   int columns, rows;
  	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
  	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
-  
 
   
   float pointMax [3], pointMin[3];
@@ -206,10 +205,11 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	}
 
 	double dX = 1.1*9*sigmaX;
-	double dY = 1.1*9*sigmaX;
+	double dY = 1.1*9*sigmaY;
 	double dZ = 1.1*6*sigmaZ;
 
-  pointMin[0] = averageX - dX/2;
+
+	pointMin[0] = averageX - dX/2;
 	pointMin[1] = averageY - dY/2;
 	pointMin[2] = averageZ - dZ/2;
 
@@ -240,7 +240,7 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	zeroZero[1] = static_cast<int>(zeroZero[1]);
 	const string zeroName = FLAGS_zerosFolder + "DUC_point_" + scanNumber + ".dat";
 	ofstream out (zeroName, ios::out | ios::binary);
-	out.write(reinterpret_cast<const char *> (&zeroZero), sizeof(Vector2d));
+	out.write(reinterpret_cast<const char *> (&zeroZero[0]), sizeof(Vector2d));
 	out.close();
 
 
@@ -256,8 +256,8 @@ void examinePointEvidence(const vector<Vector3f> & points,
 			continue; 
 		if( z < 0 || z >= numZ)
 			continue;
-		    
-	    numTimesSeen3D[y](x, z) +=1; 
+
+	  numTimesSeen3D[y](x, z) +=1; 
 	    /*if(y>=heatMap.rows/2 && y<= heatMap.rows/2+20
 	    	&& x>=heatMap.cols/2+120 && x<=heatMap.cols/2 + 140)
 	    	cloud.push_back(PointXYZ(x,y,z));*/
@@ -273,8 +273,9 @@ void examinePointEvidence(const vector<Vector3f> & points,
 		{
 			for (int k = 0; k < numZ; ++k)
 			{
-				if(numTimesSeen3D[i](j,k) != 0)
+				if(numTimesSeen3D[i](j,k) != 0) {
 					total(i,j)++;
+				}
 			}
 			
 		}
@@ -296,13 +297,12 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 	const float * dataPtr = numTimesSeen.data();
 	for(int i = 0; i < numTimesSeen.size(); ++i) {
 		if(*(dataPtr+ i) != 0){
-			count++;
+			++count;
 			average+= *(dataPtr + i);
 			minV = min(minV, *(dataPtr+i));
 			maxV = max(maxV, *(dataPtr + i));
 		}
 	}
-
 
 	average = average/count;
 

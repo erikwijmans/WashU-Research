@@ -265,34 +265,34 @@ void place::createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid) {
 	
 	for (int i = 0; i < FLAGS_numLevels; ++i) {
 		Eigen::SparseMatrix<double> & currentLevel = pyramid[i];
-		Eigen::SparseMatrix<double> newLevel (ceil(currentLevel.rows()/2), 
-			ceil(currentLevel.cols()/2));
+		Eigen::SparseMatrix<double> newLevel (ceil(currentLevel.rows()/2) + 1, 
+			ceil(currentLevel.cols()/2) + 1);
 
 		Eigen::MatrixXd currentLevelNS = Eigen::MatrixXd(currentLevel);
 		
 		int j;
-			for (j = 0; j < (currentLevel.rows()-1); j+=2) {
-				int k;
-				for (k = 0; k < (currentLevel.cols()-1); k+=2) {
-					double maxV = std::max(currentLevelNS(j,k),std::max(currentLevelNS(j,k+1),
+		for (j = 0; j < (currentLevel.rows()-1); j+=2) {
+			int k;
+			for (k = 0; k < (currentLevel.cols()-1); k+=2) {
+				double maxV = std::max(currentLevelNS(j,k),std::max(currentLevelNS(j,k+1),
 					std::max(currentLevelNS(j+1,k), currentLevelNS(j+1,k+1))));
-					tripletList.push_back(Eigen::Triplet<double> (j/2, k/2, maxV));
-				}
-				for(; k < currentLevel.cols(); ++k) {
-						tripletList.push_back(Eigen::Triplet<double> (j/2, k/2, currentLevelNS(j,k)));
-				}
+				tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
 			}
+			/*for(; k < currentLevel.cols(); ++k) {
+				tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), currentLevelNS(j,k)));
+			}*/
+		}
 
-			for (; j < currentLevel.rows(); ++j) {
-				int k;
-				for (k = 0; k < (currentLevel.cols()-1); k+=2) {
-					double maxV = std::max(currentLevelNS(j,k), currentLevelNS(j,k+1));
-					tripletList.push_back(Eigen::Triplet<double> (j/2, k/2, maxV));
-				}
-				for(; k < currentLevel.cols(); ++k) {
-						tripletList.push_back(Eigen::Triplet<double> (j/2, k/2, currentLevelNS(j,k)));
-				}
+		/*for (; j < currentLevel.rows(); ++j) {
+			int k;
+			for (k = 0; k < (currentLevel.cols()-1); k+=2) {
+				double maxV = std::max(currentLevelNS(j,k), currentLevelNS(j,k+1));
+				tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
 			}
+			for(; k < currentLevel.cols(); ++k) {
+				tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), currentLevelNS(j,k)));
+			}
+		} */
 		newLevel.setFromTriplets(tripletList.begin(), tripletList.end());
 		pyramid.push_back(newLevel);
 		tripletList.clear();
@@ -319,6 +319,29 @@ void place::createPyramid( std::vector<std::vector<Eigen::SparseMatrix<double> >
 			Eigen::MatrixXd scanNS = Eigen::MatrixXd(scan);
 
 			
+			int j;
+			for (j = 0; j < (scan.rows()-1); j+=2) {
+				int k;
+				for (k = 0; k < (scan.cols()-1); k+=2) {
+					double maxV = std::max(scanNS(j,k),std::max(scanNS(j,k+1),
+						std::max(scanNS(j+1,k), scanNS(j+1,k+1))));
+					tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
+				}
+				/*for(; k < scan.cols(); ++k) {
+					tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), scanNS(j,k)));
+				} */
+			}
+
+			/*for (; j < scan.rows(); ++j) {
+				int k;
+				for (k = 0; k < (scan.cols()-1); k+=2) {
+					double maxV = std::max(scanNS(j,k), scanNS(j,k+1));
+					tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
+				}
+				for(; k < scan.cols(); ++k) {
+					tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), scanNS(j,k)));
+				}
+			} */
 
 			newScan.setFromTriplets(tripletList.begin(), tripletList.end());
 			newLevel.push_back(newScan);
@@ -456,19 +479,20 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
 			
 			const Eigen::Vector3i point = points[i];
 			const int scanIndex = point[2];
-			/*const int xStop = fp.cols() - scans[scanIndex].cols();
+			const int xStop = fp.cols() - scans[scanIndex].cols();
 			const int yStop = fp.rows() - scans[scanIndex].rows();
 
 			if(point[0] < 0 || point[0] >=xStop)
 				continue;
 			if(point[1] < 0 || point[1] >= yStop)
-				continue;*/
+				continue;
 	
 			const Eigen::SparseMatrix<double> & currentScan = scans[scanIndex];
 			const Eigen::MatrixXd & currentMask = masks[scanIndex];
 
 			Eigen::SparseMatrix<double> currentFP = fp.block(point[1], point[0], 
 				currentScan.rows(), currentScan.cols());
+			currentFP.prune(1.0);
 
 			double numFPPixelsUM = 0;
 			for(int i = 0; i < currentFP.outerSize(); ++i) {
