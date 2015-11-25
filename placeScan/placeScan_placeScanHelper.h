@@ -48,6 +48,8 @@ typedef struct
 	int y = 0;
 } posInfo;
 
+typedef Eigen::Matrix<char, Eigen::Dynamic, Eigen::Dynamic> Matrixb;
+
 
 namespace place{
 	void parseFolders(std::vector<std::string> & pointFileNames, 

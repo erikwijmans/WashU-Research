@@ -114,7 +114,7 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	int index = 0;
 	for (auto & normal : normals)
 	{
-		if(abs(normal.dot(d1)) < 0.03)
+		if(abs(normal.dot(d1)) < 0.02)
 		{	
 			N2.resize(index*3 + 3);
 			N2[index*3] = normal[0];
@@ -179,7 +179,7 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M)
 			ndata[1] = N[3*i+1];
 			ndata[2] = N[3*i+2];
 
-			if(acos(abs(nest.dot(ndata))) < 0.03)
+			if(acos(abs(nest.dot(ndata))) < 0.02)
 				numInliers++;
 		}
 
@@ -229,7 +229,7 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 			ndata[1] = N[3*i+1];
 			ndata[2] = N[3*i+2];
 
-			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.03)
+			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02)
 				numInliers++;
 		}
 

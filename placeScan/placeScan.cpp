@@ -20,6 +20,7 @@ static constexpr double PI = 3.14159265;
 static int levelNum = FLAGS_numLevels;
 
 
+
 int main(int argc, char *argv[])
 {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -112,7 +113,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   
 
 
-  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6,6));
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4,4));
   std::vector<cv::Mat> rotatedScans, masks;
   place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
     maskName, rotatedScans, masks);
@@ -126,7 +127,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     rSSparse.push_back(scanToSparse(scan));
   }
 
-  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(10,10));
+  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1,1));
   for(auto & mask: masks) {
     cv::Mat dst;
     cv::erode(mask, dst, element);
@@ -157,11 +158,18 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   erodedSparsePyramid.clear();
   eMaskPyramid.clear();
 
-  std::vector<std::vector<Eigen::MatrixXd> > eMaskPyramidTrimmedNS;
+  std::vector<std::vector<MatrixXb> > eMaskPyramidTrimmedNS;
   for(auto & level : eMaskPyramidTrimmed) {
-    std::vector<Eigen::MatrixXd> tmp;
+    std::vector<MatrixXb> tmp;
     for(auto& mask : level) {
-      tmp.push_back(Eigen::MatrixXd(mask));
+      MatrixXb tmpMat = MatrixXb::Zero(mask.rows(), mask.cols());
+      for(int i = 0; i < mask.outerSize(); ++i) {
+        for(Eigen::SparseMatrix<double>::InnerIterator it (mask, i); it; ++it) {
+          if(it.value() != 0)
+            mask(it.row(), it.col()) = 1;
+        }
+      }
+      tmp.push_back(tmpMat);
     }
     eMaskPyramidTrimmedNS.push_back(tmp);
   }
@@ -170,7 +178,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   std::vector<Eigen::Vector4d> numPixelsUnderMask;
   findNumPixelsUnderMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS, numPixelsUnderMask);
 
-  if(FLAGS_debugMode)
+  if(FLAGS_debugMode || FLAGS_visulization)
     displayScanAndMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS);
 
   std::vector<Eigen::Vector3i> pointsToAnalyze;
@@ -212,7 +220,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     }
   }
 
-  findLocalMinima(scores, localMinima, 2.5);
+  findLocalMinima(scores, localMinima, 3.0);
   findGlobalMinima(scores, localMinima);
 
   if(FLAGS_save) {
@@ -278,12 +286,12 @@ void place::createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid) {
           std::max(currentLevelNS(j+1,k), currentLevelNS(j+1,k+1))));
         tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
       }
-      /*for(; k < currentLevel.cols(); ++k) {
+      for(; k < currentLevel.cols(); ++k) {
         tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), currentLevelNS(j,k)));
-      }*/
+      }
     }
 
-    /*for (; j < currentLevel.rows(); ++j) {
+    for (; j < currentLevel.rows(); ++j) {
       int k;
       for (k = 0; k < (currentLevel.cols()-1); k+=2) {
         double maxV = std::max(currentLevelNS(j,k), currentLevelNS(j,k+1));
@@ -292,7 +300,7 @@ void place::createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid) {
       for(; k < currentLevel.cols(); ++k) {
         tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), currentLevelNS(j,k)));
       }
-    } */
+    } 
     newLevel.setFromTriplets(tripletList.begin(), tripletList.end());
     pyramid.push_back(newLevel);
     tripletList.clear();
@@ -327,12 +335,12 @@ void place::createPyramid( std::vector<std::vector<Eigen::SparseMatrix<double> >
             std::max(scanNS(j+1,k), scanNS(j+1,k+1))));
           tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), maxV));
         }
-        /*for(; k < scan.cols(); ++k) {
+        for(; k < scan.cols(); ++k) {
           tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), scanNS(j,k)));
-        } */
+        } 
       }
 
-      /*for (; j < scan.rows(); ++j) {
+      for (; j < scan.rows(); ++j) {
         int k;
         for (k = 0; k < (scan.cols()-1); k+=2) {
           double maxV = std::max(scanNS(j,k), scanNS(j,k+1));
@@ -341,7 +349,7 @@ void place::createPyramid( std::vector<std::vector<Eigen::SparseMatrix<double> >
         for(; k < scan.cols(); ++k) {
           tripletList.push_back(Eigen::Triplet<double> (floor(j/2), floor(k/2), scanNS(j,k)));
         }
-      } */
+      } 
 
       newScan.setFromTriplets(tripletList.begin(), tripletList.end());
       newLevel.push_back(newScan);
@@ -488,11 +496,12 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
         continue;
   
       const Eigen::SparseMatrix<double> & currentScan = scans[scanIndex];
+      const Eigen::SparseMatrix<double> & currentScanE = scansE[scanIndex];
       const Eigen::MatrixXd & currentMask = masks[scanIndex];
 
       Eigen::SparseMatrix<double> currentFP = fp.block(point[1], point[0], 
         currentScan.rows(), currentScan.cols());
-      currentFP.prune(1.0);
+      //currentFP.prune(1.0);
 
       double numFPPixelsUM = 0;
       for(int i = 0; i < currentFP.outerSize(); ++i) {
@@ -549,21 +558,21 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       
       Eigen::SparseMatrix<double> currentFPE = fpE.block(point[1], point[0], 
         currentScan.rows(), currentScan.cols());
-      currentFPE.prune(1.0);
+      //currentFPE.prune(1.0);
 
       Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
 
       for(int i = 0; i < diff.outerSize(); ++i) {
         for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-          if(it.value() > 0 /*&& currentMask(it.row(), it.col()) != 0*/)
+          if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
             scanFPsetDiff += it.value();
         }
       }
 
-      diff = currentFP - scansE[scanIndex];
+      diff = currentFP - currentScanE;
       for(int i = 0; i < diff.outerSize(); ++i) {
         for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-          if(it.value() > 0 /*&& currentMask(it.row(), it.col()) != 0*/)
+          if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
             fpScanSetDiff += it.value();
         }
       }
@@ -574,20 +583,20 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       double diffEntropy = 0;
       for(int i = 0; i < diff.outerSize(); ++i) {
         for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-          if(it.value() > 0) {
-            const double tmp = it.value()/diffScore;
+          if(it.value() != 0) {
+            const double tmp = it.value()*it.value()/diffScore;
             diffEntropy -= tmp*log(tmp);
           }
         }
       }
 
-      const double score = (diffScore - fpScore) > 0 ? (diffScore - fpScore)*diffEntropy :
-        (diffScore - fpScore)/diffEntropy;
+      /*const double score = (diffScore - fpScore) > 0 ? (diffScore - fpScore)*diffEntropy :
+        (diffScore - fpScore)/diffEntropy;*/
 
-      /*const double score = 3.0/(2.0*currentScan.nonZeros()/scanFPsetDiff 
+      /*const double score = 3.0/(2.0*currentScan.nonZeros()/scanFPsetDiff
         + currentFP.nonZeros()/fpScanSetDiff);*/
-      /*const double score = scanFPsetDiff/numPixelsUnderMask[scanIndex]
-        +fpScanSetDiff/numFPPixelsUM;*/
+      const double score = scanFPsetDiff/numPixelsUnderMask[scanIndex]
+        +fpScanSetDiff/numFPPixelsUM;
 
 
       posInfo tmp;
@@ -664,7 +673,7 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
   std::vector<Eigen::SparseMatrix<double> > & fpPyramid,  
   std::vector<Eigen::SparseMatrix<double> > &erodedFpPyramid) {
 
-  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6,6));
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4,4));
   cv::Mat fpEroded (floorPlan.rows, floorPlan.cols, CV_8UC1);
   cv::erode(floorPlan, fpEroded, element);
 
