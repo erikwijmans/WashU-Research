@@ -2,6 +2,7 @@
 #define PLACESCAN_PLACE_SCAN_H_
 
 #include "placeScan_placeScanHelper.h"
+#include "placeScan_placeScanHelper2.h"
 
 #include <omp.h>
 
@@ -33,7 +34,7 @@ namespace place{
 	void findPlacement(const Eigen::SparseMatrix<double> & fp, 
 		const std::vector<Eigen::SparseMatrix<double> > & scans,const Eigen::SparseMatrix<double> & fpE, 
 		const std::vector<Eigen::SparseMatrix<double> > & scansE, 
-		const std::vector<Eigen::MatrixXd> & masks, const Eigen::Vector4d numPixelsUnderMask,
+		const std::vector<Eigen::MatrixXb> & masks, const Eigen::Vector4d numPixelsUnderMask,
 		const std::vector<Eigen::Vector3i> & points,
 		std::vector<posInfo> & scores);
 
@@ -49,7 +50,7 @@ namespace place{
 		std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid);
 
 	void findNumPixelsUnderMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
-		const std::vector<std::vector<Eigen::MatrixXd> > & eMaskPyramidTrimmedNS,
+		const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS,
 		std::vector<Eigen::Vector4d> & numPixelsUnderMask);
 
 	void blurMinima(const std::vector<posInfo> & scores, 

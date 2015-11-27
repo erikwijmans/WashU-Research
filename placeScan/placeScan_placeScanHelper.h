@@ -48,7 +48,9 @@ typedef struct
 	int y = 0;
 } posInfo;
 
-typedef Eigen::Matrix<char, Eigen::Dynamic, Eigen::Dynamic> Matrixb;
+namespace Eigen {
+typedef Eigen::Matrix<char, Eigen::Dynamic, Eigen::Dynamic> MatrixXb;
+}
 
 
 namespace place{
@@ -95,7 +97,7 @@ namespace place{
 		posInfo & scoreInfo);
 
 	void displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
-	const std::vector<std::vector<Eigen::MatrixXd> > & eMaskPyramidTrimmedNS);
+	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS);
 }
 
 

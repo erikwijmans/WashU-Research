@@ -33,7 +33,6 @@ DEFINE_int32(numScans, -1,
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");
 DEFINE_int32(numLevels, 5, "Number of levels in the pyramid");
 DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for placement");
-DEFINE_int32(stopNumber, -1, "All the things");
 
 
 std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> > zeroZero;
@@ -350,7 +349,7 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 			std::cout << minScore.scanPixels << "    " << minScore.fpPixels  << std::endl;
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
 		}
-
+		cv::imwrite("Out.png", output);
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
 	}
@@ -389,7 +388,7 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
 		}
 
-
+		cv::imwrite("Out.png", output);
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
 	}
@@ -618,12 +617,12 @@ void place::displayMostConfidentScan(const std::string & imageName,
 }
 
 void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
-	const std::vector<std::vector<Eigen::MatrixXd> > & eMaskPyramidTrimmedNS) {
+	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS) {
 
 	for(int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
 		for(int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
 			const Eigen::SparseMatrix<double> & currentScan = rSSparsePyramidTrimmed[i][j];
-			const Eigen::MatrixXd & currentMask = eMaskPyramidTrimmedNS[i][j];
+			const Eigen::MatrixXb & currentMask = eMaskPyramidTrimmedNS[i][j];
 			cv::Mat out (currentScan.rows(), currentScan.cols(), CV_8UC3, cv::Scalar::all(255));
 
 			for(int i = 0; i < out.rows; ++i) {

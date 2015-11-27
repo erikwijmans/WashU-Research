@@ -3,13 +3,15 @@
 
 #include "placeScan_placeScanHelper.h"
 
-typedef struct{
-	posInfo s;
-	double tKernScore;
-	int scanNum;
-} moreInfo;
+
 
 namespace confidence{
+	typedef struct{
+		posInfo s;
+		double tKernScore;
+		int scanNum;
+	} moreInfo;
+	
 	void findMostConfidentPlacements(std::vector<moreInfo> & scoreInfo);
 
 	void loadInPlacement(const std::string & scanName,

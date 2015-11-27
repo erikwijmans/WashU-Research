@@ -9,7 +9,7 @@
 #include <algorithm>
 
 
-void confidence::findMostConfidentPlacements(std::vector<moreInfo> & info) {
+void confidence::findMostConfidentPlacements(std::vector<confidence::moreInfo> & info) {
   std::vector<std::string> pointFileNames;
   std::vector<std::string> rotationFileNames;
   std::vector<std::string> zerosFileNames;
@@ -17,9 +17,9 @@ void confidence::findMostConfidentPlacements(std::vector<moreInfo> & info) {
   place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, NULL);
   const int numScans = pointFileNames.size();
 
-  std::vector<moreInfo> scoreInfo;
+  std::vector<confidence::moreInfo> scoreInfo;
 
-  for (int i = 0; i < FLAGS_stopNumber; ++i) {
+  for (int i = 0; i < numScans; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
     confidence::loadInPlacement(imageName, scoreInfo, i);
   }
@@ -34,7 +34,7 @@ void confidence::findMostConfidentPlacements(std::vector<moreInfo> & info) {
 }
 
 void confidence::loadInPlacement(const std::string & scanName,
-  std::vector<moreInfo> & scoreVec, const int scanNum) {
+  std::vector<confidence::moreInfo> & scoreVec, const int scanNum) {
   const std::string placementName = FLAGS_preDone +
   scanName.substr(scanName.find("_")-3, 3)
   + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
@@ -60,7 +60,7 @@ void confidence::loadInPlacement(const std::string & scanName,
   
 }
 
-void confidence::findLocalMinima(const std::vector<moreInfo> & scoreInfo,
+void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & scoreInfo,
   std::vector<int> & localMins,
   std::vector<std::string> & pointFileNames, 
   std::vector<std::string> & rotationFileNames, 
@@ -134,4 +134,5 @@ double confidence::TKernel(Eigen::MatrixXd & currentScanNS,
     }
   }
   double score = std::max(score1, score2);
+  return score;
 }
