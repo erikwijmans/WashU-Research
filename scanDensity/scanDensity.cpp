@@ -30,8 +30,8 @@ void examinePointEvidence(const vector<Vector3f> &, const float *, const float *
 void createBoundingBox(float *, float *, const vector<Vector3f> &);
 void examineFreeSpaceEvidence(const vector<Vector3f> &, const float*, const float *,
 	const string &, const string &);
-void showSlices(const vector<MatrixXi>  & numTimesSeen,
-	const int numZ, const int numY, const int numX, const int neg1Index, const string &);
+void showSlices(const MatrixXi & numTimesSeen,
+	const int numZ, const int numY, const int numX, const string &);
 void collapseFreeSpaceEvidence(const vector<MatrixXi> &, const int, const int,
 	const int, const string &, const string &);
 void displayCollapsed(const MatrixXd &, const int, const int, const string &);
@@ -388,7 +388,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 
 	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
 	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numY, numZ));
-	vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
+	// vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
 
 	for(auto & point : points) {
 		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
@@ -422,7 +422,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 				unitRay[1] = ray[1]/length;
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
-				for (int a = 0; a < (int)floor(length); ++a) {
+				for (int a = 0; a < floor(length); ++a) {
 			
 					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
@@ -438,24 +438,25 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					numTimesSeen4C[voxelHit[0]](voxelHit[1], voxelHit[2])
 						+= pointsPerVoxel[k](j,i);
 
-					numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
-						+= pointsPerVoxel[k](j,i);
+					/*numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
+						+= pointsPerVoxel[k](j,i); */
 
 				}
 			}
 		}
 	}
-	const int neg1 = FLAGS_scale*(-1.0 - pointMin[2]);
-	showSlices(numTimesSeen, numZ, numY, numX, neg1, scanNumber);
+	/*const int neg1 = floor(zScale*(-0 - pointMin[2]));
+	cout << neg1 << endl;
+	showSlices(numTimesSeen[neg1], numZ, numY, numX, scanNumber); */
 
-	/*collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
-	 outputFolder, scanNumber);*/
+	collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
+	 outputFolder, scanNumber);
 }
 
-void showSlices(const vector<MatrixXi> & numTimesSeen,
-	const int numZ, const int numY, const int numX, const int neg1Index, const string & scanNumber){
+void showSlices(const MatrixXi & currentSlice,
+	const int numZ, const int numY, const int numX, const string & scanNumber){
 
-	MatrixXi currentSlice = numTimesSeen[neg1Index];
+
 	float average, sigma;
 	average = sigma = 0;
 	size_t count = 0;
@@ -503,8 +504,8 @@ void showSlices(const vector<MatrixXi> & numTimesSeen,
 			}
 		} 
 	}
-	const string imageName = FLAGS_outFolder + "DUC_freeSpace_" + scanNumber + ".png";
-	imwrite(imageName, sliceMap);
+	/*const string imageName = FLAGS_outFolder + "DUC_freeSpace_" + scanNumber + ".png";
+	imwrite(imageName, sliceMap);*/
 
 	imshow("Preview", sliceMap);
 	waitKey(0); 

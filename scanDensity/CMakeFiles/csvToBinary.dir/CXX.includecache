@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/Users/erikwijmans/c++/scanDensity/csvToBinary.cpp
+/home/erik/Projects/c++/scanDensity/csvToBinary.cpp
 eigen3/Eigen/Core
 -
 stdio.h
@@ -611,8 +611,4 @@ inttypes.h
 -
 
 /usr/local/include/gflags/gflags_gflags.h
-
-/usr/local/include/omp.h
-stdlib.h
--
 

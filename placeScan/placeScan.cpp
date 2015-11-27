@@ -113,7 +113,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   
 
 
-  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4,4));
   std::vector<cv::Mat> rotatedScans, masks;
   place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
     maskName, rotatedScans, masks);
@@ -127,7 +127,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     rSSparse.push_back(scanToSparse(scan));
   }
 
-  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2,2));
+  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1,1));
   for(auto & mask: masks) {
     cv::Mat dst;
     cv::erode(mask, dst, element);
@@ -220,7 +220,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     }
   }
 
-  findLocalMinima(scores, localMinima, 2.0);
+  findLocalMinima(scores, localMinima, 2.5);
   findGlobalMinima(scores, localMinima);
 
   if(FLAGS_save) {
@@ -616,7 +616,7 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
   std::vector<Eigen::SparseMatrix<double> > & fpPyramid,  
   std::vector<Eigen::SparseMatrix<double> > &erodedFpPyramid) {
 
-  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4,4));
   cv::Mat fpEroded (floorPlan.rows, floorPlan.cols, CV_8UC1);
   cv::erode(floorPlan, fpEroded, element);
 
