@@ -30,7 +30,8 @@ void examinePointEvidence(const vector<Vector3f> &, const float *, const float *
 void createBoundingBox(float *, float *, const vector<Vector3f> &);
 void examineFreeSpaceEvidence(const vector<Vector3f> &, const float*, const float *,
 	const string &, const string &);
-void showSlices(const vector<MatrixXi>  &, const int, const int, const int);
+void showSlices(const vector<MatrixXi>  & numTimesSeen,
+	const int numZ, const int numY, const int numX, const int neg1Index, const string &);
 void collapseFreeSpaceEvidence(const vector<MatrixXi> &, const int, const int,
 	const int, const string &, const string &);
 void displayCollapsed(const MatrixXd &, const int, const int, const string &);
@@ -387,6 +388,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 
 	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
 	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numY, numZ));
+	vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
 
 	for(auto & point : points) {
 		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
@@ -436,80 +438,78 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					numTimesSeen4C[voxelHit[0]](voxelHit[1], voxelHit[2])
 						+= pointsPerVoxel[k](j,i);
 
+					numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
+						+= pointsPerVoxel[k](j,i);
+
 				}
 			}
 		}
 	}
+	const int neg1 = FLAGS_scale*(-1.0 - pointMin[2]);
+	showSlices(numTimesSeen, numZ, numY, numX, neg1, scanNumber);
 
-
-
-	collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
-	 outputFolder, scanNumber);
+	/*collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
+	 outputFolder, scanNumber);*/
 }
 
-void showSlices(const vector<MatrixXi>  & numTimesSeen, const int numSlices,
-	const int numZ, const int numXY){
-	const int divisions = floor((float)numZ/(numSlices+4));
+void showSlices(const vector<MatrixXi> & numTimesSeen,
+	const int numZ, const int numY, const int numX, const int neg1Index, const string & scanNumber){
 
-	for (int a = 3; a < numSlices+3; ++a)
-	{
-		MatrixXi currentSlice = numTimesSeen[divisions*a];
-		float average, sigma;
-		average, sigma = 0;
-		size_t count = 0;
-		
-		for(int i = 0; i < currentSlice.size(); ++i)
-		{
-			if(*(currentSlice.data() + i) ==0)
-				continue;
-			average += *(currentSlice.data() + i);
-			count ++;
-		}
-
-		average = average/count;
-
-		for (int i = 0; i < currentSlice.size(); ++i)
-		{
-			if(*(currentSlice.data() + i) !=0)
-				sigma+=(*(currentSlice.data() + i) - average)*
-					(*(currentSlice.data() + i) - average);
-		}
-		sigma = sigma/(count - 1);
-		sigma = sqrt(sigma);
-
-		Mat sliceMap (numXY, numXY, CV_8UC3, Scalar::all(0));
-
-		for (int j = 0; j < sliceMap.rows; ++j)
-		{
-			uchar * dst = sliceMap.ptr<uchar>(j);
-			
-			for (int i = 0; i < sliceMap.cols; ++i)
-			{
-				if(currentSlice(j,i) != 0){
-					const int gray = max(0, min(255,
-						 static_cast<int>(255.0 * (currentSlice(j,i)
-						  - average) / ((3 * sigma) + 1.0) / 2.0)));
-					int red, green, blue;
-					if (gray < 128) {
-						red = 0;
-						blue = 2 * gray;
-						green = 255 - blue;
-					} else {
-						blue = 0;
-						red = 2 * (gray - 128);
-						green = 255 - red;
-					}
-					dst[i*3] = blue;
-					dst[i*3 +1] = green;
-					dst[i*3 + 2] = red;
-				}
-			} 
-		}
-
-		imshow("Preview", sliceMap);
-		waitKey(500); 
-
+	MatrixXi currentSlice = numTimesSeen[neg1Index];
+	float average, sigma;
+	average = sigma = 0;
+	size_t count = 0;
+	
+	for(int i = 0; i < currentSlice.size(); ++i) {
+		if(*(currentSlice.data() + i) ==0)
+			continue;
+		average += *(currentSlice.data() + i);
+		count ++;
 	}
+
+	average = average/count;
+
+	for (int i = 0; i < currentSlice.size(); ++i) {
+		if(*(currentSlice.data() + i) !=0)
+			sigma+=(*(currentSlice.data() + i) - average)*
+				(*(currentSlice.data() + i) - average);
+	}
+	sigma = sigma/(count - 1);
+	sigma = sqrt(sigma);
+
+	Mat sliceMap (numY, numX, CV_8UC3, Scalar::all(255));
+
+	for (int j = 0; j < sliceMap.rows; ++j) {
+		uchar * dst = sliceMap.ptr<uchar>(j);
+		
+		for (int i = 0; i < sliceMap.cols; ++i) {
+			if(currentSlice(j,i) != 0){
+				const int gray = max(0, min(255,
+					 static_cast<int>(255.0 * (currentSlice(j,i)
+					  - average) / ((3 * sigma) + 1.0) / 2.0)));
+				int red, green, blue;
+				if (gray < 128) {
+					red = 0;
+					green = 2 * gray;
+					blue = 255 - green;
+				} else {
+					blue = 0;
+					red = 2 * (gray - 128);
+					green = 255 - red;
+				}
+				dst[i*3] = blue;
+				dst[i*3 +1] = green;
+				dst[i*3 + 2] = red;
+			}
+		} 
+	}
+	const string imageName = FLAGS_outFolder + "DUC_freeSpace_" + scanNumber + ".png";
+	imwrite(imageName, sliceMap);
+
+	imshow("Preview", sliceMap);
+	waitKey(0); 
+
+
 }
 
 
@@ -548,7 +548,7 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 	const int numX, const int numY,
 	const string & imageName){
 	double average, sigma;
-	average, sigma = 0;
+	average = sigma = 0;
 	size_t count = 0;
 	const double * vPtr = numTimesSeen.data();
 	

@@ -8,7 +8,7 @@ add_executable( scanDensity scanDensity.cpp )
 target_link_libraries( scanDensity ${OpenCV_LIBS} gflags)
 
 project(csvToBinary)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast")
 find_package(gflags REQUIRED)
 add_executable( csvToBinary csvToBinary.cpp )
 target_link_libraries( csvToBinary gflags)

@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/erik/Projects/c++/scanDensity/scanDensity.cpp
+/Users/erikwijmans/c++/scanDensity/scanDensity.cpp
 eigen3/Eigen/Dense
 -
 eigen3/Eigen/StdVector
@@ -38,12 +38,6 @@ gflags/gflags.h
 pcl/point_types.h
 -
 pcl/io/ply_io.h
--
-
-/usr/local/include/Eigen/src/Core/util/MKL_support.h
-mkl.h
--
-mkl_lapacke.h
 -
 
 /usr/local/include/eigen3/Eigen/Cholesky
@@ -1091,6 +1085,10 @@ inttypes.h
 -
 
 /usr/local/include/gflags/gflags_gflags.h
+
+/usr/local/include/omp.h
+stdlib.h
+-
 
 /usr/local/include/opencv2/calib3d.hpp
 opencv2/core.hpp

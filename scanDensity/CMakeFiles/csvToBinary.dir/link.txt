@@ -1,1 +1,1 @@
-/usr/bin/g++    -std=c++14 -Ofast -std=c++14 -Ofast -pthread    CMakeFiles/csvToBinary.dir/csvToBinary.cpp.o  -o csvToBinary  -L/usr/local/cuda/lib64 -rdynamic /usr/local/lib/libgflags.a -Wl,-rpath,/usr/local/cuda/lib64 
+/usr/bin/g++    -std=c++14 -Ofast -std=c++14 -Ofast -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/csvToBinary.dir/csvToBinary.cpp.o  -o csvToBinary  -L/usr/local/cuda/lib  /usr/local/lib/libgflags.a -Wl,-rpath,/usr/local/cuda/lib 

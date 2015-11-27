@@ -1,2 +1,2 @@
-/home/erik/Projects/c++/scanDensity/CMakeFiles/csvToBinary.dir
-/home/erik/Projects/c++/scanDensity/CMakeFiles/scanDensity.dir
+/Users/erikwijmans/c++/scanDensity/CMakeFiles/csvToBinary.dir
+/Users/erikwijmans/c++/scanDensity/CMakeFiles/scanDensity.dir
