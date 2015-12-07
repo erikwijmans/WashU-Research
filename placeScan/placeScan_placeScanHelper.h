@@ -19,10 +19,14 @@ DECLARE_bool(quiteMode);
 DECLARE_bool(tinyPreviewIn);
 DECLARE_bool(save);
 DECLARE_bool(debugMode);
+DECLARE_bool(reshow);
+DECLARE_bool(V1);
+DECLARE_bool(V2);
 DECLARE_string(floorPlan);
 DECLARE_string(dmFolder);
 DECLARE_string(rotFolder);
 DECLARE_string(preDone);
+DECLARE_string(preDoneV2);
 DECLARE_string(zerosFolder);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
@@ -31,29 +35,30 @@ DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 
 extern std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> > zeroZero;
-extern std::vector<int> globalMins;
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;
 
-
-typedef struct
-{
-	double score = 0;
-	double scanFP = 0;
-	double fpScan = 0;
-	int rotation = 0;
-	int fpPixels = 0;
-	int scanPixels = 0;
-	int x = 0;
-	int y = 0;
-} posInfo;
+#define NUM_ROTS 4
 
 namespace Eigen {
-typedef Eigen::Matrix<char, Eigen::Dynamic, Eigen::Dynamic> MatrixXb;
+	typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 }
 
 
 namespace place{
+
+	typedef struct
+	{
+		double score = 0;
+		double scanFP = 0;
+		double fpScan = 0;
+		int rotation = 0;
+		int fpPixels = 0;
+		int scanPixels = 0;
+		int x = 0;
+		int y = 0;
+	} posInfo;
+	
 	void parseFolders(std::vector<std::string> & pointFileNames, 
 		std::vector<std::string> & rotationFileNames,
 		std::vector<std::string> & zerosFileNames,
@@ -70,14 +75,14 @@ namespace place{
 	void trimScans(const std::vector<cv::Mat> & toTrim, 
 		std::vector<cv::Mat> & trimmedScans);
 
-	void savePlacement(const std::vector<posInfo> & scores, const std::vector<int> & localMinima, 
+	void savePlacement(const std::vector<const place::posInfo *> & minima,
 		const std::string & outName);
 
 	bool reshowPlacement(const std::string & scanName, const std::string & rotationFile,
-		const std::string & zerosFile);	
+		const std::string & zerosFile, const std::string & preDone);	
 
 	void displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
-		const std::vector<int> & localMinima, const std::vector<posInfo> & scores);
+		const std::vector<const place::posInfo *> & minima);
 
 	void loadInTruePlacement(const std::string & scanName);
 
@@ -97,8 +102,12 @@ namespace place{
 		posInfo & scoreInfo);
 
 	void displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
-	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS);
-}
+		const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS);
+
+	void erodeSparse(const Eigen::SparseMatrix<double> & src,
+		Eigen::SparseMatrix<double> & dst);
+
+} //namespace place
 
 
 #endif

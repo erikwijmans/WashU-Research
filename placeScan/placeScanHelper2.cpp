@@ -3,6 +3,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <fstream>
+#include <iostream>
 
 #include <math.h>
 
@@ -24,16 +25,10 @@ void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloor
     place::loadInPlacement(imageName, scoreInfo[i], i);
   }
 
-  Eigen::MatrixXd weightedFp = Eigen::MatrixXd::Zero(floorPlan.rows, floorPlan.cols);
-  for(int i = 0; i < floorPlan.rows; ++i) {
-    const uchar * src = floorPlan.ptr<uchar>(i);
-    for(int j = 0; j < floorPlan.cols; ++j) {
-      if(src[j] != 255)
-        weightedFp(i,j) = src[j]/255.0;
-    }
-  }
   
+  Eigen::MatrixXd weightedFp = Eigen::MatrixXd(place::scanToSparse(floorPlan));
 
+  
   for(auto & vec : scoreInfo) {
   	const std::string scanName = FLAGS_dmFolder + pointFileNames[vec[0].scanNum];
   	const std::string rotationFile = FLAGS_rotFolder + rotationFileNames[vec[0].scanNum];
@@ -72,21 +67,7 @@ void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloor
   	}
   }
 
-  std::vector<Eigen::Triplet<double> > tripletList;
-  const double * weightedFpPTR = weightedFp.data();
-  const int rows = weightedFp.rows();
-  
-  for(int i = 0; i < weightedFp.size(); ++i) {
-    if(*(weightedFpPTR + i) != 0) {
-      int x = floor(i/static_cast<double>(rows));
-      int y = i%rows;
-      tripletList.push_back(Eigen::Triplet<double>(y, x, *(weightedFpPTR + i)));
-    }
-  }
-
-  weightedFloorPlan = Eigen::SparseMatrix<double> (floorPlan.rows, floorPlan.cols);
-  weightedFloorPlan.setFromTriplets(tripletList.begin(), tripletList.end());
-
+  weightedFloorPlan = weightedFp.sparseView();
 }
 
 
@@ -97,24 +78,30 @@ void place::loadInPlacement(const std::string & scanName,
   + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
   std::ifstream in(placementName, std::ios::in | std::ios::binary);
 
-  int numLoc, numGlob;
-  in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
-  in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
-  std::vector<posInfo> scoretmp;
-  for (int i = 0; i < numLoc + numGlob; ++i) {
-    posInfo tmp;
+  int num;
+  in.read(reinterpret_cast<char *>(&num), sizeof(num));
+  std::vector<place::posInfo> scoretmp;
+  for (int i = 0; i < num; ++i) {
+    place::posInfo tmp;
     in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
     scoretmp.push_back(tmp);
   }
 
+  double minScore = 2e20;
+  for (auto & s : scoretmp) {
+    minScore = std::min(s.score, minScore);
+  }
+
   for (auto s : scoretmp)
-    scoreVec.push_back({s, scanNum});
-  
+    if (s.score == minScore)
+      scoreVec.push_back({s, scanNum});
 }
 
 
 void place::displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan) {
-	double maxV = 0;
+	if(!FLAGS_previewOut)
+    return;
+  double maxV = 0;
 
 	for(int i = 0; i < weightedFloorPlan.outerSize(); ++i) {
 		for(Eigen::SparseMatrix<double>::InnerIterator it (weightedFloorPlan, i); it; ++it ) {
@@ -125,13 +112,11 @@ void place::displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloor
 	cv::Mat out (weightedFloorPlan.rows(), weightedFloorPlan.cols(), CV_8UC3, cv::Scalar::all(255));
 	cv::Mat_<cv::Vec3b> _out = out;
 
-
 	for(int i = 0; i < weightedFloorPlan.outerSize(); ++i) {
 		for(Eigen::SparseMatrix<double>::InnerIterator it (weightedFloorPlan, i); it; ++it ) {
-			
-			if (it.value() > 1) {
-				const int gray = cv::saturate_cast<uchar>(255*it.value()/maxV);
-				int red, green, blue;
+      if(it.value() > 0) {
+        const int gray = cv::saturate_cast<uchar>(255*it.value()/maxV);
+        int red, green, blue;
         if (gray < 128) {
           red = 0;
           green = 2 * gray;
@@ -144,22 +129,14 @@ void place::displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloor
         _out(it.row(), it.col())[0] = blue;
         _out(it.row(), it.col())[1] = green;
         _out(it.row(), it.col())[2] = red;
-      } else if(it.value() > 0) {
-        _out(it.row(), it.col())[0] = 0;
-        _out(it.row(), it.col())[1] = 0;
-        _out(it.row(), it.col())[2] = 0;
       }
+			
     }
   } 
   out = _out;
-
-
-
-  cv::imwrite("Out.png", out);
-
-  cv::resize(out, out, cv::Size(out.cols/8, out.rows/8));
 
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
   cv::imshow("Preview", out);
   cv::waitKey(0);
 }
+

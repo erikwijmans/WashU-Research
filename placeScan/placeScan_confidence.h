@@ -7,8 +7,7 @@
 
 namespace confidence{
 	typedef struct{
-		posInfo s;
-		double tKernScore;
+		place::posInfo s;
 		int scanNum;
 	} moreInfo;
 	

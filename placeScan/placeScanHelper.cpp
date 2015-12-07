@@ -1,5 +1,7 @@
 #include "placeScan_placeScanHelper.h"
 
+#include <algorithm>
+
 #include <dirent.h>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -18,13 +20,18 @@ DEFINE_bool(tinyPreviewIn, false, "Shows the input scan before any processing");
 DEFINE_bool(save, true, "Saves the placements to file");
 DEFINE_bool(debugMode, false, 
 	"Turns save off, turns replace on, and forces the program to display the correct placement according to the placement files specified by the preDone flag");
+DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
+DEFINE_bool(V1, false, "Only will use V1 placement");
+DEFINE_bool(V2, false, "Ony will use V2 placement");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
 	"Path to the floor plan that the scan should be placed on");
 DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
 	"Path to folder containing densityMaps");
 DEFINE_string(rotFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/rotations/",
 	"Path to folder containing the dominate direction rotations");
-DEFINE_string(preDone, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/",
+DEFINE_string(preDone, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V1/",
+	"Path to folder containing previous placements of a scan");
+DEFINE_string(preDoneV2, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V2/",
 	"Path to folder containing previous placements of a scan");
 DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
 	"Path to folder where the pixel coordinates of (0,0) are");
@@ -36,12 +43,8 @@ DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for place
 
 
 std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> > zeroZero;
-std::vector<int> globalMins;
 cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
-
-
-
 
 
 void place::parseFolders(std::vector<std::string> & pointFileNames, 
@@ -115,7 +118,7 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 void place::loadInScans(const std::string & scanName, const std::string & rotationFile, 
 	 const std::string * zerosFile, std::vector<cv::Mat> & rotatedScans){
 	std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
-	std::vector<Eigen::Matrix3d> R (4);
+	std::vector<Eigen::Matrix3d> R (NUM_ROTS);
 	for (int i = 0; i < R.size(); ++i) {
 		binaryReader.read(reinterpret_cast<char *>(&R[i]),
 			sizeof(Eigen::Matrix3d));
@@ -125,8 +128,8 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 	if(zerosFile) {
 		binaryReader.open(*zerosFile, std::ios::in | std::ios::binary);
 		zeroZero.clear();
-		zeroZero.resize(4);
-		for (int i = 0; i < 4; ++i) {
+		zeroZero.resize(NUM_ROTS);
+		for (int i = 0; i < NUM_ROTS; ++i) {
 			binaryReader.read(reinterpret_cast<char *>(&zeroZero[i]),
 				sizeof(Eigen::Vector2d));
 			binaryReader.seekg(0);
@@ -150,9 +153,9 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 	const int colOffset = (maxDimension - scan.cols)/2;
 	const int rowOffset = (maxDimension - scan.rows)/2;
 	if(zerosFile) {
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < NUM_ROTS; ++i) {
 			zeroZero[i][0] += colOffset;
-			zeroZero[i][0] += rowOffset;
+			zeroZero[i][1] += rowOffset;
 		}
 	}
 
@@ -194,8 +197,8 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 			Eigen::Vector3d tmp (zeroZero[i][0], zeroZero[i][1], 0.0);
 			tmp = rot*(tmp - center) + center;
 			zeroZero[i][0] = tmp[0];
-			zeroZero[i][0] = tmp[1];
-			i++;
+			zeroZero[i][1] = tmp[1];
+			++i;
 		}
 	}
 
@@ -253,36 +256,22 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 		zeroZero[k][0] -= minCol;
 		zeroZero[k][1] -= minRow;
 		++k;
-	
 	}
 }
 
-void place::savePlacement(const std::vector<posInfo> & scores, const std::vector<int> & localMinima, 
+void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 	const std::string & outName){
 	std::ofstream out (outName, std::ios::out);
 	std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
 	out << "Score x y rotation" << std::endl;
-	const int numLoc = localMinima.size();
-	const int numGlob = globalMins.size();
-	outB.write(reinterpret_cast<const char *>(&numLoc), sizeof(numLoc));
-	outB.write(reinterpret_cast<const char *>(&numGlob), sizeof(numGlob));
-	out << "localMinima: " << std::endl;
-	for(auto index : localMinima){
-		posInfo minScore = scores[index];
+	const int num = minima.size() < 20 ? minima.size() : 20;
+	outB.write(reinterpret_cast<const char *>(&num), sizeof(num));
+	for(auto & min : minima){
+		place::posInfo  minScore = *min;
 		minScore.x += zeroZero[minScore.rotation][0];
 		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "
 			<< minScore.y << " " << minScore.rotation << std::endl;
-		
-		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(minScore));
-	}
-	out << std::endl << "globalMins: " << std::endl;
-	for(auto index : globalMins){
-		posInfo minScore = scores[index];
-		minScore.x += zeroZero[minScore.rotation][0];
-		minScore.y += zeroZero[minScore.rotation][1];
-		out << minScore.score << " " << minScore.x  << " "
-			<< minScore.y  << " " << minScore.rotation << std::endl;
 		
 		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(minScore));
 	}
@@ -291,8 +280,8 @@ void place::savePlacement(const std::vector<posInfo> & scores, const std::vector
 }
 
 bool place::reshowPlacement(const std::string & scanName, const std::string & rotationFile,
-	const std::string & zerosFile){
-	const std::string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
+	const std::string & zerosFile, const std::string & preDone) {
+	const std::string placementName = preDone + scanName.substr(scanName.find("_")-3, 3) 
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
 	if(!FLAGS_quiteMode)
 		std::cout << placementName << std::endl;
@@ -300,7 +289,7 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
 	if(!in.is_open())
 		return false;
-	if(!FLAGS_previewOut)
+	if(!FLAGS_previewOut || !FLAGS_reshow)
 		return true;
 
 	
@@ -308,26 +297,23 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 	place::loadInScans(scanName, rotationFile, &zerosFile, toTrim);
 	place::trimScans(toTrim, rotatedScans);
 
-	int numLoc, numGlob;
-	in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
-	in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
+	int num;
+	in.read(reinterpret_cast<char *>(&num), sizeof(num));
 
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
 
 	if(!FLAGS_quiteMode)
-		std::cout << "Showing localMinima, " << numLoc << std::endl;
-	std::vector<posInfo> scores;
-	for (int i = 0; i < numLoc; ++i) {
-		posInfo minScore;
+		std::cout << "Showing minima, " << num << std::endl;
+	std::vector<place::posInfo> scores;
+	for (int i = 0; i < num; ++i) {
+		place::posInfo minScore;
 		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
-		minScore.x -= zeroZero[minScore.rotation][0];
-		minScore.y -= zeroZero[minScore.rotation][1];
-		
+
 		cv::Mat bestScan = rotatedScans[minScore.rotation];
 
-		const int xOffset = minScore.x;
-		const int yOffset = minScore.y;
+		const int xOffset = minScore.x - zeroZero[minScore.rotation][0];
+		const int yOffset = minScore.y - zeroZero[minScore.rotation][1];
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
 		fpColor.copyTo(output);
 		
@@ -353,53 +339,14 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
 	}
-
-	if(!FLAGS_quiteMode)
-		std::cout << "Showing globalMins, " << numGlob << std::endl;
-	for (int i = 0; i < numGlob; ++i) {
-		posInfo minScore;
-		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
-		minScore.x -= zeroZero[minScore.rotation][0];
-		minScore.y -= zeroZero[minScore.rotation][1];
-		
-		cv::Mat bestScan = rotatedScans[minScore.rotation];
-
-		const int xOffset = minScore.x;
-		const int yOffset = minScore.y;
-		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
-		fpColor.copyTo(output);
-		
-		for (int i = 0; i < bestScan.rows; ++i) {
-			uchar * src = bestScan.ptr<uchar>(i);
-			uchar * dst = output.ptr<uchar>(i + yOffset);
-			for (int j = 0; j < bestScan.cols; ++j)
-			{
-				if(src[j]!=255){
-					dst[j*3 + xOffset*3] = 0;
-					dst[j*3 + xOffset*3 + 1] = 0;
-					dst[j*3 + xOffset*3 + 2] = 255 - src[j];
-				}
-			}
-		}
-		if(!FLAGS_quiteMode) {
-			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
-			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
-			std::cout << minScore.scanPixels << "    " << minScore.fpPixels  << std::endl;
-			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
-		}
-
-		cv::imwrite("Out.png", output);
-		cv::imshow("Preview", output);
-		cv::waitKey(0);
-	}
-
 	return true;
 }
 
 void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
-	const std::vector<int> & localMinima, const std::vector<posInfo> & scores){
+	const std::vector<const place::posInfo *> & minima) {
+	const int num = minima.size() < 20 ? minima.size() : 20;
 	if(!FLAGS_quiteMode) {
-		std::cout << "Num localMinima: " << localMinima.size() << std::endl;
+		std::cout << "Num minima: " << num << std::endl;
 		std::cout << "Press a key to begin displaying placement options" << std::endl;
 	}
 	
@@ -407,12 +354,15 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
 
-
-	for(auto & index : localMinima){
-		posInfo minScore = scores[index];
+	int i = 0;
+	for(auto & min : minima){
+		place::posInfo minScore = *min;
 		const int xOffset = minScore.x;
 		const int yOffset = minScore.y;
-		const Eigen::SparseMatrix<double> & currentScan = rSSparseTrimmed[minScore.rotation]; 
+		minScore.x += zeroZero[minScore.rotation][0];
+		minScore.y += zeroZero[minScore.rotation][1];
+		const Eigen::SparseMatrix<double> & currentScan = 
+			rSSparseTrimmed[minScore.rotation]; 
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
 		fpColor.copyTo(output);
 
@@ -426,52 +376,15 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 
 			}
 		}
-		
+
 		cv::imshow("Preview", output);
 		if(!FLAGS_quiteMode)
 			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
 			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
 			std::cout << minScore.scanPixels << "    " << minScore.fpPixels << std::endl << std::endl;
 		cv::waitKey(0);
-		
-		
 		~output;
-	}
-
-
-	if(!FLAGS_quiteMode)
-		std::cout << "Num globalMins: " << globalMins.size() << std::endl;
-	for(auto & globMin : globalMins) {
-		posInfo minScore = scores[globMin];
-		const int xOffset = minScore.x;
-		const int yOffset = minScore.y;
-		/*if(yOffset == 0)
-			continue;*/
-		const Eigen::SparseMatrix<double> & currentScan = rSSparseTrimmed[minScore.rotation]; 
-		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
-		fpColor.copyTo(output);
-
-		cv::Mat_<cv::Vec3b> _output = output;
-
-		for (int i = 0; i < currentScan.outerSize(); ++i) {
-			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
-				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
-				_output(it.row() + yOffset, it.col() + xOffset)[1]=0;
-				_output(it.row() + yOffset, it.col() + xOffset)[2]=255;
-
-			}
-		}
-
-		output = _output;
-		cv::imshow("Preview", output);
-		if(!FLAGS_quiteMode) {
-			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
-			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
-			std::cout << minScore.scanPixels << "    " << minScore.fpPixels << std::endl << std::endl;
-		}
-		
-		cv::waitKey(0);
-		~output;
+		if(++i == 20) break;
 	}
 }
 
@@ -480,13 +393,12 @@ void place::loadInTruePlacement(const std::string & scanName){
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
 
-	int numLoc, numGlob;
-	in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
-	in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
+	int num;
+	in.read(reinterpret_cast<char *>(&num), sizeof(num));
 
-	std::vector<posInfo> tmp (numLoc + numGlob);
-	for (int i = 0; i < numLoc + numGlob; ++i) {
-		in.read(reinterpret_cast<char *>(&tmp[i]), sizeof(posInfo));
+	std::vector<place::posInfo> tmp (num);
+	for (int i = 0; i < num; ++i) {
+		in.read(reinterpret_cast<char *>(&tmp[i]), sizeof(place::posInfo));
 	}
 
 	truePlacement.clear();
@@ -498,27 +410,32 @@ void place::loadInTruePlacement(const std::string & scanName){
 }
 
 void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed,
-	const std::vector<posInfo> & scores){
+	const std::vector<place::posInfo> & scores){
 
-	std::vector<int> tmp;
+	std::vector<const place::posInfo *> tmp;
 	const int offset = scores.size() - truePlacement.size();
 	for (int i = 0; i < truePlacement.size(); ++i) {
-		tmp.push_back(offset + i);
+		tmp.push_back(&scores[i]);
 	}
 
 	std::cout << "displaying true placement" << std::endl;
-	globalMins.clear();
-	place::displayOutput(rSSparseTrimmed, tmp, scores);
-
+	place::displayOutput(rSSparseTrimmed, tmp);
 }
 
 void place::sparseToImage(const Eigen::SparseMatrix<double> & toImage,
 	cv::Mat & imageOut){
 	imageOut = cv::Mat(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
 
+	double maxV = 0;
 	for (int i = 0; i < toImage.outerSize(); ++i) {
 		for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-			imageOut.at<uchar>(it.row(), it.col()) = 255 - 255*it.value();
+			maxV = std::max(maxV, it.value());
+		}
+	}
+
+	for (int i = 0; i < toImage.outerSize(); ++i) {
+		for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
+			imageOut.at<uchar>(it.row(), it.col()) = 255 - 255*it.value()/maxV;
 		}
 	}
 }
@@ -526,9 +443,16 @@ void place::sparseToImage(const Eigen::SparseMatrix<double> & toImage,
 cv::Mat place::sparseToImage(const Eigen::SparseMatrix<double> & toImage){
 	cv::Mat image (toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
 
+	double maxV = 0;
 	for (int i = 0; i < toImage.outerSize(); ++i) {
 		for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-			image.at<uchar>(it.row(), it.col()) = 255 - 255*it.value();
+			maxV = std::max(maxV, it.value());
+		}
+	}
+
+	for (int i = 0; i < toImage.outerSize(); ++i) {
+		for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
+			image.at<uchar>(it.row(), it.col()) = 255 - 255*it.value()/maxV;
 		}
 	}
 	return image;
@@ -575,7 +499,7 @@ Eigen::SparseMatrix<double> place::scanToSparse(const cv::Mat & scan) {
 
 void place::displayMostConfidentScan(const std::string & imageName, 
 	const std::string & rotationName, const std::string & zerosFile,
-	posInfo& minScore){
+	place::posInfo& minScore){
 	
 	std::vector<cv::Mat> rotatedScans;
 	loadInScans(imageName, rotationName, &zerosFile, rotatedScans);
@@ -614,7 +538,7 @@ void place::displayMostConfidentScan(const std::string & imageName,
 	cv::imshow("Preview", output);
 	cv::waitKey(0);
 	
-}
+} 
 
 void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
 	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS) {
@@ -656,4 +580,34 @@ void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix
 			cv::waitKey(0);
 		}
 	}
+}
+
+void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
+	Eigen::SparseMatrix<double> & dst) {
+	dst = Eigen::SparseMatrix<double>(src.rows(), src.cols());
+	std::vector<Eigen::Triplet<double> > tripletList;
+	Eigen::MatrixXd srcNS = Eigen::MatrixXd(src);
+
+	for(int i = 0; i < srcNS.cols(); ++i) {
+		for(int j = 0; j < srcNS.rows(); ++j) {
+			Eigen::Matrix3d kernel;
+			for(int k = -1; k < 1; ++k) {
+				for(int l = -1; l < 1; ++l) {
+					if(i + k < 0 || i + k >=srcNS.cols() ||
+						j+l < 0 || j + l >=srcNS.rows())
+						kernel(l+1,k+1) = 0;
+					else
+						kernel(l+1,k+1) = srcNS(j + l, i + k);
+				}
+			}
+			double maxV = 0;
+			const double * kernelPtr = kernel.data();
+			for(int i = 0; i < kernel.size(); ++i) {
+				maxV = std::max(maxV, *(kernelPtr + i));
+			}
+			if(maxV != 0)
+				tripletList.push_back(Eigen::Triplet<double> (j, i, maxV));
+		}
+	}
+	dst.setFromTriplets(tripletList.begin(), tripletList.end());
 }

@@ -4,11 +4,6 @@
 #include "placeScan_placeScanHelper.h"
 #include "placeScan_placeScanHelper2.h"
 
-#include <omp.h>
-
-
-#pragma omp declare reduction (merge : std::vector<posInfo> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
-#pragma omp declare reduction (merge : std::vector<int> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
 
 namespace place{
@@ -17,8 +12,8 @@ namespace place{
 		const std::string & rotationFile, const std::string & zerosFile,
 		const std::string & maskName);
 
-	void findLocalMinima(const std::vector<posInfo> & scores, std::vector<int> & localMinima, 
-		const float bias);
+	const posInfo *** findLocalMinima(const std::vector<place::posInfo> & scores,
+	  const float bias, const int rows, const int cols, const double exclusionSize);
 
 	void createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid);
 
@@ -35,13 +30,20 @@ namespace place{
 		const std::vector<Eigen::SparseMatrix<double> > & scans,const Eigen::SparseMatrix<double> & fpE, 
 		const std::vector<Eigen::SparseMatrix<double> > & scansE, 
 		const std::vector<Eigen::MatrixXb> & masks, const Eigen::Vector4d numPixelsUnderMask,
-		const std::vector<Eigen::Vector3i> & points,
-		std::vector<posInfo> & scores);
+		const std::vector<Eigen::Vector3i> & points, const double maxFpWeight,
+		std::vector<place::posInfo> & scores);
 
 	void findPointsToAnalyze(const std::vector<posInfo> & scores, const std::vector<int> & localMinima,
 		std::vector<Eigen::Vector3i> & pointsToAnalyze);
 
+	void findPointsToAnalyzeV2(const std::vector<const place::posInfo *> & minima, 
+  	std::vector<Eigen::Vector3i> & pointsToAnalyze);
+
 	void findGlobalMinima(const std::vector<posInfo> & scores, const std::vector<int> & localMinima);
+
+	void findGlobalMinimaV2(const std::vector<place::posInfo> & scores, 
+	  const place::posInfo *** map, const int rows, const int cols, const double exclusionSize, 
+	  std::vector<const place::posInfo *> & minima);
 
 	Eigen::MatrixXd distanceTransform(const Eigen::SparseMatrix<double> & image);
 
@@ -53,10 +55,19 @@ namespace place{
 		const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS,
 		std::vector<Eigen::Vector4d> & numPixelsUnderMask);
 
-	void blurMinima(const std::vector<posInfo> & scores, 
+	/*void blurMinima(const std::vector<posInfo> & scores, 
 		const Eigen::Vector4i & rows, const Eigen::Vector4i & cols,
-		std::vector<Eigen::MatrixXd> & scoreMatricies);
-}
+		std::vector<Eigen::MatrixXd> & scoreMatricies);*/
+
+	void analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
+		const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
+		const std::string & scanName, const std::string & rotationFile,
+		const std::string & zerosFile, const std::string & maskName);
+
+	void createFPPyramidsWeighted(const Eigen::SparseMatrix<double> & weightedFloorPlan,
+		std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
+		std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid);
+} //namespace place
 
 
 

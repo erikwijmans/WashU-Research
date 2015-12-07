@@ -43,9 +43,9 @@ void confidence::loadInPlacement(const std::string & scanName,
   int numLoc, numGlob;
   in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
   in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
-  std::vector<posInfo> scoretmp;
+  std::vector<place::posInfo> scoretmp;
   for (int i = 0; i < numLoc + numGlob; ++i) {
-    posInfo tmp;
+    place::posInfo tmp;
     in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
     scoretmp.push_back(tmp);
   }
@@ -56,7 +56,7 @@ void confidence::loadInPlacement(const std::string & scanName,
 
   for (auto s : scoretmp)
     if (s.score == minScore)
-      scoreVec.push_back({s, 0.0, scanNum});
+      scoreVec.push_back({s, scanNum});
   
 }
 
@@ -80,13 +80,13 @@ void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & score
 
     double aveUnexp = 0;
     for (int i = 0; i < scoreInfo.size(); ++i) {
-      const posInfo * current = &scoreInfo[i].s;
+      const place::posInfo * current = &scoreInfo[i].s;
       aveUnexp += current->scanFP/current->scanPixels;
     }
     aveUnexp /= scoreInfo.size();
     double sigUnexp = 0;
     for (int i = 0; i < scoreInfo.size(); ++i) {
-      const posInfo * current = &scoreInfo[i].s;
+      const place::posInfo * current = &scoreInfo[i].s;
       const double tmp = current->scanFP/current->scanPixels - aveUnexp;
       sigUnexp += tmp*tmp;
     }
@@ -97,7 +97,7 @@ void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & score
 
     std::cout << aveUnexp << std::endl;
     for (int i = 0; i < scoreInfo.size(); ++i) {
-      const posInfo * current = &scoreInfo[i].s;
+      const place::posInfo * current = &scoreInfo[i].s;
       if (current->scanFP/current->scanPixels < cutOff)
         localMins.push_back(i);
     }
