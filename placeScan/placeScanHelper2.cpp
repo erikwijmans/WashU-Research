@@ -153,9 +153,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, &freeFileNames);
   const int numScans = pointFileNames.size();
 
-  nodes.resize(numScans);
-
-  for (int i = 0; i < numScans; ++i) {
+  for (int i = 0; i < 5; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
     place::loadInPlacementGraph(imageName, nodes, i);
   }
