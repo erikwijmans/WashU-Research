@@ -151,9 +151,9 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   std::vector<std::string> freeFileNames;
 
   place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, &freeFileNames);
-  const int numScans = pointFileNames.size();
+  const int numScans = 5;
 
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < numScans; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
     place::loadInPlacementGraph(imageName, nodes, i);
   }
@@ -210,7 +210,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   const int numNodes = nodes.size();
   adjacencyMatrix = Eigen::MatrixXd(numNodes, numNodes);
 
-  place::weightEdges(nodes, scans, masks, adjacencyMatrix);
+  place::weightEdges(nodes, scans, masks, zeroZeros, adjacencyMatrix);
 
   place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 }
@@ -218,6 +218,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
 void place::weightEdges(const std::vector<place::node> & nodes, 
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::MatrixXb> > & masks,
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
   Eigen::MatrixXd & adjacencyMatrix) {
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
@@ -238,16 +239,19 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const Eigen::MatrixXb & bScan = scans[nodeB.color][nodeB.s.rotation];
       const Eigen::MatrixXb & bMask = masks[nodeB.color][nodeB.s.rotation];
 
-      place::rect aBox, bBox;
-      aBox.X1 = nodeA.s.x - aScan.cols()/2;
-      aBox.X2 = nodeA.s.x + aScan.cols()/2;
-      aBox.Y1 = nodeA.s.y - aScan.rows()/2;
-      aBox.Y2 = nodeA.s.y + aScan.rows()/2;
+      const Eigen::Vector2i & zeroZeroA = zeroZeros[nodeA.color][nodeA.s.rotation];
+      const Eigen::Vector2i & zeroZeroB = zeroZeros[nodeB.color][nodeB.s.rotation];
 
-      bBox.X1 = nodeB.s.x - bScan.cols()/2;
-      bBox.X2 = nodeB.s.x + bScan.cols()/2;
-      bBox.Y1 = nodeB.s.y - bScan.rows()/2;
-      bBox.Y2 = nodeB.s.y + bScan.rows()/2;
+      place::rect aBox, bBox;
+      aBox.X1 = nodeA.s.x - zeroZeroA[0];
+      aBox.X2 = aBox.X1 + aScan.cols();
+      aBox.Y1 = nodeA.s.y - zeroZeroA[1];
+      aBox.Y2 = aBox.Y1 + aScan.rows();
+
+      bBox.X1 = nodeB.s.x - zeroZeroB[0];
+      bBox.X2 = bBox.X1 + bScan.cols();
+      bBox.Y1 = nodeB.s.y - zeroZeroB[1];
+      bBox.Y2 = bBox.Y1 + bScan.rows();
 
       place::rect XSection;
       XSection.X1 = std::max(aBox.X1, bBox.X1);

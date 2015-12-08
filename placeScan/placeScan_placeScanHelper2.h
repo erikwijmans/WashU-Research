@@ -37,6 +37,7 @@ namespace place {
   void weightEdges(const std::vector<place::node> & nodes, 
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::MatrixXb> > & masks,
+    const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
     Eigen::MatrixXd & adjacencyMatrix);
 
   void loadInPlacementGraph(const std::string & imageName, 
