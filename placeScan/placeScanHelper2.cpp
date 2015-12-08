@@ -168,12 +168,17 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
     const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
     const std::string maskName = FLAGS_dmFolder + freeFileNames[i];
 
+    for(auto & point : zeroZeros[i]) {
+      std::cout << point << std::endl << std::endl;
+    }
+
     std::vector<cv::Mat> toTrimScans, toTrimMasks, 
       trimmedScans, trimmedMasks;
     place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
     maskName, toTrimScans, toTrimMasks, zeroZeros[i]);
     place::trimScansAndMasks(toTrimScans, toTrimMasks, 
       trimmedScans, trimmedMasks, zeroZeros[i]);
+
 
     std::vector<Eigen::MatrixXb> tmpvec;
     for(auto & scan : trimmedScans) {
