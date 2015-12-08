@@ -253,11 +253,20 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       bBox.Y1 = nodeB.s.y - zeroZeroB[1];
       bBox.Y2 = bBox.Y1 + bScan.rows();
 
+      std::cout << "BoxA: " << "(" << aBox.X1 << "," << aBox.Y1 << ") ("
+        << aBox.X2 << "," << aBox.Y2 << std::endl << std::endl;
+
+      std::cout << "BoxB: " << "(" << bBox.X1 << "," << bBox.Y1 << ") ("
+        << bBox.X2 << "," << bBox.Y2 << ")" <<  std::endl << std::endl;
+
       place::rect XSection;
       XSection.X1 = std::max(aBox.X1, bBox.X1);
       XSection.Y1 = std::max(aBox.Y1, bBox.Y1);
       XSection.X2 = std::min(aBox.X2, bBox.X2);
       XSection.Y2 = std::min(aBox.Y2, bBox.Y2);
+
+      std::cout << "XSection: " << "(" << XSection.X1 << "," << XSection.Y1 << ") ("
+        << XSection.X2 << "," << XSection.Y2 << ")" <<  std::endl << std::endl;
 
       if (XSection.X1 > XSection.X2 || 
         XSection.Y1 > XSection.Y2) {
@@ -271,14 +280,20 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         place::rect crossWRTA, crossWRTB;
 
         crossWRTA.X1 = XSection.X1 - aBox.X1;
-        crossWRTA.X2 = XSection.X2 - aBox.X2;
+        crossWRTA.X2 = XSection.X2 - aBox.X1;
         crossWRTA.Y1 = XSection.Y1 - aBox.Y1;
-        crossWRTA.Y2 = XSection.Y2 - aBox.Y2;
+        crossWRTA.Y2 = XSection.Y2 - aBox.Y1;
 
         crossWRTB.X1 = XSection.X1 - bBox.X1;
-        crossWRTB.X2 = XSection.X2 - bBox.X2;
+        crossWRTB.X2 = XSection.X2 - bBox.X1;
         crossWRTB.Y1 = XSection.Y1 - bBox.Y1;
-        crossWRTB.Y2 = XSection.Y2 - bBox.Y2;
+        crossWRTB.Y2 = XSection.Y2 - bBox.Y1;
+
+        std::cout << "crossWRTA: " << "(" << crossWRTA.X1 << "," << crossWRTA.Y1 << ") ("
+        << crossWRTA.X2 << "," << crossWRTA.Y2 << ")" <<  std::endl << std::endl;
+
+        std::cout << "crossWRTB: " << "(" << crossWRTB.X1 << "," << crossWRTB.Y1 << ") ("
+        << crossWRTB.X2 << "," << crossWRTB.Y2 << ")" <<  std::endl << std::endl;
 
         XSectionAMask = aMask.block(crossWRTA.Y1, crossWRTA.X1,
           Xrows, Xcols);
