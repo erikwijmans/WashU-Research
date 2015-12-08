@@ -123,6 +123,11 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+  Eigen::MatrixXd adjacencyMatrix;
+  std::vector<place::node> nodes;
+  std::vector<std::vector<Eigen::Vector2i> > zeroZeros;
+  place::createGraph(adjacencyMatrix, nodes, zeroZeros);
   
 
   if(FLAGS_previewOut){
@@ -153,8 +158,9 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   
   cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
   std::vector<cv::Mat> rotatedScans, masks;
+  std::vector<Eigen::Vector2i> zeroZero;
   place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
-    maskName, rotatedScans, masks);
+    maskName, rotatedScans, masks, zeroZero);
 
   std::vector<Eigen::SparseMatrix<double> > rSSparse, eScanSparse, eMasksSpare;
 
@@ -191,7 +197,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     erodedSparsePyramidTrimmed, rSSparsePyramidTrimmed, eMaskPyramidTrimmed;
   trimScanPryamids(rSSparsePyramid, rSSparsePyramidTrimmed, 
     erodedSparsePyramid, erodedSparsePyramidTrimmed,
-    eMaskPyramid, eMaskPyramidTrimmed);
+    eMaskPyramid, eMaskPyramidTrimmed, zeroZero);
   rSSparsePyramid.clear();
   erodedSparsePyramid.clear();
   eMaskPyramid.clear();
@@ -233,7 +239,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     }
   }
   if(FLAGS_debugMode)
-    loadInTruePlacement(scanName);
+    loadInTruePlacement(scanName, zeroZero);
   
   std::vector<place::posInfo> scores;
   std::vector<const posInfo *> minima;
@@ -275,13 +281,13 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     const std::string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
     + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".txt";
     
-    savePlacement(minima, placementName);
+    savePlacement(minima, placementName, zeroZero);
   }
   
   if(FLAGS_visulization || FLAGS_previewOut)
-    place::displayOutput(rSSparsePyramidTrimmed[0], minima);
+    place::displayOutput(rSSparsePyramidTrimmed[0], minima, zeroZero);
   if(FLAGS_debugMode) {
-    displayTruePlacement(rSSparsePyramidTrimmed[0], scores);
+    displayTruePlacement(rSSparsePyramidTrimmed[0], scores, zeroZero);
   }
 }
 
@@ -441,7 +447,8 @@ void place::trimScanPryamids(const std::vector<std::vector<Eigen::SparseMatrix<d
   const std::vector<std::vector<Eigen::SparseMatrix<double> > > & erodedSparsePyramid,
   std::vector<std::vector<Eigen::SparseMatrix<double> > > & erodedSparsePyramidTrimmed,
   const std::vector<std::vector<Eigen::SparseMatrix<double> > > & eMaskPyramid,
-  std::vector<std::vector<Eigen::SparseMatrix<double> > > & eMaskPyramidTrimmed) {
+  std::vector<std::vector<Eigen::SparseMatrix<double> > > & eMaskPyramidTrimmed,
+  std::vector<Eigen::Vector2i> & zeroZero) {
 
   std::vector<Eigen::Triplet<double> > tripletList;
   for(int level = 0; level < rSSparsePyramid.size(); ++level) {
@@ -851,8 +858,9 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
   
   cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
   std::vector<cv::Mat> rotatedScans, masks;
+  std::vector<Eigen::Vector2i> zeroZero;
   place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
-    maskName, rotatedScans, masks);
+    maskName, rotatedScans, masks, zeroZero);
 
   std::vector<Eigen::SparseMatrix<double> > rSSparse, eScanSparse, eMasksSpare;
 
@@ -895,7 +903,7 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
     erodedSparsePyramidTrimmed, rSSparsePyramidTrimmed, eMaskPyramidTrimmed;
   trimScanPryamids(rSSparsePyramid, rSSparsePyramidTrimmed, 
     erodedSparsePyramid, erodedSparsePyramidTrimmed,
-    eMaskPyramid, eMaskPyramidTrimmed);
+    eMaskPyramid, eMaskPyramidTrimmed, zeroZero);
   rSSparsePyramid.clear();
   erodedSparsePyramid.clear();
   eMaskPyramid.clear();
@@ -937,7 +945,7 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
     }
   }
   if(FLAGS_debugMode)
-    loadInTruePlacement(scanName);
+    loadInTruePlacement(scanName, zeroZero);
   
   
   std::vector<place::posInfo> scores;
@@ -980,13 +988,13 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
     const std::string placementName = FLAGS_preDoneV2 + scanName.substr(scanName.find("_")-3, 3) 
     + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".txt";
     
-    savePlacement(minima, placementName);
+    savePlacement(minima, placementName, zeroZero);
   }
   
   if(FLAGS_visulization || FLAGS_previewOut)
-    place::displayOutput(rSSparsePyramidTrimmed[0], minima);
+    place::displayOutput(rSSparsePyramidTrimmed[0], minima, zeroZero);
   if(FLAGS_debugMode) {
-    displayTruePlacement(rSSparsePyramidTrimmed[0], scores);
+    displayTruePlacement(rSSparsePyramidTrimmed[0], scores, zeroZero);
   }
 }
 

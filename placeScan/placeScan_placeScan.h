@@ -24,7 +24,8 @@ namespace place{
 		const std::vector<std::vector<Eigen::SparseMatrix<double> > >  & erodedSparsePyramid,
 		std::vector<std::vector<Eigen::SparseMatrix<double> > > & erodedSparsePyramidTrimmed,
 		const std::vector<std::vector<Eigen::SparseMatrix<double> > >  & eMaskPyramid,
-		std::vector<std::vector<Eigen::SparseMatrix<double> > >  & eMaskPyramidTrimmed);
+		std::vector<std::vector<Eigen::SparseMatrix<double> > >  & eMaskPyramidTrimmed,
+		std::vector<Eigen::Vector2i> & zeroZero);
 
 	void findPlacement(const Eigen::SparseMatrix<double> & fp, 
 		const std::vector<Eigen::SparseMatrix<double> > & scans,const Eigen::SparseMatrix<double> & fpE, 

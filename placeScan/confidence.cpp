@@ -72,7 +72,8 @@ void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & score
       const std::string rotName = FLAGS_rotFolder + rotationFileNames[scoreInfo[i].scanNum];
       const std::string zeroName = FLAGS_zerosFolder + zerosFileNames[scoreInfo[i].scanNum];
       std::vector<cv::Mat> rotatedScans;
-      place::loadInScans(scanName, rotName, &zeroName, rotatedScans);
+      std::vector<Eigen::Vector2i> zeroZero;
+      place::loadInScans(scanName, rotName, zeroName, rotatedScans, zeroZero);
 
 
     }

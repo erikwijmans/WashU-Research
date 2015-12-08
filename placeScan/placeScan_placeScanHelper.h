@@ -34,7 +34,7 @@ DECLARE_int32(numLevels);
 DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 
-extern std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d> > zeroZero;
+
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;
 
@@ -65,29 +65,35 @@ namespace place{
 		std::vector<std::string> * freeFileNames);
 
 	void loadInScans(const std::string & scanName, const std::string & rotationFile, 
-		const std::string * zerosFile, std::vector<cv::Mat> & rotatedScans);
-	
+		 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
+	   std::vector<Eigen::Vector2i> & zeroZero);
+
 	void loadInScansAndMasks(const std::string & scanName, 
-		const std::string & rotationFile, const std::string & zerosFile, 
-		const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
-		std::vector<cv::Mat> & masks);
+	    const std::string & rotationFile, const std::string & zerosFile, 
+	    const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
+	    std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero);
+	
+	void loadInMasks(const std::string & scanName, const std::string & rotationFile,
+	  std::vector<cv::Mat> & rotatedScans);
 
 	void trimScans(const std::vector<cv::Mat> & toTrim, 
-		std::vector<cv::Mat> & trimmedScans);
+		std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero);
 
 	void savePlacement(const std::vector<const place::posInfo *> & minima,
-		const std::string & outName);
+		const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero);
 
 	bool reshowPlacement(const std::string & scanName, const std::string & rotationFile,
 		const std::string & zerosFile, const std::string & preDone);	
 
 	void displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
-		const std::vector<const place::posInfo *> & minima);
+		const std::vector<const place::posInfo *> & minima,
+		const std::vector<Eigen::Vector2i> & zeroZero);
 
-	void loadInTruePlacement(const std::string & scanName);
+	void loadInTruePlacement(const std::string & scanName, 
+		const std::vector<Eigen::Vector2i> & zeroZero);
 
 	void displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> > &,
-		const std::vector<posInfo> &);
+		const std::vector<posInfo> & scores, const std::vector<Eigen::Vector2i> & zeroZero);
 
 	cv::Mat sparseToImage(const Eigen::SparseMatrix<double> & toImage);
 
