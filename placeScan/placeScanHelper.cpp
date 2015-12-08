@@ -124,13 +124,12 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 	}
 	binaryReader.close();
 
-	
+	zeroZero.resize(NUM_ROTS);
 	binaryReader.open(zerosFile, std::ios::in | std::ios::binary);
 	zeroZero.clear();
-	zeroZero.resize(NUM_ROTS);
 	for (int i = 0; i < NUM_ROTS; ++i) {
 		binaryReader.read(reinterpret_cast<char *>(&zeroZero[i]),
-			sizeof(Eigen::Vector2d));
+			sizeof(Eigen::Vector2i));
 		binaryReader.seekg(0);
 	}
 	binaryReader.close();

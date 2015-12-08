@@ -81,6 +81,7 @@ scanDensity_EXTERNAL_OBJECTS =
 
 scanDensity: CMakeFiles/scanDensity.dir/scanDensity.cpp.o
 scanDensity: CMakeFiles/scanDensity.dir/build.make
+scanDensity: /usr/local/lib/libopencv_viz.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_videostab.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_videoio.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_video.so.3.0.0
@@ -96,25 +97,9 @@ scanDensity: /usr/local/lib/libopencv_highgui.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_hal.a
 scanDensity: /usr/local/lib/libopencv_flann.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_features2d.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudev.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudawarping.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudastereo.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudaoptflow.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudaobjdetect.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudalegacy.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudaimgproc.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudafilters.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudafeatures2d.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudacodec.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudabgsegm.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudaarithm.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_core.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_calib3d.so.3.0.0
 scanDensity: /usr/local/lib/libgflags.a
-scanDensity: /usr/local/lib/libopencv_cudawarping.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_objdetect.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudafilters.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudaarithm.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_features2d.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_ml.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_highgui.so.3.0.0
@@ -124,7 +109,6 @@ scanDensity: /usr/local/lib/libopencv_flann.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_video.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_imgproc.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_core.so.3.0.0
-scanDensity: /usr/local/lib/libopencv_cudev.so.3.0.0
 scanDensity: /usr/local/lib/libopencv_hal.a
 scanDensity: /usr/local/share/OpenCV/3rdparty/lib/libippicv.a
 scanDensity: CMakeFiles/scanDensity.dir/link.txt

@@ -233,7 +233,7 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	vector<VectorXf> numTimesSeen (heatMap.rows, VectorXf::Zero(heatMap.cols));
 	vector<MatrixXi> numTimesSeen3D (heatMap.rows, MatrixXi::Zero(heatMap.cols, numZ));
 
-	Vector2d zeroZero (0,0);
+	Vector2i zeroZero (0,0);
 	zeroZero[0] -= pointMin[0];
 	zeroZero[1] -= pointMin[1];
 	zeroZero *= FLAGS_scale;
@@ -241,7 +241,7 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	zeroZero[1] = static_cast<int>(zeroZero[1]);
 	const string zeroName = FLAGS_zerosFolder + "DUC_point_" + scanNumber + ".dat";
 	ofstream out (zeroName, ios::out | ios::binary);
-	out.write(reinterpret_cast<const char *> (&zeroZero[0]), sizeof(Vector2d));
+	out.write(reinterpret_cast<const char *> (&zeroZero[0]), sizeof(zeroZero));
 	out.close();
 
 
