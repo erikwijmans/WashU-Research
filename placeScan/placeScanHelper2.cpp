@@ -226,6 +226,10 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   place::weightEdges(nodes, scans, masks, zeroZeros, adjacencyMatrix);
 
   place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
+  std::vector<place::node> longestPath;
+  place::findLongestPath(adjacencyMatrix, nodes, longestPath);
+
+  place::displayLongestPath(longestPath, scans, zeroZeros);
 }
 
 void place::weightEdges(const std::vector<place::node> & nodes, 
@@ -352,7 +356,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
   }
 
   for(int i = 0; i < scoretmp.size(); ++ i)
-    nodes.push_back({scoretmp[i], num, static_cast<int>(scoretmp.size())});
+    nodes.push_back({scoretmp[i], 0.0, num, static_cast<int>(scoretmp.size())});
 }
 
 void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans, 
@@ -459,20 +463,93 @@ void place::displayGraph(const Eigen::MatrixXd & adjacencyMatrix,
       ~output;
     }
   }
+}
+
+void place::findLongestPath(const Eigen::MatrixXd & adjacencyMatrix,
+  const std::vector<place::node> & nodes,
+  std::vector<place::node> & longestPath) {
+  int numColors = 1;
+  int prevColor = 0;
+  for(auto & n : nodes) {
+    if(n.color != prevColor)
+      ++numColors;
+    prevColor = n.color;
+  }
+
+  bool colorMap [numColors];
+  for(int i = 0; i < numColors; ++i) {
+    colorMap[i] = false;
+  }
+  colorMap[0] = true;
+  pathFinder(adjacencyMatrix, nodes, 0, colorMap, numColors, 0.0, longestPath);
+}
+
+void place::pathFinder(const Eigen::MatrixXd & adjacencyMatrix,
+  const std::vector<place::node> & nodes,
+  int currentNode, bool * colorMap, int numColors, double currentLength,
+  std::vector<place::node> & longestPath) {
+  bool endOfLine = true;
+
+  std::vector<std::vector<place::node> > pathList (adjacencyMatrix.rows());
+  for(int i = 0; i < adjacencyMatrix.rows(); ++i) {
+    if(adjacencyMatrix(i, currentNode) && !colorMap[nodes[i].color]) {
+      place::node newNode = nodes[i];
+      endOfLine = false;
+      bool newColorMap [numColors];
+      std::memcpy(colorMap, newColorMap, numColors);
+      newColorMap[newNode.color] = true;
+      for(auto & n : longestPath) {
+        pathList[i].push_back(n);
+      }
+      double newLength = currentLength + adjacencyMatrix(i, currentNode);
+      newNode.pathLength = newLength;
+      pathList[i].push_back(newNode);
+      pathFinder(adjacencyMatrix, nodes, i, newColorMap, numColors, 
+        newLength, pathList[i]);
+    } 
+  }
+
+  if(endOfLine) {
+    double currentLongest = 0;
+    for(auto & p : pathList) {
+      if(!p.size())
+        continue;
+      if(p[p.size() - 1].pathLength > currentLongest) {
+        currentLongest = p[p.size() - 1].pathLength;
+        longestPath.clear();
+        for(auto & n : p) {
+          longestPath.push_back(n);
+        }
+      }
+    }
+  }
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void place::displayLongestPath(const std::vector<place::node> & longestPath,
+  const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
+  cv::Mat output(floorPlan.rows, floorPlan.cols, CV_8UC3);
+  floorPlan.copyTo(output);
+  cv::Mat_<cv::Vec3b> _output = output;
+  for(auto & n : longestPath) {
+    const Eigen::MatrixXb & scan = scans[n.color][n.s.rotation];
+    const Eigen::Vector2i zeroZero = zeroZeros[n.color][n.s.rotation];
+    const int xOffset = n.s.x - zeroZero[0];
+    const int yOffset = n.s.y - zeroZero[1];
+    for(int j = 0; j < scan.rows(); ++j) {
+      for(int i = 0; i < scan.cols(); ++i) {
+        if(scan(j,i)) {
+          _output(yOffset + j, xOffset + i)[0] = 0;
+          _output(yOffset + j, xOffset + i)[1] = 0;
+          _output(yOffset + j, xOffset + i)[2] = 255;
+        }
+      }
+    }
+  }
+  std::cout << "Displaying longestPath with a length of: " << longestPath.size() << std::endl;
+  cv::imwrite("Out.png", output);
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  cv::imshow("Preview", output);
+  cv::waitKey(0);
 }
