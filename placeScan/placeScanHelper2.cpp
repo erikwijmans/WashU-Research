@@ -173,10 +173,18 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
     }
 
     std::vector<cv::Mat> toTrimScans, toTrimMasks, 
-      trimmedScans, trimmedMasks;
+      trimmedScans, trimmedMasks, toTrimMasksD;
     place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
     maskName, toTrimScans, toTrimMasks, zeroZeros[i]);
-    place::trimScansAndMasks(toTrimScans, toTrimMasks, 
+
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(13,13));
+    for(auto & src : toTrimMasks) {
+      cv::Mat dst;
+      cv::dilate(src, dst, element);
+      toTrimMasksD.push_back(dst);
+    }
+
+    place::trimScansAndMasks(toTrimScans, toTrimMasksD, 
       trimmedScans, trimmedMasks, zeroZeros[i]);
 
 
@@ -249,20 +257,14 @@ void place::weightEdges(const std::vector<place::node> & nodes,
 
       place::rect aBox, bBox;
       aBox.X1 = nodeA.s.x - zeroZeroA[0];
-      aBox.X2 = aBox.X1 + aScan.cols();
+      aBox.X2 = aBox.X1 + aScan.cols() - 1;
       aBox.Y1 = nodeA.s.y - zeroZeroA[1];
-      aBox.Y2 = aBox.Y1 + aScan.rows();
+      aBox.Y2 = aBox.Y1 + aScan.rows() - 1;
 
       bBox.X1 = nodeB.s.x - zeroZeroB[0];
-      bBox.X2 = bBox.X1 + bScan.cols();
+      bBox.X2 = bBox.X1 + bScan.cols() - 1;
       bBox.Y1 = nodeB.s.y - zeroZeroB[1];
-      bBox.Y2 = bBox.Y1 + bScan.rows();
-
-      std::cout << "BoxA: " << "(" << aBox.X1 << "," << aBox.Y1 << ") ("
-        << aBox.X2 << "," << aBox.Y2 << std::endl << std::endl;
-
-      std::cout << "BoxB: " << "(" << bBox.X1 << "," << bBox.Y1 << ") ("
-        << bBox.X2 << "," << bBox.Y2 << ")" <<  std::endl << std::endl;
+      bBox.Y2 = bBox.Y1 + bScan.rows() - 1;
 
       place::rect XSection;
       XSection.X1 = std::max(aBox.X1, bBox.X1);
@@ -270,12 +272,9 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       XSection.X2 = std::min(aBox.X2, bBox.X2);
       XSection.Y2 = std::min(aBox.Y2, bBox.Y2);
 
-      std::cout << "XSection: " << "(" << XSection.X1 << "," << XSection.Y1 << ") ("
-        << XSection.X2 << "," << XSection.Y2 << ")" <<  std::endl << std::endl;
-
       if (XSection.X1 > XSection.X2 || 
         XSection.Y1 > XSection.Y2) {
-        const double weight = 10*(std::exp(-1.0*nodeA.s.score) + std::exp(-1.0*nodeB.s.score));
+        const double weight = 3000*(std::exp(-1.0*nodeA.s.score) + std::exp(-1.0*nodeB.s.score));
         adjacencyMatrix(j,i) = weight;
       } else {
         const int Xrows = XSection.Y2 - XSection.Y1 + 1;
@@ -293,12 +292,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         crossWRTB.X2 = XSection.X2 - bBox.X1;
         crossWRTB.Y1 = XSection.Y1 - bBox.Y1;
         crossWRTB.Y2 = XSection.Y2 - bBox.Y1;
-
-        std::cout << "crossWRTA: " << "(" << crossWRTA.X1 << "," << crossWRTA.Y1 << ") ("
-        << crossWRTA.X2 << "," << crossWRTA.Y2 << ")" <<  std::endl << std::endl;
-
-        std::cout << "crossWRTB: " << "(" << crossWRTB.X1 << "," << crossWRTB.Y1 << ") ("
-        << crossWRTB.X2 << "," << crossWRTB.Y2 << ")" <<  std::endl << std::endl;
 
         XSectionAMask = aMask.block(crossWRTA.Y1, crossWRTA.X1,
           Xrows, Xcols);
@@ -334,8 +327,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
           }
         }
 
-        const double weight = 10*(std::exp(-1.0*nodeA.s.score) + std::exp(-1.0*nodeB.s.score)) 
-          +pointAgreement + freeSpaceAgreementA + freeSpaceAgreementB;
+        const double weight = 3000*(std::exp(-1.0*nodeA.s.score) + std::exp(-1.0*nodeB.s.score)) 
+          +pointAgreement + 1/5.0*freeSpaceAgreementA + 1/5.0*freeSpaceAgreementB;
         adjacencyMatrix(j,i) = weight;
       }
     }
@@ -358,7 +351,6 @@ void place::loadInPlacementGraph(const std::string & imageName,
     scoretmp.push_back(tmp);
   }
 
-  
   for(int i = 0; i < scoretmp.size(); ++ i)
     nodes.push_back({scoretmp[i], num, static_cast<int>(scoretmp.size())});
 }
@@ -435,28 +427,29 @@ void place::displayGraph(const Eigen::MatrixXd & adjacencyMatrix,
 
       int yOffset = nodeA.s.y - zeroZeroA[1];
       int xOffset = nodeA.s.x - zeroZeroA[0];
-      for (int k = 0; k < aScan.rows(); ++k) {
-        for(int l = 0; l < aScan.cols(); ++l) {
-          if(aScan(k, l) != 0) {
-            _output(k + yOffset, l + xOffset)[0]=0;
-            _output(k + yOffset, l + xOffset)[1]=0;
-            _output(k + yOffset, l + xOffset)[2]=255;
+      for (int k = 0; k < aScan.cols(); ++k) {
+        for(int l = 0; l < aScan.rows(); ++l) {
+          if(aScan(l, k) != 0) {
+            _output(l + yOffset, k + xOffset)[0]=0;
+            _output(l + yOffset, k + xOffset)[1]=0;
+            _output(l + yOffset, k + xOffset)[2]=255;
           }
         }
       }
 
       yOffset = nodeB.s.y - zeroZeroB[1];
       xOffset = nodeB.s.x - zeroZeroB[0];
-      for (int k = 0; k < bScan.rows(); ++k) {
-        for(int l = 0; l < bScan.cols(); ++l) {
-          if(aScan(k, l) != 0) {
-            _output(k + yOffset, l + xOffset)[0]=0;
-            _output(k + yOffset, l + xOffset)[1]=0;
-            _output(k + yOffset, l + xOffset)[2]=255;
+      for (int k = 0; k < bScan.cols(); ++k) {
+        for(int l = 0; l < bScan.rows(); ++l) {
+          if(bScan(l, k) != 0) {
+            _output(l + yOffset, k + xOffset)[0]=0;
+            _output(l + yOffset, k + xOffset)[1]=0;
+            _output(l + yOffset, k + xOffset)[2]=255;
           }
         }
       }
 
+      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
       cv::imshow("Preview", output);
       if(!FLAGS_quiteMode) {
         std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
