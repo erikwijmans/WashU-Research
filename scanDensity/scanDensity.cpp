@@ -524,19 +524,20 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 	{
 		for (int j = 0; j < numY; ++j)
 		{
-			/*double mean = 0;*/
+			double mean = 0;
 			int count = 0;
 			for (int k = 0; k < numZ; ++k)
 			{
 				if(numTimesSeen[i](k,j) != 0) {
-					/*mean += static_cast<double>(numTimesSeen[i](j,k));*/
+					mean += static_cast<double>(numTimesSeen[i](k,j));
 					count++;
 				}
 			}
-			/*if(count == 0)
-				continue;
-			mean = mean/count;*/
-			collapsedMean(j,i) = count;
+			mean = mean/numZ;
+			if(count == 0)
+				collapsedMean(j,i) = 0;
+			else
+				collapsedMean(j,i) = count;
 		}
 	}
 	const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
@@ -581,7 +582,7 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 			if(numTimesSeen(j,i) != 0){
 				const int gray = max(0, min(255,
 					 static_cast<int>(255.0 *((numTimesSeen(j,i)
-					  - average - sigma) / (1.0*sigma) + 1.0) / 2.0)));
+					  - average) / (1.0*sigma) + 1.0))));
 				dst[i] = 255 - gray;
 				/*int red, green, blue;
 				if (gray < 128) {

@@ -23,6 +23,7 @@ DEFINE_bool(debugMode, false,
 DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
 DEFINE_bool(V1, false, "Only will use V1 placement");
 DEFINE_bool(V2, false, "Ony will use V2 placement");
+DEFINE_bool(top5, false, "Only shows the top5 placements");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
 	"Path to the floor plan that the scan should be placed on");
 DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
@@ -368,28 +369,29 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 
 	int num;
 	in.read(reinterpret_cast<char *>(&num), sizeof(num));
+	num = FLAGS_top5 && num > 5 ? 5 : num;
 
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
 
 	if(!FLAGS_quiteMode)
-		std::cout << "Showing minima, " << num << std::endl;
+		std::cout << "Showing minima: " << num << std::endl;
 	std::vector<place::posInfo> scores;
 	for (int i = 0; i < num; ++i) {
 		place::posInfo minScore;
 		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
 
-		cv::Mat bestScan = rotatedScans[minScore.rotation];
+		const cv::Mat & bestScan = rotatedScans[minScore.rotation];
 
 		const int xOffset = minScore.x - zeroZero[minScore.rotation][0];
 		const int yOffset = minScore.y - zeroZero[minScore.rotation][1];
-		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
+		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3);
 		fpColor.copyTo(output);
 		
-		for (int i = 0; i < bestScan.rows; ++i) {
-			uchar * src = bestScan.ptr<uchar>(i);
+		for (int i = 0; i < bestScan.rows - 10; ++i) {
+			const uchar * src = bestScan.ptr<uchar>(i);
 			uchar * dst = output.ptr<uchar>(i + yOffset);
-			for (int j = 0; j < bestScan.cols; ++j)
+			for (int j = 0; j < bestScan.cols - 10; ++j)
 			{
 				if(src[j]!=255){
 					dst[j*3 + xOffset*3] = 0;
@@ -423,6 +425,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
+	const int cutOff = FLAGS_top5 ? 5 : 20;
 
 	int i = 1;
 	for(auto & min : minima){
@@ -455,7 +458,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
     }
 		cv::waitKey(0);
 		~output;
-		if(++i == 20) break;
+		if(++i == cutOff) break;
 	}
 }
 

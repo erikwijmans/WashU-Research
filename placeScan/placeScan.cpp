@@ -171,7 +171,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     rSSparse.push_back(scanToSparse(scan));
   }
 
-  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1,1));
+  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7,7));
   for(auto & mask: masks) {
     cv::Mat dst;
     cv::erode(mask, dst, element);
@@ -587,8 +587,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
 
         if(0.5*numFPPixelsUM < currentScan.nonZeros())
           continue;
-        
-      
+
         double scanFPsetDiff = 0;
         double fpScanSetDiff = 0;
         
@@ -612,7 +611,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
         }
 
         const double score = scanFPsetDiff/(numPixelsUnderMask[scanIndex]*maxFpWeight)
-          +fpScanSetDiff/(numFPPixelsUM*maxFpWeight);
+          + fpScanSetDiff/(numFPPixelsUM*maxFpWeight);
 
 
         posInfo tmp;
@@ -878,7 +877,7 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
     mat *= maxFpWeight;
   }
 
-  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1,1));
+  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7,7));
   for(auto & mask: masks) {
     cv::Mat dst;
     cv::erode(mask, dst, element);

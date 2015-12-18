@@ -22,6 +22,7 @@ DECLARE_bool(debugMode);
 DECLARE_bool(reshow);
 DECLARE_bool(V1);
 DECLARE_bool(V2);
+DECLARE_bool(top5);
 DECLARE_string(floorPlan);
 DECLARE_string(dmFolder);
 DECLARE_string(rotFolder);
