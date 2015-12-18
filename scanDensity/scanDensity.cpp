@@ -387,7 +387,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	cameraCenter[2] = -1*pointMin[2];
 
 	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
-	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numY, numZ));
+	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numZ, numY));
 	// vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
 
 	for(auto & point : points) {
@@ -422,7 +422,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 				unitRay[1] = ray[1]/length;
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
-				for (int a = 0; a < floor(length); ++a) {
+				for (int a = 0; a < floor(length-1); ++a) {
 			
 					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
@@ -435,7 +435,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					if(voxelHit[2] < 0 || voxelHit[2] >= numZ)
 						continue;
 
-					numTimesSeen4C[voxelHit[0]](voxelHit[1], voxelHit[2])
+					numTimesSeen4C[voxelHit[0]](voxelHit[2], voxelHit[1])
 						+= pointsPerVoxel[k](j,i);
 
 					/*numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
@@ -518,25 +518,25 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 	const int numZ, const int numY, const int numX,
 	const string & outputFolder, const string & scanNumber){
 
-	MatrixXd collapsedMean = MatrixXd::Zero(numY, numX);
+	MatrixXd collapsedMean (numY, numX);
 
 	for (int i = 0; i < numX; ++i)
 	{
 		for (int j = 0; j < numY; ++j)
 		{
-			double mean = 0;
+			/*double mean = 0;*/
 			int count = 0;
 			for (int k = 0; k < numZ; ++k)
 			{
-				if(numTimesSeen[i](j,k) != 0) {
-					mean += static_cast<double>(numTimesSeen[i](j,k));
+				if(numTimesSeen[i](k,j) != 0) {
+					/*mean += static_cast<double>(numTimesSeen[i](j,k));*/
 					count++;
 				}
 			}
-			if(count == 0)
+			/*if(count == 0)
 				continue;
-			mean = mean/count;
-			collapsedMean(j,i) = mean;
+			mean = mean/count;*/
+			collapsedMean(j,i) = count;
 		}
 	}
 	const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
@@ -581,7 +581,7 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 			if(numTimesSeen(j,i) != 0){
 				const int gray = max(0, min(255,
 					 static_cast<int>(255.0 *((numTimesSeen(j,i)
-					  - average) / (1.0*sigma) + 1.0) / 2.0)));
+					  - average - sigma) / (1.0*sigma) + 1.0) / 2.0)));
 				dst[i] = 255 - gray;
 				/*int red, green, blue;
 				if (gray < 128) {
