@@ -317,7 +317,8 @@ const place::posInfo *** place::findLocalMinima(const std::vector<place::posInfo
   const int newCols = std::ceil(cols/exclusionSize);
 
   
-  const place::posInfo *** maps = (const place::posInfo ***) std::malloc(NUM_ROTS*sizeof(place::posInfo **));
+  const place::posInfo *** maps = (const place::posInfo ***) 
+    std::malloc(NUM_ROTS*sizeof(place::posInfo **));
   for(int i = 0; i < NUM_ROTS; ++i) {
     //2d array with one access index:  [<colNumber>*rows + <rowNumber>]
      maps[i] = (const place::posInfo **) 
@@ -606,7 +607,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
         for(int i = 0; i < diff.outerSize(); ++i) {
           for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
             if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
-              fpScanSetDiff += it.value();
+              ++fpScanSetDiff;
           }
         }
 

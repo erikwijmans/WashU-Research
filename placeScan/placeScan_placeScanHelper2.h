@@ -12,9 +12,7 @@ namespace place {
 
 	typedef struct {
 		posInfo s;
-    double pathLength;
 		int color;
-    int numSameColor;
 	} node;
 
   typedef struct {
@@ -66,6 +64,9 @@ namespace place {
   void displayLongestPath(const std::vector<place::node> & longestPath,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
+
+  void findBestLabels(const Eigen::MatrixXd & adjacencyMatrix, 
+    const std::vector<place::node> & nodes, std::vector<place::node> & bestLabels);
 
 }
 

@@ -424,7 +424,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
 
-	int i = 0;
+	int i = 1;
 	for(auto & min : minima){
 		place::posInfo minScore = *min;
 		const int xOffset = minScore.x;

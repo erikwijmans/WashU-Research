@@ -40,11 +40,10 @@ void confidence::loadInPlacement(const std::string & scanName,
   + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
   std::ifstream in(placementName, std::ios::in | std::ios::binary);
 
-  int numLoc, numGlob;
-  in.read(reinterpret_cast<char *>(&numLoc), sizeof(numLoc));
-  in.read(reinterpret_cast<char *>(&numGlob), sizeof(numGlob));
+  int num;
+  in.read(reinterpret_cast<char *>(&num), sizeof(num));
   std::vector<place::posInfo> scoretmp;
-  for (int i = 0; i < numLoc + numGlob; ++i) {
+  for (int i = 0; i < num; ++i) {
     place::posInfo tmp;
     in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
     scoretmp.push_back(tmp);
