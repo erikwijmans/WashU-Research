@@ -59,8 +59,9 @@ int main(int argc, char *argv[])
   place::displayWeightedFloorPlan(weightedFloorPlan);*/
 
   std::vector<Eigen::SparseMatrix<double> > fpPyramid, erodedFpPyramid;
+  std::vector<Eigen::MatrixXb> fpMasks;
   if(FLAGS_replace)
-    place::createFPPyramids(floorPlan, fpPyramid,  erodedFpPyramid);
+    place::createFPPyramids(floorPlan, fpPyramid,  erodedFpPyramid, fpMasks);
 
   std::vector<std::string> pointFileNames;
   std::vector<std::string> rotationFileNames;
@@ -80,13 +81,13 @@ int main(int argc, char *argv[])
       const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
       const std::string maskName = FLAGS_dmFolder + freeFileNames[i];
       if(FLAGS_replace)
-        place::analyzePlacement(fpPyramid, erodedFpPyramid, scanName, 
-          rotationFile, zerosFile, maskName);
+        place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks,
+          scanName, rotationFile, zerosFile, maskName);
       else if(!place::reshowPlacement(scanName, rotationFile, zerosFile, FLAGS_preDone)) {
         if(fpPyramid.size() == 0)
-          place::createFPPyramids(floorPlan, fpPyramid,  erodedFpPyramid);
-        place::analyzePlacement(fpPyramid, erodedFpPyramid, scanName, 
-          rotationFile, zerosFile, maskName);
+          place::createFPPyramids(floorPlan, fpPyramid,  erodedFpPyramid, fpMasks);
+        place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks,
+          scanName, rotationFile, zerosFile, maskName);
       }
     }
   }
@@ -147,6 +148,7 @@ int main(int argc, char *argv[])
 
 void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
   const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
+  const std::vector<Eigen::MatrixXb> & fpMasks,
   const std::string & scanName, const std::string & rotationFile,
   const std::string & zerosFile, const std::string & maskName) {
 
@@ -255,7 +257,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     }
     findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k],
       erodedFpPyramid[k], erodedSparsePyramidTrimmed[k],
-      eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], 
+      eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], fpMasks[k], 
       pointsToAnalyze, 1.0, scores);
     if(scores.size() == 0) return;
     if(k!=0) {
@@ -544,97 +546,107 @@ void place::trimScanPryamids(const std::vector<std::vector<Eigen::SparseMatrix<d
 void place::findPlacement(const Eigen::SparseMatrix<double> & fp, 
   const std::vector<Eigen::SparseMatrix<double> > & scans, const Eigen::SparseMatrix<double> & fpE, 
   const std::vector<Eigen::SparseMatrix<double> > & scansE, 
-  const std::vector<Eigen::MatrixXb> & masks, const Eigen::Vector4d numPixelsUnderMask,
-  const std::vector<Eigen::Vector3i> & points,
+  const std::vector<Eigen::MatrixXb> & masks, const Eigen::Vector4d & numPixelsUnderMask,
+  const Eigen::MatrixXb & fpMask, const std::vector<Eigen::Vector3i> & points,
   const double maxFpWeight, std::vector<place::posInfo> & scores) {
   
   if(!FLAGS_quiteMode)
-      std::cout << points.size() << std::endl;
+    std::cout << points.size() << std::endl;
 
-    scores.clear();
-    scores.reserve(points.size());
+  scores.clear();
+  scores.reserve(points.size());
 
-    #pragma omp parallel shared(scores) 
-    {
-      std::vector<posInfo> privateScores;
-      #pragma omp for nowait schedule(static)
-      for(int i = 0; i< points.size(); ++i) {
-        
-        const Eigen::Vector3i & point = points[i];
-        const int scanIndex = point[2];
-        const int xStop = fp.cols() - scans[scanIndex].cols();
-        const int yStop = fp.rows() - scans[scanIndex].rows();
+  #pragma omp parallel shared(scores) 
+  {
+    std::vector<posInfo> privateScores;
+    #pragma omp for nowait schedule(static)
+    for(int i = 0; i< points.size(); ++i) {
+      
+      const Eigen::Vector3i & point = points[i];
+      const int scanIndex = point[2];
+      const int xStop = fp.cols() - scans[scanIndex].cols();
+      const int yStop = fp.rows() - scans[scanIndex].rows();
 
-        if(point[0] < 0 || point[0] >=xStop)
-          continue;
-        if(point[1] < 0 || point[1] >= yStop)
-          continue;
-    
-        const Eigen::SparseMatrix<double> & currentScan = scans[scanIndex];
-        const Eigen::SparseMatrix<double> & currentScanE = scansE[scanIndex];
-        const Eigen::MatrixXb & currentMask = masks[scanIndex];
+      if(point[0] < 0 || point[0] >=xStop)
+        continue;
+      if(point[1] < 0 || point[1] >= yStop)
+        continue;
+  
+      const Eigen::SparseMatrix<double> & currentScan = scans[scanIndex];
+      const Eigen::SparseMatrix<double> & currentScanE = scansE[scanIndex];
+      const Eigen::MatrixXb & currentMask = masks[scanIndex];
 
-        Eigen::SparseMatrix<double> currentFP = fp.block(point[1], point[0], 
-          currentScan.rows(), currentScan.cols());
-
-        int numFPPixelsUM = 0;
-        for(int i = 0; i < currentFP.outerSize(); ++i) {
-          for(Eigen::SparseMatrix<double>::InnerIterator it (currentFP, i); it; ++it) {
-            if(currentMask(it.row(), it.col()) != 0) 
-              ++numFPPixelsUM;
-          }
+      int numPixelsInside = 0
+      for(int i = 0; i < currentScan.cols(); ++i){
+        for(int j = 0; j < currentScan.rows(); ++j) {
+          if(fpMask(j + point[1], i + point[0]))
+            ++numPixelsInside;
         }
+      }
+      if(numPixelsInside < 0.8*currentScan.cols()*currentScan.rows())
+        continue;
 
-        if(0.5*numFPPixelsUM < currentScan.nonZeros())
-          continue;
+      Eigen::SparseMatrix<double> currentFP = fp.block(point[1], point[0], 
+        currentScan.rows(), currentScan.cols());
 
-        double scanFPsetDiff = 0;
-        double fpScanSetDiff = 0;
-        
-        Eigen::SparseMatrix<double> currentFPE = fpE.block(point[1], point[0], 
-          currentScan.rows(), currentScan.cols());
-
-        Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
-        for(int i = 0; i < diff.outerSize(); ++i) {
-          for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-            if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
-              scanFPsetDiff += it.value();
-          }
+      int numFPPixelsUM = 0;
+      for(int i = 0; i < currentFP.outerSize(); ++i) {
+        for(Eigen::SparseMatrix<double>::InnerIterator it (currentFP, i); it; ++it) {
+          if(currentMask(it.row(), it.col()) != 0) 
+            ++numFPPixelsUM;
         }
-
-        diff = currentFP - currentScanE;
-        for(int i = 0; i < diff.outerSize(); ++i) {
-          for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
-            if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
-              ++fpScanSetDiff;
-          }
-        }
-
-        const double score = scanFPsetDiff/(numPixelsUnderMask[scanIndex]*maxFpWeight)
-          + fpScanSetDiff/(numFPPixelsUM*maxFpWeight);
-
-
-        posInfo tmp;
-        tmp.x = point[0];
-        tmp.y = point[1];
-        tmp.score = score;
-        tmp.scanFP = scanFPsetDiff;
-        tmp.fpScan = fpScanSetDiff;
-        tmp.scanPixels = numPixelsUnderMask[scanIndex]*maxFpWeight;
-        tmp.fpPixels = numFPPixelsUM*maxFpWeight;
-        tmp.rotation = scanIndex;
-        privateScores.push_back(tmp);
       }
 
-      #pragma omp for schedule(static) ordered
-      for (int i = 0; i < omp_get_num_threads(); ++i) {
-        #pragma omp ordered
-        scores.insert(scores.end(), privateScores.begin(), privateScores.end());
+      if(0.5*numFPPixelsUM < currentScan.nonZeros())
+        continue;
+
+      double scanFPsetDiff = 0;
+      double fpScanSetDiff = 0;
+      
+      Eigen::SparseMatrix<double> currentFPE = fpE.block(point[1], point[0], 
+        currentScan.rows(), currentScan.cols());
+
+      Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
+      for(int i = 0; i < diff.outerSize(); ++i) {
+        for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
+          if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
+            scanFPsetDiff += it.value();
+        }
       }
+
+      diff = currentFP - currentScanE;
+      for(int i = 0; i < diff.outerSize(); ++i) {
+        for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
+          if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
+            ++fpScanSetDiff;
+        }
+      }
+
+      const double score = scanFPsetDiff/(numPixelsUnderMask[scanIndex]*maxFpWeight)
+        + fpScanSetDiff/(numFPPixelsUM*maxFpWeight);
+
+
+      posInfo tmp;
+      tmp.x = point[0];
+      tmp.y = point[1];
+      tmp.score = score;
+      tmp.scanFP = scanFPsetDiff;
+      tmp.fpScan = fpScanSetDiff;
+      tmp.scanPixels = numPixelsUnderMask[scanIndex]*maxFpWeight;
+      tmp.fpPixels = numFPPixelsUM*maxFpWeight;
+      tmp.rotation = scanIndex;
+      privateScores.push_back(tmp);
     }
 
-    if(!FLAGS_quiteMode)
-      std::cout << "Done: " << scores.size() << std::endl;
+    #pragma omp for schedule(static) ordered
+    for (int i = 0; i < omp_get_num_threads(); ++i) {
+      #pragma omp ordered
+      scores.insert(scores.end(), privateScores.begin(), privateScores.end());
+    }
+  }
+
+  if(!FLAGS_quiteMode)
+    std::cout << "Done: " << scores.size() << std::endl;
 }
 
 
@@ -696,7 +708,8 @@ void place::findGlobalMinimaV2(const std::vector<place::posInfo> & scores,
 
 void place::createFPPyramids(const cv::Mat & floorPlan, 
   std::vector<Eigen::SparseMatrix<double> > & fpPyramid,  
-  std::vector<Eigen::SparseMatrix<double> > &erodedFpPyramid) {
+  std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
+  std::vector<Eigen::MatrixXb> & fpMasks) {
 
   cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
   cv::Mat fpEroded (floorPlan.rows, floorPlan.cols, CV_8UC1);
@@ -711,6 +724,46 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
 
   erodedFpPyramid.push_back(erodedFpSparse);
   createPyramid(erodedFpPyramid);
+
+  for(auto & level : fpPyramid) {
+    Eigen::MatrixXd levelNS = Eigen::MatrixXd(level);
+    Eigen::MatrixXb mask = Eigen::MatrixXb::Zeros(levelNS.rows(), levelNS.cols());
+
+    for(int j = 0; j < levelNS.rows(); ++j) {
+      int minCol = levelNS.cols();
+      int maxCol = 0;
+      for(int i = 0; i < levelNS.cols(); ++i) {
+        if(levelNS(j,i)) {
+          minCol = std::min(i, minCol);
+          maxCol = std::max(i, maxCol);
+        }
+      }
+      for(int i = minCol; i < maxCol + 1; ++i)
+        levelNS(j,i) = 1;
+    }
+
+    for(int i = 0; i < levelNS.cols(); ++i) {
+      int minRow = levelNS.rows();
+      int maxRow = 0;
+      for(int j = 0; j < levelNS.rows(); ++j) {
+        if(levelNS(j, i)) {
+          minRow = std::min(minRow, j);
+          maxRow = std::max(maxRow, j);
+        }
+      }
+      for(int j = minRow; j < maxRow + 1; ++j)
+        levelNS(j,i) = 1;
+    }
+    fpMasks.push_back(mask);
+
+    if(FLAGS_visulization) {
+      cv::Mat dst;
+      cv::eigen2cv(mask, dst);
+      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+      cv::imshow("Preview", dst);
+      cv::waitKey(0);
+    }
+  }
 }
 
 void place::findNumPixelsUnderMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,

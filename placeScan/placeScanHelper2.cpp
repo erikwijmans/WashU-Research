@@ -278,7 +278,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
 
       if (XSection.X1 > XSection.X2 || 
         XSection.Y1 > XSection.Y2) {
-        const double weight = 3000*(std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score));
+        const double weight = 10*(std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score));
         adjacencyMatrix(j,i) = weight;
       } else {
         const int Xrows = XSection.Y2 - XSection.Y1 + 1;
@@ -331,8 +331,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
           }
         }
 
-        const double weight = 3000*(std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score)) 
-          + 2.0*pointAgreement + 1/5.0*freeSpaceAgreementA + 1/5.0*freeSpaceAgreementB;
+        const double weight = (std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score))* 
+          (2.0*pointAgreement + 1/5.0*freeSpaceAgreementA + 1/5.0*freeSpaceAgreementB);
         adjacencyMatrix(j,i) = weight;
       }
     }

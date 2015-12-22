@@ -21,7 +21,7 @@ DEFINE_bool(save, true, "Saves the placements to file");
 DEFINE_bool(debugMode, false, 
 	"Turns save off, turns replace on, and forces the program to display the correct placement according to the placement files specified by the preDone flag");
 DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
-DEFINE_bool(V1, false, "Only will use V1 placement");
+DEFINE_bool(V1, true, "Only will use V1 placement");
 DEFINE_bool(V2, false, "Ony will use V2 placement");
 DEFINE_bool(top5, false, "Only shows the top5 placements");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
