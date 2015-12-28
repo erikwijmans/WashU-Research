@@ -576,7 +576,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       const Eigen::SparseMatrix<double> & currentScanE = scansE[scanIndex];
       const Eigen::MatrixXb & currentMask = masks[scanIndex];
 
-      int numPixelsInside = 0
+      int numPixelsInside = 0;
       for(int i = 0; i < currentScan.cols(); ++i){
         for(int j = 0; j < currentScan.rows(); ++j) {
           if(fpMask(j + point[1], i + point[0]))
@@ -618,7 +618,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       for(int i = 0; i < diff.outerSize(); ++i) {
         for(Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it) {
           if(it.value() > 0 && currentMask(it.row(), it.col()) != 0)
-            ++fpScanSetDiff;
+           fpScanSetDiff+=it.value();
         }
       }
 
@@ -659,10 +659,10 @@ void place::findPointsToAnalyzeV2(const std::vector<const place::posInfo *> & mi
     const int x = min->x;
     const int y = min->y;
     const int rotIndex = min->rotation;
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x,2*y,rotIndex));
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y,rotIndex));
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x,2*y + 1,rotIndex));
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y + 1,rotIndex));
+    pointsToAnalyze.push_back(Eigen::Vector3i(2*x,2*y, rotIndex));
+    pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y, rotIndex));
+    pointsToAnalyze.push_back(Eigen::Vector3i(2*x,2*y + 1, rotIndex));
+    pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y + 1, rotIndex));
   }
 }
 
@@ -727,20 +727,7 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
 
   for(auto & level : fpPyramid) {
     Eigen::MatrixXd levelNS = Eigen::MatrixXd(level);
-    Eigen::MatrixXb mask = Eigen::MatrixXb::Zeros(levelNS.rows(), levelNS.cols());
-
-    for(int j = 0; j < levelNS.rows(); ++j) {
-      int minCol = levelNS.cols();
-      int maxCol = 0;
-      for(int i = 0; i < levelNS.cols(); ++i) {
-        if(levelNS(j,i)) {
-          minCol = std::min(i, minCol);
-          maxCol = std::max(i, maxCol);
-        }
-      }
-      for(int i = minCol; i < maxCol + 1; ++i)
-        levelNS(j,i) = 1;
-    }
+    Eigen::MatrixXb mask = Eigen::MatrixXb::Zero(levelNS.rows(), levelNS.cols());
 
     for(int i = 0; i < levelNS.cols(); ++i) {
       int minRow = levelNS.rows();
@@ -752,13 +739,34 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
         }
       }
       for(int j = minRow; j < maxRow + 1; ++j)
-        levelNS(j,i) = 1;
+        mask(j,i) = 1;
+    }
+
+    for(int j = 0; j < levelNS.rows(); ++j) {
+      int minCol = levelNS.cols();
+      int maxCol = 0;
+      for(int i = 0; i < levelNS.cols(); ++i) {
+        if(levelNS(j,i)) {
+          minCol = std::min(i, minCol);
+          maxCol = std::max(i, maxCol);
+        }
+      }
+      for(int i = 0; i < levelNS.cols(); ++i)
+        if(i < minCol || i > maxCol)
+          mask(j,i) = 0;
     }
     fpMasks.push_back(mask);
 
     if(FLAGS_visulization) {
-      cv::Mat dst;
-      cv::eigen2cv(mask, dst);
+      cv::Mat dst (mask.rows(), mask.cols(), CV_8UC1, cv::Scalar::all(255));
+      for(int i = 0; i < mask.cols(); ++i) {
+        for(int j = 0; j < mask.rows(); ++j) {
+          if(mask(j,i))
+            dst.at<uchar>(j,i) = 0;
+        }
+      }
+      
+      
       cvNamedWindow("Preview", CV_WINDOW_NORMAL);
       cv::imshow("Preview", dst);
       cv::waitKey(0);
@@ -1008,14 +1016,15 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
     if(FLAGS_debugMode) {
       levelNum = k;
       for(auto v : truePlacement) {
-      v[0]/=pow(2,k);
+        v[0]/=pow(2,k);
         v[1]/=pow(2,k);
         pointsToAnalyze.push_back(v);
       }
     }
+    Eigen::MatrixXb mask = Eigen::MatrixXb::Ones(fpPyramid[k].rows(), fpPyramid[k].cols());
     findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k],
       erodedFpPyramid[k], erodedSparsePyramidTrimmed[k],
-      eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], 
+      eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], mask,
       pointsToAnalyze, maxFpWeight, scores);
     if(scores.size() == 0) return;
     if(k!=0) {

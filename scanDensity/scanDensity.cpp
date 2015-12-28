@@ -268,13 +268,10 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	// io::savePLYFileBinary("output.ply",cloud);
 
 	MatrixXf total = MatrixXf::Zero (heatMap.rows, heatMap.cols);
-	for(int i = 0; i < heatMap.rows; ++i)
-	{
-		for (int j = 0; j < heatMap.cols; ++j)
-		{
-			for (int k = 0; k < numZ; ++k)
-			{
-				if(numTimesSeen3D[i](j,k) != 0) {
+	for(int i = 0; i < heatMap.rows; ++i) {
+		for (int j = 0; j < heatMap.cols; ++j) {
+			for (int k = 0; k < numZ; ++k) {
+				if(numTimesSeen3D[i](j,k)) {
 					total(i,j)++;
 				}
 			}
@@ -323,12 +320,10 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 	}
 
 	
-	for (int i = 0; i < heatMap.rows; ++i)
-	{
+	for (int i = 0; i < heatMap.rows; ++i) {
 		uchar * dst = heatMap.ptr<uchar>(i);
 		
-		for (int j = 0; j < heatMap.cols; ++j)
-		{
+		for (int j = 0; j < heatMap.cols; ++j) {
 			if(numTimesSeen(i,j) != 0){
 				const int gray = max(0, min(255,
 					 static_cast<int>(255.0 * (numTimesSeen(i,j) - average - 1.5*sigma) 
@@ -402,13 +397,13 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 		if(z < 0 || z >= numZ)
 			continue;
 
-		pointsPerVoxel[z](y,x) += 1;
+		++pointsPerVoxel[z](y,x);
 	}
 
 
 	for (int k = 0; k < numZ; ++k) {
-		for (int j = 0; j < numY; ++j) {
 			for (int i = 0; i < numX; ++i) {
+				for (int j = 0; j < numY; ++j) {
 				if(pointsPerVoxel[k](j,i)==0)
 					continue;
 
@@ -445,6 +440,16 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 			}
 		}
 	}
+	const int r = ceil(FLAGS_scale);
+	for(int x = -r; x < r + 1; ++x) {
+		for(int y = -r; y < r + 1; ++y) {
+			for(int z = 0; z < numZ; ++z){
+				++numTimesSeen4C[cameraCenter[0]*FLAGS_scale + x]
+					(z, cameraCenter[1]*FLAGS_scale+y);
+			}
+		}
+	}
+	
 	/*const int neg1 = floor(zScale*(-0 - pointMin[2]));
 	cout << neg1 << endl;
 	showSlices(numTimesSeen[neg1], numZ, numY, numX, scanNumber); */

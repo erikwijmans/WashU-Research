@@ -50,8 +50,9 @@ namespace place{
 	Eigen::MatrixXd distanceTransform(const Eigen::SparseMatrix<double> & image);
 
 	void createFPPyramids(const cv::Mat & floorPlan, 
-		std::vector<Eigen::SparseMatrix<double> > & fpPyramid,  
-		std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid);
+	  std::vector<Eigen::SparseMatrix<double> > & fpPyramid,  
+	  std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
+	  std::vector<Eigen::MatrixXb> & fpMasks);
 
 	void findNumPixelsUnderMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
 		const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS,
