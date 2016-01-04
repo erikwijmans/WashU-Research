@@ -151,7 +151,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   std::vector<std::string> freeFileNames;
 
   place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, &freeFileNames);
-  const int numScans = pointFileNames.size();
+  const int numScans = 5;
 
   for (int i = 0; i < numScans; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
@@ -173,7 +173,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
     place::loadInScansAndMasks(scanName, rotationFile, zerosFile, 
     maskName, toTrimScans, toTrimMasks, zeroZeros[i]);
 
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(13,13));
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5,5));
     for(auto & src : toTrimMasks) {
       cv::Mat dst;
       cv::dilate(src, dst, element);
@@ -221,7 +221,7 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
 
   place::weightEdges(nodes, scans, masks, zeroZeros, adjacencyMatrix);
 
-  // place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
+  //place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 
   std::vector<place::node> bestLabels;
   place::findBestLabels(adjacencyMatrix, nodes, bestLabels);
@@ -332,7 +332,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         }
 
         const double weight = (std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score))* 
-          (2.0*pointAgreement + 1/5.0*freeSpaceAgreementA + 1/5.0*freeSpaceAgreementB);
+          (2.0*pointAgreement + 1/10.0*(freeSpaceAgreementB + freeSpaceAgreementA));
         adjacencyMatrix(j,i) = weight;
       }
     }
@@ -348,6 +348,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
 
   int numToLoad;
   in.read(reinterpret_cast<char *>(&numToLoad), sizeof(numToLoad));
+  numToLoad = (numToLoad > 5) ? 5 : numToLoad;
   std::vector<place::posInfo> scoretmp;
   for (int i = 0; i < numToLoad; ++i) {
     place::posInfo tmp;
@@ -387,7 +388,7 @@ void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans,
     for (int i = minRow; i < maxRow + 1; ++i) {
       const uchar * scanSrc = currentScan.ptr<uchar>(i);
       const uchar * maskSrc = currentMask.ptr<uchar>(i);
-      uchar * scanDst = trimmedScan.ptr<uchar>(i-minRow);
+      uchar * scanDst = trimmedScan.ptr<uchar>(i - minRow);
       uchar * maskDst = trimmedMask.ptr<uchar>(i - minRow);
       for (int j = minCol; j < maxCol + 1; ++j) {
         scanDst[j-minCol] = scanSrc[j];
@@ -412,6 +413,8 @@ void place::displayGraph(const Eigen::MatrixXd & adjacencyMatrix,
   for(int i = 0; i < cols; ++i) {
     for(int j = 0; j < rows; ++j) {
       if(adjacencyMatrix(j,i) == 0)
+        continue;
+      if(i > j)
         continue;
 
       const place::node & nodeA = nodes[i];
@@ -499,10 +502,10 @@ void place::displayLongestPath(const std::vector<place::node> & longestPath,
 
 void place::findBestLabels(const Eigen::MatrixXd & adjacencyMatrix, 
   const std::vector<place::node> & nodes, std::vector<place::node> & bestLabels) {
-  int currentColor = 0;
-  place::node currentBest;
-  double currentBestScore = 0.0;
-  for(int i = 0; i < adjacencyMatrix.cols(); ++i) {
+  int currentColor = nodes[0].color;
+  place::node currentBest = nodes[0];
+  double currentBestScore = adjacencyMatrix.col(0).sum();
+  for(int i = 1; i < adjacencyMatrix.cols(); ++i) {
     const place::node * currentNode = &nodes[i];
     if(currentNode->color == currentColor) {
       double score = adjacencyMatrix.col(i).sum();
@@ -517,4 +520,5 @@ void place::findBestLabels(const Eigen::MatrixXd & adjacencyMatrix,
       currentBest = *currentNode;
     }
   }
+  bestLabels.push_back(currentBest);
 }
