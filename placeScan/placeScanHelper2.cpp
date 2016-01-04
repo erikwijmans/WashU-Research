@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <math.h>
+#include <dirent.h>
 
 #include <opencv2/core/eigen.hpp>
 
@@ -145,13 +146,33 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   std::vector<place::node> & nodes, 
   std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
 
-  std::vector<std::string> pointFileNames;
-  std::vector<std::string> rotationFileNames;
-  std::vector<std::string> zerosFileNames;
-  std::vector<std::string> freeFileNames;
+  std::vector<std::string> pointFileNames, rotationFileNames,
+    zerosFileNames, freeFileNames, pointVoxelFileNames, freeVoxelFileNames;
 
   place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, &freeFileNames);
+
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir (FLAGS_voxelFolder.data())) != NULL) {
+    while ((ent = readdir (dir)) != NULL) {
+      std::string fileName = ent->d_name;
+      if(fileName != ".." && fileName != "." 
+        && fileName.find("point") != std::string::npos){
+        pointVoxelFileNames.push_back(fileName);
+      } else if (fileName != ".." && fileName != "." 
+        && fileName.find("freeSpace") != std::string::npos) {
+        freeVoxelFileNames.push_back(fileName);
+      }
+    }
+    closedir (dir);
+  }  else {
+    /* could not open directory */
+    perror ("");
+    exit(-1);
+  }
+
   const int numScans = 5;
+
 
   for (int i = 0; i < numScans; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
@@ -219,7 +240,8 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
   const int numNodes = nodes.size();
   adjacencyMatrix = Eigen::MatrixXd(numNodes, numNodes);
 
-  place::weightEdges(nodes, scans, masks, zeroZeros, adjacencyMatrix);
+  place::weightEdges(nodes, scans, zeroZeros, 
+    pointVoxelFileNames, freeVoxelFileNames, adjacencyMatrix);
 
   //place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 
@@ -229,16 +251,25 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
 }
 
 void place::weightEdges(const std::vector<place::node> & nodes, 
-  const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
-  const std::vector<std::vector<Eigen::MatrixXb> > & masks,
+  const std::vector<std::vector<Eigen::MatrixXb> > & scans,
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
+  const std::vector<std::string> & pointVoxelFileNames,
+  const std::vector<std::string> & freeVoxelFileNames,
   Eigen::MatrixXd & adjacencyMatrix) {
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
 
+  int voxelAColor = 1e6;
+  std::vector<Eigen::MatrixXb> aPoint, aFree;
   for(int i = 0; i < cols; ++i) {
+    const place::node & nodeA = nodes[i];
+    if(nodeA.color != voxelAColor) {
+      place::loadInVoxel(pointVoxelFileNames[nodeA.color], aPoint);
+      place::loadInVoxel(freeVoxelFileNames[nodeA.color], aFree);
+    }
+    int voxelBcolor = 1e6;
+    std::vector<Eigen::MatrixXb> bPoint, bFree;
     for(int j = 0; j < rows; ++j) {
-      const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
       if(nodeA.color == nodeB.color) {
         adjacencyMatrix(j,i) = 0;
@@ -248,13 +279,9 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         adjacencyMatrix(j,i) = adjacencyMatrix(i,j);
         continue;
       }
-      
 
       const Eigen::MatrixXb & aScan = scans[nodeA.color][nodeA.s.rotation];
-      const Eigen::MatrixXb & aMask = masks[nodeA.color][nodeA.s.rotation];
-
       const Eigen::MatrixXb & bScan = scans[nodeB.color][nodeB.s.rotation];
-      const Eigen::MatrixXb & bMask = masks[nodeB.color][nodeB.s.rotation];
 
       const Eigen::Vector2i & zeroZeroA = zeroZeros[nodeA.color][nodeA.s.rotation];
       const Eigen::Vector2i & zeroZeroB = zeroZeros[nodeB.color][nodeB.s.rotation];
@@ -281,10 +308,14 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         const double weight = 10*(std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score));
         adjacencyMatrix(j,i) = weight;
       } else {
+        if(nodeB.color != voxelBcolor) {
+          place::loadInVoxel(pointVoxelFileNames[nodeB.color], bPoint);
+          place::loadInVoxel(freeVoxelFileNames[nodeB.color], bFree);
+        }
+
+
         const int Xrows = XSection.Y2 - XSection.Y1 + 1;
         const int Xcols = XSection.X2 - XSection.X1 + 1;
-        Eigen::MatrixXb XSectionAScan, XSectionAMask,
-          XSectionBScan, XSectionBMask;
         place::rect crossWRTA, crossWRTB;
 
         crossWRTA.X1 = XSection.X1 - aBox.X1;
@@ -297,42 +328,10 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         crossWRTB.Y1 = XSection.Y1 - bBox.Y1;
         crossWRTB.Y2 = XSection.Y2 - bBox.Y1;
 
-        XSectionAMask = aMask.block(crossWRTA.Y1, crossWRTA.X1,
-          Xrows, Xcols);
-        XSectionAScan = aScan.block(crossWRTA.Y1, crossWRTA.X1,
-          Xrows, Xcols);
 
-        XSectionBMask = bMask.block(crossWRTB.Y1, crossWRTB.X1,
-          Xrows, Xcols);
-        XSectionBScan = bScan.block(crossWRTB.Y1, crossWRTB.X1,
-          Xrows, Xcols);
 
-        double pointAgreement = 0;
-        for(int k = 0; k < Xcols; ++k) {
-          for(int l = 0; l < Xrows; ++l) {
-            if(XSectionAScan(l,k) != 0 && XSectionBScan(l,k) != 0)
-              ++pointAgreement;
-          }
-        }
-
-        double freeSpaceAgreementA = 0;
-        for(int k = 0; k < Xcols; ++k) {
-          for(int l = 0; l < Xrows; ++l) {
-            if(XSectionAScan(l,k) != 0 && XSectionBMask(l,k) != 0)
-              --freeSpaceAgreementA;
-          }
-        }
-
-        double freeSpaceAgreementB = 0;
-        for(int k = 0; k < Xcols; ++k) {
-          for(int l = 0; l < Xrows; ++l) {
-            if(XSectionBScan(l,k) != 0 && XSectionAMask(l,k) != 0)
-              --freeSpaceAgreementB;
-          }
-        }
-
-        const double weight = (std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score))* 
-          (2.0*pointAgreement + 1/10.0*(freeSpaceAgreementB + freeSpaceAgreementA));
+        const double weight = (std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score)) *
+          place::compare3D(aPoint, bPoint, aFree, bFree, crossWRTA, crossWRTB);
         adjacencyMatrix(j,i) = weight;
       }
     }
@@ -522,3 +521,76 @@ void place::findBestLabels(const Eigen::MatrixXd & adjacencyMatrix,
   }
   bestLabels.push_back(currentBest);
 }
+
+
+double place::compare3D(const std::vector<Eigen::MatrixXb> & aPoint,
+  const std::vector<Eigen::MatrixXb> & bPoint,
+  const std::vector<Eigen::MatrixXb> & aFree,
+  const std::vector<Eigen::MatrixXb> & bFree, 
+  const place::rect & aRect, const place::rect & bRect) {
+
+  const int z = aPoint.size();
+  const int Xrows = aRect.Y2 - aRect.Y1 + 1;
+  const int Xcols = aRect.X2 - aRect.X1 + 1;
+  double score = 0.0;
+
+  for(int i = 0; i < z; ++i) {
+    Eigen::MatrixXb XSectionApoint = aPoint[i].block(aRect.Y1, aRect.X1,
+      Xrows, Xcols);
+    Eigen::MatrixXb XSectionBpoint = bPoint[i].block(bRect.Y1, bRect.X1,
+      Xrows, Xcols);
+    Eigen::MatrixXb XSectionAfree = aFree[i].block(aRect.Y1, aRect.X1,
+      Xrows, Xcols);
+    Eigen::MatrixXb XSectionBfree = bFree[i].block(bRect.Y1, bRect.X1,
+      Xrows, Xcols);
+
+    double pointAgreement = 0;
+    for(int k = 0; k < Xcols; ++k)
+      for(int l = 0; l < Xrows; ++l)
+        if(XSectionApoint(l,k) && XSectionBpoint(l,k))
+          ++pointAgreement;
+
+    double freeSpaceAgreementA = 0;
+    for(int k = 0; k < Xcols; ++k)
+      for(int l = 0; l < Xrows; ++l)
+        if(XSectionApoint(l,k) && XSectionBfree(l,k))
+          --freeSpaceAgreementA;
+
+    double freeSpaceAgreementB = 0;
+    for(int k = 0; k < Xcols; ++k)
+      for(int l = 0; l < Xrows; ++l)
+        if(XSectionBpoint(l,k) && XSectionAfree(l,k))
+          --freeSpaceAgreementB;
+
+    score += (2.0*pointAgreement + 
+      1/10.0*(freeSpaceAgreementB + freeSpaceAgreementA));
+  }
+
+  return score;
+}
+
+void place::loadInVoxel(const std::string & name, 
+  std::vector<Eigen::MatrixXb> & dst) {
+  dst.clear();
+  int x,y,z;
+  std::ifstream in (name, std::ios::in | std::ios::binary);
+  in.read(reinterpret_cast<char *>(&z), sizeof(z));
+  in.read(reinterpret_cast<char *>(&y), sizeof(y));
+  in.read(reinterpret_cast<char *>(&x), sizeof(x));
+  dst.resize(z);
+
+  for(int i = 0; i < z; ++i) {
+    dst[i] = Eigen::MatrixXb(y,x);
+    in.read(dst[i].data(), dst[i].size());
+  }
+  in.close();
+}
+
+
+
+
+
+
+
+
+

@@ -56,6 +56,8 @@ DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/
 	"Path to output folder");
 DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
 	"Path to folder where the pixel cordinates of (0,0) will be written to");
+DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids",
+	"Path to the folder where the voxelGrids are saved to.");
 DEFINE_double(scale, 73.5, "scale used to size the density maps");
 DEFINE_int32(startIndex, 0, "Number to start with");
 DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
@@ -142,16 +144,19 @@ void analyzeScan(const string & fileName, const string & outputFolder){
   	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
   
   vector<Vector3f> points;
+  int numCenter = 0;
   for (int k = 0; k < columns * rows; ++k) {
     Vector3f point;
 		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
-	
-		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
-			continue;
-		if(point[0]*point[0] + point[1]*point[1] < 1)
-			continue;
-  	
-    points.push_back(point);
+
+		if(point[0]*point[0] + point[1]*point[1] < 1) {
+			if(numCenter%1000 == 0)
+				points.push_back(point);
+			++numCenter;
+		} else
+			if(point[0] || point[1] || point[2])
+		  	points.push_back(point);
+		
 	}
 
 	scanFile.close();
@@ -230,7 +235,6 @@ void examinePointEvidence(const vector<Vector3f> & points,
 
 	heatMap = Mat (numRows, numCols, CV_8UC1, Scalar::all(255));
 
-	vector<VectorXf> numTimesSeen (heatMap.rows, VectorXf::Zero(heatMap.cols));
 	vector<MatrixXi> numTimesSeen3D (heatMap.rows, MatrixXi::Zero(heatMap.cols, numZ));
 
 	Vector2i zeroZero (0,0);
@@ -258,7 +262,7 @@ void examinePointEvidence(const vector<Vector3f> & points,
 		if( z < 0 || z >= numZ)
 			continue;
 
-	  numTimesSeen3D[y](x, z) +=1; 
+	  ++numTimesSeen3D[y](x, z); 
 	    /*if(y>=heatMap.rows/2 && y<= heatMap.rows/2+20
 	    	&& x>=heatMap.cols/2+120 && x<=heatMap.cols/2 + 140)
 	    	cloud.push_back(PointXYZ(x,y,z));*/
@@ -268,16 +272,11 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	// io::savePLYFileBinary("output.ply",cloud);
 
 	MatrixXf total = MatrixXf::Zero (heatMap.rows, heatMap.cols);
-	for(int i = 0; i < heatMap.rows; ++i) {
-		for (int j = 0; j < heatMap.cols; ++j) {
-			for (int k = 0; k < numZ; ++k) {
-				if(numTimesSeen3D[i](j,k)) {
-					total(i,j)++;
-				}
-			}
-			
-		}
-	}
+	for(int i = 0; i < heatMap.rows; ++i)
+		for (int j = 0; j < heatMap.cols; ++j)
+			for (int k = 0; k < numZ; ++k)
+				if(numTimesSeen3D[i](j,k))
+					++total(i,j);
 
 	const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
 	displayPointEvenidence(total, imageName, 2.0);
@@ -294,7 +293,7 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 	float maxV = 0;
 	const float * dataPtr = numTimesSeen.data();
 	for(int i = 0; i < numTimesSeen.size(); ++i) {
-		if(*(dataPtr+ i) != 0){
+		if(*(dataPtr+ i)) {
 			++count;
 			average+= *(dataPtr + i);
 			minV = min(minV, *(dataPtr+i));
@@ -322,12 +321,11 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 	
 	for (int i = 0; i < heatMap.rows; ++i) {
 		uchar * dst = heatMap.ptr<uchar>(i);
-		
 		for (int j = 0; j < heatMap.cols; ++j) {
-			if(numTimesSeen(i,j) != 0){
-				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (numTimesSeen(i,j) - average - 1.5*sigma) 
-					 	/ (bias * sigma))));
+			if(numTimesSeen(i,j)){
+				const int gray = cv::saturate_cast<uchar>(
+					255.0 * (numTimesSeen(i,j) - average - 1.5*sigma) 
+					 	/ (bias * sigma));
 				dst[j] = 255 - gray;
 				/*int red, green, blue;
 				if (gray < 128) {
@@ -383,7 +381,7 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 
 	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
 	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numZ, numY));
-	// vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
+	vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
 
 	for(auto & point : points) {
 		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
@@ -400,10 +398,14 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 		++pointsPerVoxel[z](y,x);
 	}
 
+	std::string outName = FLAGS_voxelFolder + 
+		"DUC_point_" + scanNumber + ".dat";
+	saveVoxelGrid(pointsPerVoxel, outName);
+
 
 	for (int k = 0; k < numZ; ++k) {
-			for (int i = 0; i < numX; ++i) {
-				for (int j = 0; j < numY; ++j) {
+		for (int i = 0; i < numX; ++i) {
+			for (int j = 0; j < numY; ++j) {
 				if(pointsPerVoxel[k](j,i)==0)
 					continue;
 
@@ -433,27 +435,16 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					numTimesSeen4C[voxelHit[0]](voxelHit[2], voxelHit[1])
 						+= pointsPerVoxel[k](j,i);
 
-					/*numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
-						+= pointsPerVoxel[k](j,i); */
+					numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
+						+= pointsPerVoxel[k](j,i);
 
 				}
 			}
 		}
 	}
-	const int r = ceil(FLAGS_scale);
-	for(int x = -r; x < r + 1; ++x) {
-		for(int y = -r; y < r + 1; ++y) {
-			for(int z = 0; z < numZ; ++z){
-				++numTimesSeen4C[cameraCenter[0]*FLAGS_scale + x]
-					(z, cameraCenter[1]*FLAGS_scale+y);
-			}
-		}
-	}
+	outName = FLAGS_voxelFolder + "DUC_freeSpace_" + scanNumber + ".dat";
+	saveVoxelGrid(numTimesSeen, outFolder);
 	
-	/*const int neg1 = floor(zScale*(-0 - pointMin[2]));
-	cout << neg1 << endl;
-	showSlices(numTimesSeen[neg1], numZ, numY, numX, scanNumber); */
-
 	collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
 	 outputFolder, scanNumber);
 }
@@ -525,24 +516,18 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 
 	MatrixXd collapsedMean (numY, numX);
 
-	for (int i = 0; i < numX; ++i)
-	{
-		for (int j = 0; j < numY; ++j)
-		{
+	for (int i = 0; i < numX; ++i) {
+		for (int j = 0; j < numY; ++j) {
 			double mean = 0;
 			int count = 0;
-			for (int k = 0; k < numZ; ++k)
-			{
+			for (int k = 0; k < numZ; ++k) {
 				if(numTimesSeen[i](k,j) != 0) {
 					mean += static_cast<double>(numTimesSeen[i](k,j));
 					count++;
 				}
 			}
 			mean = mean/numZ;
-			if(count == 0)
-				collapsedMean(j,i) = 0;
-			else
-				collapsedMean(j,i) = count;
+			collapsedMean(j,i) = count;
 		}
 	}
 	const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
@@ -614,4 +599,54 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 	
 
 	imwrite(imageName, collapsedMap);
+}
+
+void saveVoxelGrid(std::vector<Eigen::MatrixXd> & grid,
+	std::string & outName) {
+	std::ofstream out (outName, ios::out | ios::binary);
+
+	int x, y, z;
+	z = grid.size();
+	y = grid[0].rows();
+	x = grid[0].cols();
+
+	out.write(reinterpret_cast<const char *>(& z), sizeof(z));
+	out.write(reinterpret_cast<const char *>(& y), sizeof(y));
+	out.write(reinterpret_cast<const char *>(& x), sizeof(x));
+
+	double average = 0.0;
+	int count = 0;
+
+	for(int i = 0; i < z; ++i) {
+		const double * dataPtr = grid[i].data();
+		for(int j = 0; j < grid[i].outerSize()) {
+			const double value = *(dataPtr + i);
+			if(value) {
+				average += value;
+				++count;
+			}
+		}
+	}
+	average /= count;
+	double simga = 0.0;
+	for(int i = 0; i < z; ++i) {
+		const double * dataPtr = grid[i].data();
+		for(int j = 0; j < grid[i].outerSize()) {
+			const double value = *(dataPtr + i);
+			if(value)
+				sigma += (value - average)*(value - average);
+		}
+	}
+	sigma /= count - 1;
+	sigma = sqrt(sigma);
+
+	for(int i = 0; i < z; ++i) {
+		const double * valuePtr = grid[i].data();
+		for(int j = 0; j < grid[i].size(); ++j) {
+			const double normalized = (*(valuePtr + i) - average)/(1.0*sigma);
+			const char tmp = normalized > -1.0 ? 1 : 0;
+			out.write(&tmp, sizeof(tmp));
+		}
+	}
+	out.close();
 }

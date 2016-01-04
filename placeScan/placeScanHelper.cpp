@@ -36,6 +36,8 @@ DEFINE_string(preDoneV2, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOpt
 	"Path to folder containing previous placements of a scan");
 DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
 	"Path to folder where the pixel coordinates of (0,0) are");
+DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids",
+	"Path to the folder where the voxelGrids are saved to.");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");
@@ -59,9 +61,8 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	  	if(fileName != ".." && fileName != "." 
 	  		&& fileName.find("point") != std::string::npos){
 	  		pointFileNames.push_back(fileName);
-	  	} else if (fileName != ".." && fileName != "." 
-	  		&& fileName.find("freeSpace") != std::string::npos &&
-	  		freeFileNames) {
+	  	} else if (freeFileNames && fileName != ".." && fileName != "." 
+	  		&& fileName.find("freeSpace") != std::string::npos) {
 	  		freeFileNames->push_back(fileName);
 	  	}
 	  }
@@ -173,10 +174,12 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 		cv::waitKey(0);
 	}
 
-	const Eigen::Vector3d center (widenedScan.cols/2.0, widenedScan.rows/2.0, 0.0);
+	
 	int i = 0;
 	for(auto & rot : R) {
 		cv::Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, cv::Scalar::all(255));
+		const Eigen::Vector3d center (zeroZero[i][0], zeroZero[i][1], 0.0);
+		++i;
 		for (int i = 0; i < widenedScan.rows; ++i) {
 			uchar * dst = rScan.ptr<uchar>(i);
 			for (int j = 0; j < widenedScan.cols; ++j)
@@ -191,12 +194,6 @@ void place::loadInScans(const std::string & scanName, const std::string & rotati
 			}
 		}
 		rotatedScans.push_back(rScan);
-
-		Eigen::Vector3d tmp (zeroZero[i][0], zeroZero[i][1], 0.0);
-		tmp = rot*(tmp - center) + center;
-		zeroZero[i][0] = tmp[0];
-		zeroZero[i][1] = tmp[1];
-		++i;
 	}
 
 	if(FLAGS_visulization || FLAGS_previewIn) {
@@ -214,11 +211,11 @@ void place::loadInScansAndMasks(const std::string & scanName,
     std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero) {
 
     place::loadInScans(scanName, rotationFile, zerosFile, rotatedScans, zeroZero);
-    place::loadInMasks(maskName, rotationFile, masks);
+    place::loadInMasks(maskName, rotationFile, zeroZero, masks);
 }
 
 void place::loadInMasks(const std::string & scanName, const std::string & rotationFile,
-  std::vector<cv::Mat> & rotatedScans) {
+  const std::vector<Eigen::Vector2i> & zeroZero, std::vector<cv::Mat> & rotatedScans) {
   std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
   std::vector<Eigen::Matrix3d> R (NUM_ROTS);
   for (int i = 0; i < R.size(); ++i) {
@@ -259,10 +256,12 @@ void place::loadInMasks(const std::string & scanName, const std::string & rotati
     cv::waitKey(0);
   }
 
-  const Eigen::Vector3d center (widenedScan.cols/2.0, widenedScan.rows/2.0, 0.0);
+ 
   int i = 0;
   for(auto & rot : R) {
     cv::Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, cv::Scalar::all(255));
+    const Eigen::Vector3d center (zeroZero[i][0], zeroZero[i][1], 0.0);
+    ++i;
     for (int i = 0; i < widenedScan.rows; ++i) {
       uchar * dst = rScan.ptr<uchar>(i);
       for (int j = 0; j < widenedScan.cols; ++j)

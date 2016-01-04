@@ -29,6 +29,7 @@ DECLARE_string(rotFolder);
 DECLARE_string(preDone);
 DECLARE_string(preDoneV2);
 DECLARE_string(zerosFolder);
+DECLARE_string(voxelFolder);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
 DECLARE_int32(numLevels);
@@ -75,7 +76,7 @@ namespace place{
 	    std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero);
 	
 	void loadInMasks(const std::string & scanName, const std::string & rotationFile,
-	  std::vector<cv::Mat> & rotatedScans);
+	  const std::vector<Eigen::Vector2i> & zeroZero, std::vector<cv::Mat> & rotatedScans);
 
 	void trimScans(const std::vector<cv::Mat> & toTrim, 
 		std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero);
