@@ -173,7 +173,6 @@ void place::createGraph(Eigen::MatrixXd & adjacencyMatrix,
 
   const int numScans = 5;
 
-
   for (int i = 0; i < numScans; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
     place::loadInPlacementGraph(imageName, nodes, i);

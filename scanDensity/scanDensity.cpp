@@ -1,55 +1,20 @@
 /*Scanner units are proabaly in meters */
-#include <eigen3/Eigen/Dense>
-#include <eigen3/Eigen/StdVector>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-#include <stdio.h>
-#include <iostream>
-#include <string>
-#include <dirent.h>
-#include <vector>
-#include <fstream>
-#include <math.h>
-#include <time.h>
-#include <gflags/gflags.h>
+#include "scanDensity_scanDensity.h"
+#include "scanDensity_3DInfo.h"
+
 
 /*#include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>*/
 
-using namespace cv;
-using namespace std;
-using namespace Eigen;
-// using namespace pcl;
-
-
-
-void examinePointEvidence(const vector<Vector3f> &, const float *, const float *,
-	const string &, const string &);
-void createBoundingBox(float *, float *, const vector<Vector3f> &);
-void examineFreeSpaceEvidence(const vector<Vector3f> &, const float*, const float *,
-	const string &, const string &);
-void showSlices(const MatrixXi & numTimesSeen,
-	const int numZ, const int numY, const int numX, const string &);
-void collapseFreeSpaceEvidence(const vector<MatrixXi> &, const int, const int,
-	const int, const string &, const string &);
-void displayCollapsed(const MatrixXd &, const int, const int, const string &);
-void displayPointEvenidence(const MatrixXf &, const string &, const int);
-
-void analyzeScan(const string &, const string &);
-
-
-static Mat heatMap;
-
-
-
+static cv::Mat heatMap;
 
 DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
 DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
 DEFINE_bool(quiteMode, true, "Turns of all extrenous statements");
 DEFINE_bool(preview, false, "Turns on previews of the output");
 DEFINE_bool(redo, false, "Recreates the density map even if it already exists");
+DEFINE_bool(3D, true, "writes out 3D voxelGrids");
 DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/",
 	"Path to binary files");
 DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
@@ -58,28 +23,44 @@ DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMap
 	"Path to folder where the pixel cordinates of (0,0) will be written to");
 DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids",
 	"Path to the folder where the voxelGrids are saved to.");
+DEFINE_string(rotFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/rotations/",
+	"Path to folder containing the dominate direction rotations");
 DEFINE_double(scale, 73.5, "scale used to size the density maps");
 DEFINE_int32(startIndex, 0, "Number to start with");
 DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 
 	
-	cvNamedWindow("Preview", WINDOW_NORMAL);
+	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
-	vector<string> binaryNames;
+	std::vector<std::string> binaryNames, rotationsFiles;
 	
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
-	  /* Add all the files and directories to a vector */
+	  /* Add all the files and directories to a std::vector */
 	  while ((ent = readdir (dir)) != NULL) {
-	  	string fileName = ent->d_name;
+	  	std::string fileName = ent->d_name;
 	  	if(fileName != ".." && fileName != "."){
 	  		binaryNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  return EXIT_FAILURE;
+	}
+
+	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if(fileName != ".." && fileName != "."){
+	  		rotationsFiles.push_back(fileName);
 	  	}
 	  }
 	  closedir (dir);
@@ -94,45 +75,47 @@ int main(int argc, char *argv[])
 		FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
 
 	for(int i = FLAGS_startIndex; i < FLAGS_startIndex + FLAGS_numScans; ++i){
-		const string binaryFilePath = FLAGS_inFolder + binaryNames[i];
-		analyzeScan(binaryFilePath, FLAGS_outFolder);
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+		analyzeScan(binaryFilePath, rotationFile, FLAGS_outFolder);
 	}
 	
 	
 	
-	cout << "Scan Density Done!" << endl;
+	std::cout << "Scan Density Done!" << std::endl;
 
 	return 0;
 }
 
-void analyzeScan(const string & fileName, const string & outputFolder){
-	const string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
+void analyzeScan(const std::string & fileName, 
+	const std::string & rotationFile, const std::string & outputFolder) {
+	const std::string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
 	if(!FLAGS_quiteMode)
-		cout << scanNumber << endl;
+		std::cout << scanNumber << std::endl;
 
 	if(FLAGS_pe && !FLAGS_redo) {
-		const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
-		cv::Mat img = imread(imageName);
+		const std::string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
+		cv::Mat img = cv::imread(imageName);
 		if(img.data)
 			return;
 	}
 	if(FLAGS_fe && !FLAGS_redo) {
-		const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
-		cv::Mat img = imread(imageName);
+		const std::string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
+		cv::Mat img = cv::imread(imageName);
 		if(img.data)
 			return;
 	}
 
 	if(!FLAGS_pe && !FLAGS_fe && !FLAGS_redo) {
-		const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
-		cv::Mat img = imread(imageName);
-		const string imageName2 = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
-		cv::Mat img2 = imread(imageName2);
+		const std::string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
+		cv::Mat img = cv::imread(imageName);
+		const std::string imageName2 = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
+		cv::Mat img2 = cv::imread(imageName2);
 		if(img.data && img2.data)
 			return;
 	}
 
-  ifstream scanFile (fileName, ios::in | ios::binary);
+  std::ifstream scanFile (fileName, std::ios::in | std::ios::binary);
 
   int columns, rows;
  	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
@@ -140,13 +123,11 @@ void analyzeScan(const string & fileName, const string & outputFolder){
 
   
   float pointMax [3], pointMin[3];
-  pointMax[0] = pointMax[1] = pointMax[2] 
-  	= pointMin[0] = pointMin[1] = pointMin[2] = 0;
   
-  vector<Vector3f> points;
+  std::vector<Eigen::Vector3f> points;
   int numCenter = 0;
   for (int k = 0; k < columns * rows; ++k) {
-    Vector3f point;
+    Eigen::Vector3f point;
 		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
 
 		if(point[0]*point[0] + point[1]*point[1] < 1) {
@@ -168,12 +149,15 @@ void analyzeScan(const string & fileName, const string & outputFolder){
 
 	if(FLAGS_fe || (!FLAGS_pe && !FLAGS_fe))
 		examineFreeSpaceEvidence(points, pointMin, pointMax, outputFolder, scanNumber);
+
+	if(FLAGS_3D)
+		voxel::createVoxelGrids(points, pointMin, pointMax, rotationFile, scanNumber);
 }
 
 
 
 void createBoundingBox(float * pointMin, float * pointMax,
-	const vector<Vector3f> & points){
+	const std::vector<Eigen::Vector3f> & points){
 	double averageX, averageY, sigmaX, sigmaY, averageZ, sigmaZ;
 	averageX = averageY = sigmaX = sigmaY = averageZ = sigmaZ = 0;
 
@@ -202,12 +186,12 @@ void createBoundingBox(float * pointMin, float * pointMax,
 
 	if(!FLAGS_quiteMode)
 	{
-		cout << "averageX: " << averageX << endl;
-		cout << "averageY: " << averageY << endl;
-		cout << "averageZ: " << averageZ << endl;
-		cout << "sigmaX: " << sigmaX << endl;
-		cout << "sigmaY: " << sigmaY << endl;
-		cout << "sigmaZ: " << sigmaZ << endl;
+		std::cout << "averageX: " << averageX << std::endl;
+		std::cout << "averageY: " << averageY << std::endl;
+		std::cout << "averageZ: " << averageZ << std::endl;
+		std::cout << "sigmaX: " << sigmaX << std::endl;
+		std::cout << "sigmaY: " << sigmaY << std::endl;
+		std::cout << "sigmaZ: " << sigmaZ << std::endl;
 	}
 
 	double dX = 1.1*9*sigmaX;
@@ -224,27 +208,23 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	pointMax[2] = averageZ + dZ/2;
 } 
 
-void examinePointEvidence(const vector<Vector3f> & points,
+void examinePointEvidence(const std::vector<Eigen::Vector3f> & points,
 	const float* pointMin, const float * pointMax, 
-	const string & outputFolder, const string & scanNumber){
+	const std::string & outputFolder, const std::string & scanNumber){
 	const int numZ = 100;
 	const float zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	const int numCols = FLAGS_scale * (pointMax[0] - pointMin[0]);
 	const int numRows = FLAGS_scale * (pointMax[1] - pointMin[1]);
 
-	heatMap = Mat (numRows, numCols, CV_8UC1, Scalar::all(255));
+	heatMap = cv::Mat (numRows, numCols, CV_8UC1, cv::Scalar::all(255));
 
-	vector<MatrixXi> numTimesSeen3D (heatMap.rows, MatrixXi::Zero(heatMap.cols, numZ));
+	std::vector<Eigen::MatrixXi> numTimesSeen3D (heatMap.rows, Eigen::MatrixXi::Zero(heatMap.cols, numZ));
 
-	Vector2i zeroZero (0,0);
-	zeroZero[0] -= pointMin[0];
-	zeroZero[1] -= pointMin[1];
+	Eigen::Vector2i zeroZero (-pointMin[0], -pointMin[1]);
 	zeroZero *= FLAGS_scale;
-	zeroZero[0] = static_cast<int>(zeroZero[0]);
-	zeroZero[1] = static_cast<int>(zeroZero[1]);
-	const string zeroName = FLAGS_zerosFolder + "DUC_point_" + scanNumber + ".dat";
-	ofstream out (zeroName, ios::out | ios::binary);
+	const std::string zeroName = FLAGS_zerosFolder + "DUC_point_" + scanNumber + ".dat";
+	std::ofstream out (zeroName, std::ios::out | std::ios::binary);
 	out.write(reinterpret_cast<const char *> (&zeroZero[0]), sizeof(zeroZero));
 	out.close();
 
@@ -271,20 +251,20 @@ void examinePointEvidence(const vector<Vector3f> & points,
 	}
 	// io::savePLYFileBinary("output.ply",cloud);
 
-	MatrixXf total = MatrixXf::Zero (heatMap.rows, heatMap.cols);
+	Eigen::MatrixXf total = Eigen::MatrixXf::Zero (heatMap.rows, heatMap.cols);
 	for(int i = 0; i < heatMap.rows; ++i)
 		for (int j = 0; j < heatMap.cols; ++j)
 			for (int k = 0; k < numZ; ++k)
 				if(numTimesSeen3D[i](j,k))
 					++total(i,j);
 
-	const string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
+	const std::string imageName = outputFolder + "DUC_point_" + scanNumber + ".png";
 	displayPointEvenidence(total, imageName, 2.0);
 
 }
 
-void displayPointEvenidence(const MatrixXf & numTimesSeen, 
-	const string & imageName,
+void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen, 
+	const std::string & imageName,
 	const int bias){
 	double average, sigma;
 	average = sigma = 0;
@@ -296,8 +276,8 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 		if(*(dataPtr+ i)) {
 			++count;
 			average+= *(dataPtr + i);
-			minV = min(minV, *(dataPtr+i));
-			maxV = max(maxV, *(dataPtr + i));
+			minV = std::min(minV, *(dataPtr+i));
+			maxV = std::max(maxV, *(dataPtr + i));
 		}
 	}
 
@@ -314,8 +294,8 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 
 	if(!FLAGS_quiteMode)
 	{
-		cout << "Average     Sigma" << endl << average << "     " << sigma << endl;
-		cout << "Max     Min" << endl << maxV << "      " << minV << endl;
+		std::cout << "Average     Sigma" << std::endl << average << "     " << sigma << std::endl;
+		std::cout << "Max     Min" << std::endl << maxV << "      " << minV << std::endl;
 	}
 
 	
@@ -357,18 +337,17 @@ void displayPointEvenidence(const MatrixXf & numTimesSeen,
 	
 	if(FLAGS_preview)
 	{
-		imshow("Preview", heatMap);
-		waitKey(0);
+		cv::imshow("Preview", heatMap);
+		cv::waitKey(0);
 	}
 	
-	imwrite(imageName, heatMap);
+	cv::imwrite(imageName, heatMap);
 }
 
-void examineFreeSpaceEvidence(const vector<Vector3f> & points, 
+void examineFreeSpaceEvidence(const std::vector<Eigen::Vector3f> & points, 
 	const float* pointMin, const float * pointMax,
-	const string & outputFolder, const string & scanNumber){
+	const std::string & outputFolder, const std::string & scanNumber){
 
-	const float numZSimga = 2;
 	const int numX = FLAGS_scale * (pointMax[0] - pointMin[0]);
 	const int numY = FLAGS_scale * (pointMax[1] - pointMin[1]);
 	const int numZ = 100;
@@ -379,9 +358,8 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 	cameraCenter[1] = -1*pointMin[1];
 	cameraCenter[2] = -1*pointMin[2];
 
-	vector<MatrixXi> pointsPerVoxel (numZ, MatrixXi::Zero(numY, numX));
-	vector<MatrixXi> numTimesSeen4C (numX, MatrixXi::Zero(numZ, numY));
-	vector<MatrixXi> numTimesSeen (numZ, MatrixXi::Zero(numY, numX));
+	std::vector<Eigen::MatrixXi> pointsPerVoxel (numZ, Eigen::MatrixXi::Zero(numY, numX));
+	std::vector<Eigen::MatrixXi> numTimesSeen4C (numX, Eigen::MatrixXi::Zero(numZ, numY));
 
 	for(auto & point : points) {
 		int x = floor((point[0]- pointMin[0]) * FLAGS_scale);
@@ -397,10 +375,6 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 
 		++pointsPerVoxel[z](y,x);
 	}
-
-	std::string outName = FLAGS_voxelFolder + 
-		"DUC_point_" + scanNumber + ".dat";
-	saveVoxelGrid(pointsPerVoxel, outName);
 
 
 	for (int k = 0; k < numZ; ++k) {
@@ -435,22 +409,17 @@ void examineFreeSpaceEvidence(const vector<Vector3f> & points,
 					numTimesSeen4C[voxelHit[0]](voxelHit[2], voxelHit[1])
 						+= pointsPerVoxel[k](j,i);
 
-					numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0])
-						+= pointsPerVoxel[k](j,i);
-
 				}
 			}
 		}
 	}
-	outName = FLAGS_voxelFolder + "DUC_freeSpace_" + scanNumber + ".dat";
-	saveVoxelGrid(numTimesSeen, outFolder);
 	
 	collapseFreeSpaceEvidence(numTimesSeen4C, numZ, numY, numX,
 	 outputFolder, scanNumber);
 }
 
-void showSlices(const MatrixXi & currentSlice,
-	const int numZ, const int numY, const int numX, const string & scanNumber){
+void showSlices(const Eigen::MatrixXi & currentSlice,
+	const int numZ, const int numY, const int numX, const std::string & scanNumber){
 
 
 	float average, sigma;
@@ -474,16 +443,15 @@ void showSlices(const MatrixXi & currentSlice,
 	sigma = sigma/(count - 1);
 	sigma = sqrt(sigma);
 
-	Mat sliceMap (numY, numX, CV_8UC3, Scalar::all(255));
+	cv::Mat sliceMap (numY, numX, CV_8UC3, cv::Scalar::all(255));
 
 	for (int j = 0; j < sliceMap.rows; ++j) {
 		uchar * dst = sliceMap.ptr<uchar>(j);
 		
 		for (int i = 0; i < sliceMap.cols; ++i) {
 			if(currentSlice(j,i) != 0){
-				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 * (currentSlice(j,i)
-					  - average) / ((3 * sigma) + 1.0) / 2.0)));
+				const int gray = cv::saturate_cast<uchar>(255.0 * (currentSlice(j,i)
+					  - average) / ((3 * sigma) + 1.0) / 2.0);
 				int red, green, blue;
 				if (gray < 128) {
 					red = 0;
@@ -500,21 +468,21 @@ void showSlices(const MatrixXi & currentSlice,
 			}
 		} 
 	}
-	/*const string imageName = FLAGS_outFolder + "DUC_freeSpace_" + scanNumber + ".png";
-	imwrite(imageName, sliceMap);*/
+	/*const std::string imageName = FLAGS_outFolder + "DUC_freeSpace_" + scanNumber + ".png";
+	cv::imwrite(imageName, sliceMap);*/
 
-	imshow("Preview", sliceMap);
-	waitKey(0); 
+	cv::imshow("Preview", sliceMap);
+	cv::waitKey(0); 
 
 
 }
 
 
-void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
+void collapseFreeSpaceEvidence(const std::vector<Eigen::MatrixXi> & numTimesSeen,
 	const int numZ, const int numY, const int numX,
-	const string & outputFolder, const string & scanNumber){
+	const std::string & outputFolder, const std::string & scanNumber){
 
-	MatrixXd collapsedMean (numY, numX);
+	Eigen::MatrixXd collapsedMean (numY, numX);
 
 	for (int i = 0; i < numX; ++i) {
 		for (int j = 0; j < numY; ++j) {
@@ -530,15 +498,15 @@ void collapseFreeSpaceEvidence(const vector<MatrixXi> & numTimesSeen,
 			collapsedMean(j,i) = count;
 		}
 	}
-	const string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
+	const std::string imageName = outputFolder + "DUC_freeSpace_" + scanNumber + ".png";
 	displayCollapsed(collapsedMean, numX, numY, imageName);
 	
 	
 }
 
-void displayCollapsed(const MatrixXd & numTimesSeen, 
+void displayCollapsed(const Eigen::MatrixXd & numTimesSeen, 
 	const int numX, const int numY,
-	const string & imageName){
+	const std::string & imageName){
 	double average, sigma;
 	average = sigma = 0;
 	size_t count = 0;
@@ -561,7 +529,7 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 	sigma = sigma/(count - 1);
 	sigma = sqrt(sigma);
 
-	Mat collapsedMap (numY, numX, CV_8UC1, Scalar::all(255));
+	cv::Mat collapsedMap (numY, numX, CV_8UC1, cv::Scalar::all(255));
 
 	for (int j = 0; j < collapsedMap.rows; ++j)
 	{
@@ -570,9 +538,8 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 		for (int i = 0; i < collapsedMap.cols; ++i)
 		{
 			if(numTimesSeen(j,i) != 0){
-				const int gray = max(0, min(255,
-					 static_cast<int>(255.0 *((numTimesSeen(j,i)
-					  - average) / (1.0*sigma) + 1.0))));
+				const int gray = cv::saturate_cast<uchar>(255.0 *((numTimesSeen(j,i)
+					  - average) / (1.0*sigma) + 1.0));
 				dst[i] = 255 - gray;
 				/*int red, green, blue;
 				if (gray < 128) {
@@ -593,60 +560,11 @@ void displayCollapsed(const MatrixXd & numTimesSeen,
 
 	if(FLAGS_preview)
 	{
-		imshow("Preview", collapsedMap);
-		waitKey(0); 
+		cv::imshow("Preview", collapsedMap);
+		cv::waitKey(0); 
 	}
 	
 
-	imwrite(imageName, collapsedMap);
+	cv::imwrite(imageName, collapsedMap);
 }
 
-void saveVoxelGrid(std::vector<Eigen::MatrixXd> & grid,
-	std::string & outName) {
-	std::ofstream out (outName, ios::out | ios::binary);
-
-	int x, y, z;
-	z = grid.size();
-	y = grid[0].rows();
-	x = grid[0].cols();
-
-	out.write(reinterpret_cast<const char *>(& z), sizeof(z));
-	out.write(reinterpret_cast<const char *>(& y), sizeof(y));
-	out.write(reinterpret_cast<const char *>(& x), sizeof(x));
-
-	double average = 0.0;
-	int count = 0;
-
-	for(int i = 0; i < z; ++i) {
-		const double * dataPtr = grid[i].data();
-		for(int j = 0; j < grid[i].outerSize()) {
-			const double value = *(dataPtr + i);
-			if(value) {
-				average += value;
-				++count;
-			}
-		}
-	}
-	average /= count;
-	double simga = 0.0;
-	for(int i = 0; i < z; ++i) {
-		const double * dataPtr = grid[i].data();
-		for(int j = 0; j < grid[i].outerSize()) {
-			const double value = *(dataPtr + i);
-			if(value)
-				sigma += (value - average)*(value - average);
-		}
-	}
-	sigma /= count - 1;
-	sigma = sqrt(sigma);
-
-	for(int i = 0; i < z; ++i) {
-		const double * valuePtr = grid[i].data();
-		for(int j = 0; j < grid[i].size(); ++j) {
-			const double normalized = (*(valuePtr + i) - average)/(1.0*sigma);
-			const char tmp = normalized > -1.0 ? 1 : 0;
-			out.write(&tmp, sizeof(tmp));
-		}
-	}
-	out.close();
-}

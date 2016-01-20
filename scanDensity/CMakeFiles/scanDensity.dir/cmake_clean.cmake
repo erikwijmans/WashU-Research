@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/scanDensity.dir/scanDensity.cpp.o"
+  "CMakeFiles/scanDensity.dir/3DInfo.cpp.o"
   "scanDensity.pdb"
   "scanDensity"
 )

@@ -36,7 +36,6 @@ DECLARE_int32(numLevels);
 DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 
-
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;
 
@@ -46,11 +45,9 @@ namespace Eigen {
 	typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 }
 
+namespace place {
 
-namespace place{
-
-	typedef struct
-	{
+	typedef struct {
 		double score = 0;
 		double scanFP = 0;
 		double fpScan = 0;

@@ -4,7 +4,10 @@ cmake_minimum_required(VERSION 2.8)
 project( scanDensity )
 find_package( OpenCV REQUIRED )
 find_package(gflags REQUIRED)
-add_executable( scanDensity scanDensity.cpp )
+file( GLOB scan_SRC
+    "scanDensity*"
+    "3DInfo.cpp")
+add_executable( scanDensity ${scan_SRC})
 target_link_libraries( scanDensity ${OpenCV_LIBS} gflags)
 
 project(csvToBinary)
