@@ -6,25 +6,15 @@
 
 #IncludeRegexTransform: 
 
-/Users/erikwijmans/c++/scanDensity/3DInfo.cpp
+/home/erik/Projects/c++/scanDensity/3DInfo.cpp
 scanDensity_3DInfo.h
-/Users/erikwijmans/c++/scanDensity/scanDensity_3DInfo.h
+/home/erik/Projects/c++/scanDensity/scanDensity_3DInfo.h
 
-/Users/erikwijmans/c++/scanDensity/scanDensity.cpp
+/home/erik/Projects/c++/scanDensity/scanDensity_3DInfo.h
 scanDensity_scanDensity.h
-/Users/erikwijmans/c++/scanDensity/scanDensity_scanDensity.h
-scanDensity_3DInfo.h
-/Users/erikwijmans/c++/scanDensity/scanDensity_3DInfo.h
-pcl/point_types.h
--
-pcl/io/ply_io.h
--
+/home/erik/Projects/c++/scanDensity/scanDensity_scanDensity.h
 
-/Users/erikwijmans/c++/scanDensity/scanDensity_3DInfo.h
-scanDensity_scanDensity.h
-/Users/erikwijmans/c++/scanDensity/scanDensity_scanDensity.h
-
-/Users/erikwijmans/c++/scanDensity/scanDensity_scanDensity.h
+/home/erik/Projects/c++/scanDensity/scanDensity_scanDensity.h
 eigen3/Eigen/Dense
 -
 eigen3/Eigen/StdVector
@@ -52,6 +42,12 @@ fstream
 math.h
 -
 time.h
+-
+
+/usr/local/include/Eigen/src/Core/util/MKL_support.h
+mkl.h
+-
+mkl_lapacke.h
 -
 
 /usr/local/include/eigen3/Eigen/Cholesky
@@ -1099,10 +1095,6 @@ inttypes.h
 -
 
 /usr/local/include/gflags/gflags_gflags.h
-
-/usr/local/include/omp.h
-stdlib.h
--
 
 /usr/local/include/opencv2/calib3d.hpp
 opencv2/core.hpp

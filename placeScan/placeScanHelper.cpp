@@ -14,29 +14,27 @@ DEFINE_bool(visulization, false,
 	"Turns on all visualization options that do not impact performance");
 DEFINE_bool(previewIn, false, "Turns on a preview of the scan before it is placed");
 DEFINE_bool(previewOut, true, "Shows a preview of the scans placement before saving");
-DEFINE_bool(replace, false, "Forces the program to redo the placement of all scans given");
+DEFINE_bool(redo, false, "Forces the program to redo the placement of all scans given");
 DEFINE_bool(quiteMode, false, "Very minimal status reports");
 DEFINE_bool(tinyPreviewIn, false, "Shows the input scan before any processing");
 DEFINE_bool(save, true, "Saves the placements to file");
 DEFINE_bool(debugMode, false, 
 	"Turns save off, turns replace on, and forces the program to display the correct placement according to the placement files specified by the preDone flag");
 DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
-DEFINE_bool(V1, true, "Only will use V1 placement");
+DEFINE_bool(V1, false, "Only will use V1 placement");
 DEFINE_bool(V2, false, "Ony will use V2 placement");
 DEFINE_bool(top5, false, "Only shows the top5 placements");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
 	"Path to the floor plan that the scan should be placed on");
 DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
 	"Path to folder containing densityMaps");
-DEFINE_string(rotFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/rotations/",
-	"Path to folder containing the dominate direction rotations");
 DEFINE_string(preDone, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V1/",
 	"Path to folder containing previous placements of a scan");
 DEFINE_string(preDoneV2, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V2/",
 	"Path to folder containing previous placements of a scan");
 DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
 	"Path to folder where the pixel coordinates of (0,0) are");
-DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids",
+DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids/",
 	"Path to the folder where the voxelGrids are saved to.");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
@@ -49,13 +47,13 @@ std::vector<Eigen::Vector3i> truePlacement;
 
 
 void place::parseFolders(std::vector<std::string> & pointFileNames, 
-	std::vector<std::string> & rotationFileNames,
 	std::vector<std::string> & zerosFileNames,
 	std::vector<std::string> * freeFileNames){
 	
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir (FLAGS_dmFolder.data())) != NULL) {
+	const std::string newDmFolder = FLAGS_dmFolder + "R0/";
+	if ((dir = opendir (newDmFolder.data())) != NULL) {
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
 	  	if(fileName != ".." && fileName != "." 
@@ -64,20 +62,6 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	  	} else if (freeFileNames && fileName != ".." && fileName != "." 
 	  		&& fileName.find("freeSpace") != std::string::npos) {
 	  		freeFileNames->push_back(fileName);
-	  	}
-	  }
-	  closedir (dir);
-	}  else {
-	  /* could not open directory */
-	  perror ("");
-	  exit(-1);
-	}
-
-	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
-	  while ((ent = readdir (dir)) != NULL) {
-	  	std::string fileName = ent->d_name;
-	  	if(fileName != ".." && fileName != "." ){
-	  		rotationFileNames.push_back(fileName);
 	  	}
 	  }
 	  closedir (dir);
@@ -101,13 +85,11 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	  exit(-1);
 	}
 
-	if(pointFileNames.size() != rotationFileNames.size()){
+	if(pointFileNames.size() != zerosFileNames.size()){
 		perror("Not the same number of scans as rotations!");
 		exit(-1);
 	}
 
-
-	sort(rotationFileNames.begin(), rotationFileNames.end());
 	sort(pointFileNames.begin(), pointFileNames.end());
 	sort(zerosFileNames.begin(), zerosFileNames.end());
 	if(freeFileNames)
@@ -115,183 +97,54 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 }
 
 
-void place::loadInScans(const std::string & scanName, const std::string & rotationFile, 
+void place::loadInScans(const std::string & scanName,
 	 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
-   std::vector<Eigen::Vector2i> & zeroZero) {
-	std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
-	std::vector<Eigen::Matrix3d> R (NUM_ROTS);
-	for (int i = 0; i < R.size(); ++i) {
-		binaryReader.read(reinterpret_cast<char *>(&R[i]),
-			sizeof(Eigen::Matrix3d));
-	}
-	binaryReader.close();
+   std::vector<Eigen::Vector2i> * zeroZero) {
 
-	zeroZero.resize(NUM_ROTS);
-	binaryReader.open(zerosFile, std::ios::in | std::ios::binary);
-	zeroZero.clear();
-	for (int i = 0; i < NUM_ROTS; ++i) {
-		binaryReader.read(reinterpret_cast<char *>(&zeroZero[i]),
-			sizeof(Eigen::Vector2i));
-		binaryReader.seekg(0);
+	if(zeroZero) {
+		zeroZero->resize(NUM_ROTS);
+		std::ifstream binaryReader (zerosFile, std::ios::in | std::ios::binary);
+		for (int i = 0; i < NUM_ROTS; ++i) {
+			binaryReader.read(reinterpret_cast<char *>((*zeroZero)[i].data()),
+				sizeof(Eigen::Vector2i));
+		}
+		binaryReader.close();
 	}
-	binaryReader.close();
 	
 	
-	cv::Mat scan = cv::imread(scanName, 0);
-	
-	if(!scan.data){
-		std::cout << "Error reading scan" << std::endl;
-		exit(1);
+	for(int i = 0; i < NUM_ROTS; ++i) {
+		std::string fullScanName = FLAGS_dmFolder + "R" + std::to_string(i) + "/"
+			+ scanName;
+
+		rotatedScans.push_back(cv::imread(fullScanName, 0));
+
+		if(!rotatedScans[i].data){
+			std::cout << "Error reading scan" << std::endl;
+			exit(1);
+		}
 	}
+
+	
 	if(FLAGS_tinyPreviewIn || FLAGS_visulization) {
 		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-		cv::imshow("Preview", scan);
+		cv::imshow("Preview", rotatedScans[0]);
 		cv::waitKey(0);
-	}
-
-	const int maxDimension = std::max(1.5*scan.rows, 1.5*scan.cols);
-	const int colOffset = (maxDimension - scan.cols)/2;
-	const int rowOffset = (maxDimension - scan.rows)/2;
-
-	for (int i = 0; i < NUM_ROTS; ++i) {
-		zeroZero[i][0] += colOffset;
-		zeroZero[i][1] += rowOffset;
-	}
-	
-
-	cv::Mat widenedScan (maxDimension, maxDimension, CV_8UC1, cv::Scalar::all(255));
-	for (int i = 0; i < scan.rows; ++i) {
-		uchar * src = scan.ptr<uchar>(i);
-		uchar * dst = widenedScan.ptr<uchar>(i + rowOffset);
-		for (int j = 0; j < scan.cols; ++j) {
-			dst[j+colOffset] = src[j];
-		}
-	}
-
-	if(FLAGS_tinyPreviewIn || FLAGS_visulization) {
-		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-		cv::imshow("Preview", widenedScan);
-		cv::waitKey(0);
-	}
-
-	
-	int i = 0;
-	for(auto & rot : R) {
-		cv::Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, cv::Scalar::all(255));
-		const Eigen::Vector3d center (zeroZero[i][0], zeroZero[i][1], 0.0);
-		++i;
-		for (int i = 0; i < widenedScan.rows; ++i) {
-			uchar * dst = rScan.ptr<uchar>(i);
-			for (int j = 0; j < widenedScan.cols; ++j)
-			{
-				const Eigen::Vector3d pixel (j, i, 0.0);
-				const Eigen::Vector3d src = rot*(pixel-center) + center;
-				if(src[0] < 0 || src[0] >= widenedScan.cols )
-					continue;
-				if(src[1] < 0 || src[1] >= widenedScan.rows)
-					continue;
-				dst[j] = widenedScan.at<uchar>(src[0], src[1]);
-			}
-		}
-		rotatedScans.push_back(rScan);
-	}
-
-	if(FLAGS_visulization || FLAGS_previewIn) {
-		for(auto & scan : rotatedScans){
-			cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-			cv::imshow("Preview", scan);
-			cv::waitKey(0);
-		}
 	}
 }
 
 void place::loadInScansAndMasks(const std::string & scanName, 
-    const std::string & rotationFile, const std::string & zerosFile, 
+   	const std::string & zerosFile, 
     const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
     std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero) {
 
-    place::loadInScans(scanName, rotationFile, zerosFile, rotatedScans, zeroZero);
-    place::loadInMasks(maskName, rotationFile, zeroZero, masks);
+    place::loadInScans(scanName, zerosFile, rotatedScans, &zeroZero);
+    place::loadInScans(maskName, zerosFile, masks, NULL);
 }
-
-void place::loadInMasks(const std::string & scanName, const std::string & rotationFile,
-  const std::vector<Eigen::Vector2i> & zeroZero, std::vector<cv::Mat> & rotatedScans) {
-  std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
-  std::vector<Eigen::Matrix3d> R (NUM_ROTS);
-  for (int i = 0; i < R.size(); ++i) {
-    binaryReader.read(reinterpret_cast<char *>(&R[i]),
-      sizeof(Eigen::Matrix3d));
-  }
-  binaryReader.close();
-
-  cv::Mat scan = cv::imread(scanName, 0);
-  
-  if(!scan.data){
-    std::cout << "Error reading scan" << std::endl;
-    exit(1);
-  }
-  if(FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-    cv::imshow("Preview", scan);
-    cv::waitKey(0);
-  }
-
-  const int maxDimension = std::max(1.5*scan.rows, 1.5*scan.cols);
-  const int colOffset = (maxDimension - scan.cols)/2;
-  const int rowOffset = (maxDimension - scan.rows)/2;
-  
-
-  cv::Mat widenedScan (maxDimension, maxDimension, CV_8UC1, cv::Scalar::all(255));
-  for (int i = 0; i < scan.rows; ++i) {
-    uchar * src = scan.ptr<uchar>(i);
-    uchar * dst = widenedScan.ptr<uchar>(i + rowOffset);
-    for (int j = 0; j < scan.cols; ++j) {
-      dst[j+colOffset] = src[j];
-    }
-  }
-
-  if(FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-    cv::imshow("Preview", widenedScan);
-    cv::waitKey(0);
-  }
-
- 
-  int i = 0;
-  for(auto & rot : R) {
-    cv::Mat rScan (widenedScan.rows, widenedScan.cols, CV_8UC1, cv::Scalar::all(255));
-    const Eigen::Vector3d center (zeroZero[i][0], zeroZero[i][1], 0.0);
-    ++i;
-    for (int i = 0; i < widenedScan.rows; ++i) {
-      uchar * dst = rScan.ptr<uchar>(i);
-      for (int j = 0; j < widenedScan.cols; ++j)
-      {
-        const Eigen::Vector3d pixel (j, i, 0.0);
-        const Eigen::Vector3d src = rot*(pixel-center) + center;
-        if(src[0] < 0 || src[0] >= widenedScan.cols )
-          continue;
-        if(src[1] < 0 || src[1] >= widenedScan.rows)
-          continue;
-        dst[j] = widenedScan.at<uchar>(src[0], src[1]);
-      }
-    }
-    rotatedScans.push_back(rScan);
-  }
-
-  if(FLAGS_visulization || FLAGS_previewIn) {
-    for(auto & scan : rotatedScans){
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", scan);
-      cv::waitKey(0);
-    }
-  }
-}
-
 
 void place::trimScans(const std::vector<cv::Mat> & toTrim, 
 	std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero) {
 	int k = 0;
-	for(auto scan : toTrim){
+	for(auto & scan : toTrim){
 		int minRow = scan.rows;
 		int minCol = scan.cols;
 		int maxRow = 0;
@@ -299,9 +152,8 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 
 		for (int i = 0; i < scan.rows; ++i) {
 			const uchar * src = scan.ptr<uchar>(i);
-			for (int j = 0; j < scan.cols; ++j)
-			{
-				if(src[j]!=255){
+			for (int j = 0; j < scan.cols; ++j) {
+				if(src[j] != 255){
 					minRow = std::min(i, minRow);
 					minCol = std::min(j, minCol);
 					maxRow = std::max(i, maxRow);
@@ -347,23 +199,23 @@ void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 	outB.close();
 }
 
-bool place::reshowPlacement(const std::string & scanName, const std::string & rotationFile,
+bool place::reshowPlacement(const std::string & scanName,
 	const std::string & zerosFile, const std::string & preDone) {
 	const std::string placementName = preDone + scanName.substr(scanName.find("_")-3, 3) 
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
-	if(!FLAGS_quiteMode)
-		std::cout << placementName << std::endl;
 
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
 	if(!in.is_open())
 		return false;
-	if(!FLAGS_previewOut || !FLAGS_reshow)
+	if(!FLAGS_reshow)
 		return true;
 
+	if(!FLAGS_quiteMode)
+		std::cout << placementName << std::endl;
 	
 	std::vector<cv::Mat> rotatedScans, toTrim;
   std::vector<Eigen::Vector2i> zeroZero;
-	place::loadInScans(scanName, rotationFile, zerosFile, toTrim, zeroZero);
+	place::loadInScans(scanName, zerosFile, toTrim, &zeroZero);
 	place::trimScans(toTrim, rotatedScans, zeroZero);
 
 	int num;
@@ -384,14 +236,20 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 
 		const int xOffset = minScore.x - zeroZero[minScore.rotation][0];
 		const int yOffset = minScore.y - zeroZero[minScore.rotation][1];
+
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3);
 		fpColor.copyTo(output);
 		
-		for (int i = 0; i < bestScan.rows - 10; ++i) {
+		for (int i = 0; i < bestScan.rows; ++i) {
+			if(i + yOffset < 0 || i + yOffset >= fpColor.rows)
+				continue;
+
 			const uchar * src = bestScan.ptr<uchar>(i);
 			uchar * dst = output.ptr<uchar>(i + yOffset);
-			for (int j = 0; j < bestScan.cols - 10; ++j)
-			{
+			for (int j = 0; j < bestScan.cols; ++j) {
+				if(j + xOffset < 0 || j + xOffset >= fpColor.cols)
+					continue;
+
 				if(src[j]!=255){
 					dst[j*3 + xOffset*3] = 0;
 					dst[j*3 + xOffset*3 + 1] = 0;
@@ -399,8 +257,18 @@ bool place::reshowPlacement(const std::string & scanName, const std::string & ro
 				}
 			}
 		}
+
+		for(int i = -10; i < 10; ++i) {
+			uchar * dst = output.ptr<uchar>(i + minScore.y);
+			for(int j = -10; j < 10; ++j) {
+				dst[j*3 + minScore.x*3 + 0] = 255;
+				dst[j*3 + minScore.x*3 + 1] = 0;
+				dst[j*3 + minScore.x*3 + 2] = 0;
+			}
+		}
+
 		if(!FLAGS_quiteMode) {
-			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
+			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << "     "<< minScore.rotation << std::endl;
 			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
 			std::cout << minScore.scanPixels << "    " << minScore.fpPixels  << std::endl;
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
@@ -426,7 +294,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cv::waitKey(0);
 	const int cutOff = FLAGS_top5 ? 5 : 20;
 
-	int i = 1;
+	int currentCount = 0;
 	for(auto & min : minima){
 		place::posInfo minScore = *min;
 		const int xOffset = minScore.x;
@@ -442,6 +310,11 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 
 		for (int i = 0; i < currentScan.outerSize(); ++i) {
 			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
+				if(it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
+					continue;
+				if(it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
+					continue;
+				
 				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[1]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[2]=255;
@@ -457,7 +330,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
     }
 		cv::waitKey(0);
 		~output;
-		if(++i == cutOff) break;
+		if(++currentCount == cutOff) break;
 	}
 }
 
@@ -490,7 +363,7 @@ void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> >
 	std::vector<const place::posInfo *> tmp;
 	const int offset = scores.size() - truePlacement.size();
 	for (int i = 0; i < truePlacement.size(); ++i) {
-		tmp.push_back(&scores[i]);
+		tmp.push_back(&scores[i + offset]);
 	}
 
 	std::cout << "displaying true placement" << std::endl;
@@ -571,50 +444,6 @@ Eigen::SparseMatrix<double> place::scanToSparse(const cv::Mat & scan) {
 
 	return sparseTmp;
 }
-
-void place::displayMostConfidentScan(const std::string & imageName, 
-	const std::string & rotationName, const std::string & zerosFile,
-	place::posInfo & minScore){
-	
-  std::vector<Eigen::Vector2i> zeroZero;
-	std::vector<cv::Mat> rotatedScans;
-	loadInScans(imageName, rotationName, zerosFile, rotatedScans, zeroZero);
-
-	cv::Mat bestScan = rotatedScans[minScore.rotation];
-	minScore.x -= zeroZero[minScore.rotation][0];
-	minScore.y -= zeroZero[minScore.rotation][1];
-
-
-
-
-	const int xOffset = minScore.x;
-	const int yOffset = minScore.y;
-	cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
-	fpColor.copyTo(output);
-
-	for (int i = 0; i < bestScan.rows; ++i) {
-		uchar * src = bestScan.ptr<uchar>(i);
-		uchar * dst = output.ptr<uchar>(i + yOffset);
-		for (int j = 0; j < bestScan.cols; ++j) {
-			if(src[j]!=255){
-				dst[j*3 + xOffset*3] = 0;
-				dst[j*3 + xOffset*3 + 1] = 0;
-				dst[j*3 + xOffset*3 + 2] = 255 - src[j];
-				
-			}
-		}
-	}
-	if(!FLAGS_quiteMode) {
-		std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
-		std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
-		std::cout << minScore.scanPixels << "    " << minScore.fpPixels  << std::endl;
-		std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
-	}
-	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-	cv::imshow("Preview", output);
-	cv::waitKey(0);
-	
-} 
 
 void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
 	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS) {

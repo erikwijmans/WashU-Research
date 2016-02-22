@@ -53,9 +53,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	sort(pointClouds.begin(), pointClouds.end());
-	for(auto & pointCloud : pointClouds)
-	{
+	sort(pointClouds.begin(), pointClouds.end(),
+		[](const std::string & a, const std::string & b) {
+			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+			return numA < numB;
+		});
+	for(auto & pointCloud : pointClouds) {
 		const string pointCloudName = FLAGS_inFolder + pointCloud;
 		const string normalCloudName = FLAGS_outFolder + 
 		pointCloud.substr(0,pointCloud.find(".")) + ".dat";
@@ -80,21 +84,16 @@ void calculateNormals(const string & inFile, const string & outFile){
 	scanFile.read(reinterpret_cast<char *> (& columns), sizeof(int));
 	scanFile.read(reinterpret_cast<char *> (& rows), sizeof(int));
 
-	int count = 0;
 	vector<Vector3f > points;
 	for (int k = 0; k < columns*rows; ++k) {
 		Vector3f point;
-		scanFile.read(reinterpret_cast<char *> (&point[0]), sizeof(point));
+		scanFile.read(reinterpret_cast<char *> (point.data()), sizeof(point));
 
 		if(point[0] == 0 || point[1] == 0 || point[2] == 0)
 			continue;
 
-		++count;
-		if(count%7 != 0)
-			continue;
-
-
-		points.push_back(point);
+		if(k%10 == 0)
+			points.push_back(point);
 	}
 	if(FLAGS_verbose)
 		cout << points.size () << endl;
@@ -104,11 +103,9 @@ void calculateNormals(const string & inFile, const string & outFile){
 	float pointMin[3], pointMax[3];
 	createBoundingBox(pointMin, pointMax, points);
 
-
 	PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
 
-	for (int i = 0; i < points.size(); ++i)
-	{
+	for (int i = 0; i < points.size(); ++i) {
 		if(points[i][0] < pointMin[0] || points[i][0] > pointMax[0])
 			continue;
 		if(points[i][1] < pointMin[1] || points[i][1] > pointMax[1])

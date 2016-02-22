@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/Users/erikwijmans/c++/scanDensity/csvToBinary.cpp
+/home/erik/Projects/c++/scanDensity/csvToBinary.cpp
 eigen3/Eigen/Core
 -
 stdio.h
@@ -28,6 +28,8 @@ time.h
 algorithm
 -
 gflags/gflags.h
+-
+omp.h
 -
 
 /usr/local/include/eigen3/Eigen/Core
@@ -611,8 +613,4 @@ inttypes.h
 -
 
 /usr/local/include/gflags/gflags_gflags.h
-
-/usr/local/include/omp.h
-stdlib.h
--
 

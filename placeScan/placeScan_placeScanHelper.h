@@ -14,7 +14,7 @@
 DECLARE_bool(visulization);
 DECLARE_bool(previewIn);
 DECLARE_bool(previewOut);
-DECLARE_bool(replace);
+DECLARE_bool(redo);
 DECLARE_bool(quiteMode);
 DECLARE_bool(tinyPreviewIn);
 DECLARE_bool(save);
@@ -59,21 +59,17 @@ namespace place {
 	} posInfo;
 	
 	void parseFolders(std::vector<std::string> & pointFileNames, 
-		std::vector<std::string> & rotationFileNames,
 		std::vector<std::string> & zerosFileNames,
 		std::vector<std::string> * freeFileNames);
 
-	void loadInScans(const std::string & scanName, const std::string & rotationFile, 
+	void loadInScans(const std::string & scanName,
 		 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
-	   std::vector<Eigen::Vector2i> & zeroZero);
+	   std::vector<Eigen::Vector2i> * zeroZero);
 
 	void loadInScansAndMasks(const std::string & scanName, 
-	    const std::string & rotationFile, const std::string & zerosFile, 
+	    const std::string & zerosFile, 
 	    const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
 	    std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero);
-	
-	void loadInMasks(const std::string & scanName, const std::string & rotationFile,
-	  const std::vector<Eigen::Vector2i> & zeroZero, std::vector<cv::Mat> & rotatedScans);
 
 	void trimScans(const std::vector<cv::Mat> & toTrim, 
 		std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero);
@@ -81,7 +77,7 @@ namespace place {
 	void savePlacement(const std::vector<const place::posInfo *> & minima,
 		const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero);
 
-	bool reshowPlacement(const std::string & scanName, const std::string & rotationFile,
+	bool reshowPlacement(const std::string & scanName,
 		const std::string & zerosFile, const std::string & preDone);	
 
 	void displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
@@ -101,10 +97,6 @@ namespace place {
 	void scanToSparse(const cv::Mat & scan, Eigen::SparseMatrix<double> & sparse);
 
 	Eigen::SparseMatrix<double> scanToSparse(const cv::Mat & scan);
-
-	void displayMostConfidentScan(const std::string & imageName, 
-		const std::string & rotationName, const std::string & zerosFile,
-		posInfo & scoreInfo);
 
 	void displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
 		const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS);

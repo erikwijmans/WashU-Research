@@ -10,7 +10,7 @@ namespace place{
 	void analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
 	  const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
 	  const std::vector<Eigen::MatrixXb> & fpMasks,
-	  const std::string & scanName, const std::string & rotationFile,
+	  const std::string & scanName,
 	  const std::string & zerosFile, const std::string & maskName);
 
 	const posInfo *** findLocalMinima(const std::vector<place::posInfo> & scores,
@@ -33,7 +33,7 @@ namespace place{
     const std::vector<Eigen::SparseMatrix<double> > & scansE, 
     const std::vector<Eigen::MatrixXb> & masks, const Eigen::Vector4d & numPixelsUnderMask,
     const Eigen::MatrixXb & fpMask, const std::vector<Eigen::Vector3i> & points,
-    const double maxFpWeight, std::vector<place::posInfo> & scores);
+    std::vector<place::posInfo> & scores);
 
 	void findPointsToAnalyze(const std::vector<posInfo> & scores, const std::vector<int> & localMinima,
 		std::vector<Eigen::Vector3i> & pointsToAnalyze);
@@ -64,7 +64,7 @@ namespace place{
 
 	void analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
 		const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
-		const std::string & scanName, const std::string & rotationFile,
+		const std::string & scanName,
 		const std::string & zerosFile, const std::string & maskName);
 
 	void createFPPyramidsWeighted(const Eigen::SparseMatrix<double> & weightedFloorPlan,

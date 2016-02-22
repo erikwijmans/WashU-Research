@@ -297,8 +297,7 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 					int srcRow = imageCoords[0];
 					srcRow *= channels;
 
-					for (int k = 0; k < channels; ++k)
-					{
+					for (int k = 0; k < channels; ++k) {
 						if(dst[j + k] == 255)
 							dst[j+k] = src[srcRow + k];
 						else

@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include <gflags/gflags.h>
+#include <omp.h>
 
 DEFINE_bool(redo, false, "Redo all the cloud_normals");
 DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/", 
@@ -43,9 +44,14 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	} 
 
-	sort(csvFileNames.begin(), csvFileNames.end());
-	for (int i = 0; i < csvFileNames.size(); ++i)
-	{
+	sort(csvFileNames.begin(), csvFileNames.end(), 
+		[](const std::string & a, const std::string & b) {
+				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+				return numA < numB;
+		});
+
+	for (int i = 0; i < csvFileNames.size(); ++i) {
 		const string csvFileName = FLAGS_inFolder + csvFileNames[i];
 		const string binaryFileName = FLAGS_outFolder + 
 		csvFileNames[i].substr(0,csvFileNames[i].find(".")) + ".dat";
@@ -57,12 +63,13 @@ int main(int argc, char *argv[])
 }
 
 void csvToBinary(const string & fileNameIn, const string& fileNameOut){
-
 	if(!FLAGS_redo) {
 		ifstream out (fileNameOut, ios::in | ios::binary);
 		if(out.is_open())
 			return;
 	}
+
+	std::cout << fileNameIn << std::endl;
 
 	ifstream scanFile (fileNameIn, ios::in);
 	ofstream binaryFile (fileNameOut, ios::out | ios::binary);
@@ -76,8 +83,7 @@ void csvToBinary(const string & fileNameIn, const string& fileNameOut){
 	binaryFile.write(reinterpret_cast<const char *> (& rows), sizeof(int));
 
 
-	for (int i = 0; i < 9; ++i)
-	{
+	for (int i = 0; i < 9; ++i) {
 		getline(scanFile, line);
 	}
 
@@ -98,11 +104,8 @@ void csvToBinary(const string & fileNameIn, const string& fileNameOut){
 			binaryFile.write(reinterpret_cast<const char *> (& temp), 
 				sizeof(float));
 		} else{
-			for (int i = 0; i < 3; ++i)
-			{
-				binaryFile.write(reinterpret_cast<const char *> (&point[0]), 
+				binaryFile.write(reinterpret_cast<const char *> (point.data()), 
 					sizeof(Eigen::Vector3f));
-			}
 		}
 	}
 	scanFile.close();
