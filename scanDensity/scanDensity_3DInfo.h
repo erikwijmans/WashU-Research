@@ -15,17 +15,22 @@ namespace Eigen {
 namespace voxel {
 
   typedef struct {
-    Eigen::Vector3i zz;
+    Eigen::Vector3i zZ;
     int x, y, z;
   } metaData;
 
   void analyzeScan3D(const std::string & fileName,
   const std::string & rotationFile);
 
-  void saveVoxelGrid(std::vector<Eigen::MatrixXi> & grid,
-    const std::vector<Eigen::Matrix3d> & R,
-    const Eigen::Vector3d & zeroZero,
-    const std::string & scanNumber, const std::string & type);
+ void saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
+   std::vector<Eigen::MatrixXi> & freeSpace,
+   const std::vector<Eigen::Matrix3d> & R,
+   const Eigen::Vector3d & zeroZeroD,
+   const Eigen::Vector3i & zeroZero,
+   const std::string & scanNumber);
+
+ void writeGrid(const std::vector<Eigen::MatrixXb> & toWrite, 
+  const std::string & outName, const size_t numNonZeros);
 
 
   void createVoxelGrids(const std::vector<Eigen::Vector3f> & points,

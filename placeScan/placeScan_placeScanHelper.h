@@ -22,7 +22,6 @@ DECLARE_bool(debugMode);
 DECLARE_bool(reshow);
 DECLARE_bool(V1);
 DECLARE_bool(V2);
-DECLARE_bool(top5);
 DECLARE_string(floorPlan);
 DECLARE_string(dmFolder);
 DECLARE_string(rotFolder);
@@ -35,6 +34,7 @@ DECLARE_int32(numScans);
 DECLARE_int32(numLevels);
 DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
+DECLARE_int32(top);
 
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;

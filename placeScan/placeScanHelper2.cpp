@@ -17,6 +17,7 @@
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
+#include <unordered_map>
 #include "gurobi_c++.h"
 
 static std::ostream & operator<<(std::ostream & stream, const place::cube & print) {
@@ -106,22 +107,24 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
   const int Xrows = aRect.Y2 - aRect.Y1 + 1;
   const int Xcols = aRect.X2 - aRect.X1 + 1;
 
-
+  for(int k = 0; k < z; ++k) {
   Eigen::MatrixXd collapsedA (Xrows, Xcols);
   Eigen::MatrixXd collapsedB (Xrows, Xcols);
 
-  
+   
   for(int i = 0; i < Xcols; ++i) {
     for(int j = 0; j < Xrows; ++j) {
       double sumA = 0, sumB = 0;
-      for(int k = 0; k < z; ++k) {
+     
         sumA += voxelA[k + aRect.Z1](j + aRect.Y1, i + aRect.X1);
         sumB += voxelB[k + bRect.Z1](j + bRect.Y1, i + bRect.X1);
-      }
       collapsedA(j,i) = sumA;
       collapsedB(j,i) = sumB;
     }
   }
+
+  if(collapsedB.sum() == 0 && collapsedA.sum() == 0)
+    continue;
 
   double averageA = 0, sigmaA = 0, averageB = 0, sigmaB = 0;
   int countA = 0, countB = 0;
@@ -169,7 +172,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
         const int grayB = cv::saturate_cast<uchar>(
           255.0 * (collapsedB(i,j) - averageB) 
             / (1.0 * sigmaB));
-        int red = grayA, green = 0, blue = grayB;
+        int red = 255, green = 0, blue = 255;
         dst[j*3] = blue;
         dst[j*3 +1] = green;
         dst[j*3 + 2] = red;
@@ -177,7 +180,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
         const int gray = cv::saturate_cast<uchar>(
           255.0 * (collapsedA(i,j) - averageA) 
             / (1.0 * sigmaA));
-        int red = gray, green = 0, blue = 0;
+        int red = 255, green = 0, blue = 0;
         dst[j*3] = blue;
         dst[j*3 +1] = green;
         dst[j*3 + 2] = red;
@@ -185,7 +188,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
         const int gray = cv::saturate_cast<uchar>(
           255.0 * (collapsedB(i,j) - averageB) 
             / (1.0 * sigmaB));
-        int red = 0, green = 0, blue =gray;
+        int red = 0, green = 0, blue =255;
         dst[j*3] = blue;
         dst[j*3 +1] = green;
         dst[j*3 + 2] = red;
@@ -195,6 +198,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
   cv::imshow("Preview", heatMap);
   cv::waitKey(0);
+}
 
 }
 
@@ -277,7 +281,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
   
-  const int numToParse = numScans;
+  const int numToParse = 10;
   const int nodeStart = 0;
   for (int i = nodeStart; i < numToParse + nodeStart; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
@@ -291,26 +295,24 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
  
   place::weightEdges(nodes, voxelInfo, 
     pointVoxelFileNames, freeVoxelFileNames, adjacencyMatrix);
+
   const double endTime = omp_get_wtime();
- 
   std::cout << "Time: " << endTime - startTime << std::endl;
+
   // place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 
-  Eigen::ArrayXH tmp;
+  std::map<std::vector<int>, double> highOrder;
+  place::createHigherOrderTerms(scans, zeroZeros, nodes, highOrder);
 
-  while(true){
-    bestNodes.clear();
+  // while(true){
+    /*bestNodes.clear();
     place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
-    place::displayTRW(bestNodes, scans, zeroZeros);
+    place::displayTRW(bestNodes, scans, zeroZeros);*/
 
     bestNodes.clear();
-    place::MIPSolver(adjacencyMatrix, tmp, nodes, bestNodes);
+    place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
     place::displayTRW(bestNodes, scans, zeroZeros);
-  }
-
-  /*std::vector<place::node> bestLabels;
-  place::findBestLabels(adjacencyMatrix, nodes, bestLabels);
-  place::displayLongestPath(bestLabels, masks, zeroZeros);*/
+  // }
 }
 
 void place::loadInScansGraph(const std::vector<std::string> & pointFileNames,
@@ -489,8 +491,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
 
 
           place::edgeWeight weight = place::compare3D(aPoint, bPoint, aFree, 
-            bFree, crossWRTA, crossWRTB, true /* nodeA.color == 20 || nodeB.color == 20*/);
-          // weight.w *= (std::exp(-nodeA.s.score) + std::exp(-nodeB.s.score));
+            bFree, crossWRTA, crossWRTB);
 
           if(false) {
             std::cout << weight << std::endl;
@@ -506,7 +507,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
             cvNamedWindow("bFree", CV_WINDOW_NORMAL);
             displayVoxelGrid(bFree.v, "bFree");
 
-            displayVoxelGrid(aPoint.v, bPoint.v, crossWRTA, crossWRTB);
+            displayVoxelGrid(aFree.v, bPoint.v, crossWRTA, crossWRTB);
 
           }
           
@@ -596,7 +597,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
 
-  for(int i = 140; i < cols; ++i) {
+  for(int i = 46; i < cols; ++i) {
     for(int j = 0; j < rows; ++j) {
 
       const place::node & nodeA = nodes[i];
@@ -626,7 +627,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
         for(int l = 0; l < aScan.rows(); ++l) {
           if(l + yOffset < 0 || l + yOffset >= output.rows)
             continue;
-          if(k + xOffset < 0 || k + yOffset >= output.cols)
+          if(k + xOffset < 0 || k + xOffset >= output.cols)
             continue;
 
           if(aScan(l, k) != 0) {
@@ -644,7 +645,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
         for(int l = 0; l < bScan.rows(); ++l) {
           if(l + yOffset < 0 || l + yOffset >= output.rows)
             continue;
-          if(k + xOffset < 0 || k + yOffset >= output.cols)
+          if(k + xOffset < 0 || k + xOffset >= output.cols)
             continue;
 
           if(bScan(l, k) != 0) {
@@ -733,7 +734,7 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   const place::voxel & bPoint,
   const place::voxel & aFree,
   const place::voxel & bFree, 
-  const place::cube & aRect, const place::cube & bRect, bool display) {
+  const place::cube & aRect, const place::cube & bRect) {
 
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
@@ -743,8 +744,8 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   double pointAgreement = 0.0, freeSpaceAgreementA = 0.0, 
     freeSpaceAgreementB = 0.0, freeSpaceCross = 0.0;
 
-  double totalPointA = aPoint.c, totalPointB = bPoint.c,
-    averageFreeSpace = (aFree.c + bFree.c)/2.0;
+  double totalPointA = 0.0, totalPointB = 0.0,
+    averageFreeSpace = 0.0;
 
   // #pragma omp parallel for schedule (static) num_threads(8) reduction (summer:pointAgreement) (summer: freeSpaceAgreementA) (summer: freeSpaceAgreementB) (summer: freeSpaceCross) (summer: totalPointA) (summer: totalPointB) (summer: averageFreeSpace) 
   for(int i = 0; i < z; ++i) {
@@ -756,34 +757,39 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
     if((Ap.sum() == 0 && Af.sum() == 0) || (Bp.sum() == 0 && Bf.sum() == 0))
       continue;
 
-    for(int k = 0; k < Xcols; ++k)
-      for(int l = 0; l < Xrows; ++l)
+    for(int k = 0; k < Xcols; ++k) {
+      for(int l = 0; l < Xrows; ++l) {
         if((localGroup(Ap, l + aRect.Y1, k + aRect.X1) && 
           Bp(l + bRect.Y1, k + bRect.X1)) || (Ap(l + aRect.Y1, k + aRect.X1) && 
           localGroup(Bp, l + bRect.Y1, k + bRect.X1)))
           ++pointAgreement /*+= Ap(l + aRect.Y1, k + aRect.X1) + Bp(l + bRect.Y1, k + bRect.X1)*/;
 
-    for(int k = 0; k < Xcols; ++k)
-      for(int l = 0; l < Xrows; ++l)
         if(Ap(l + aRect.Y1, k + aRect.X1) && 
           Bf(l + bRect.Y1, k + bRect.X1))
           ++freeSpaceAgreementA/* += Bf(l + bRect.Y1, k + bRect.X1)*/;
-      
-    for(int k = 0; k < Xcols; ++k)
-      for(int l = 0; l < Xrows; ++l)
+
         if(Bp(l + bRect.Y1, k + bRect.X1) &&
           Af(l + aRect.Y1, k + aRect.X1))
-          ++freeSpaceAgreementB /*+= Af(l + aRect.Y1, k + aRect.X1)*/;
-      
-    for(int k = 0; k < Xcols; ++k)
-      for(int l = 0; l < Xrows; ++l)
-        if((localGroup(Af, l + aRect.Y1, k + aRect.X1) && 
-          Bf(l + bRect.Y1, k + bRect.X1)) || (Af(l + aRect.Y1, k + aRect.X1) && 
-          localGroup(Bf, l + bRect.Y1, k + bRect.X1)))
+            ++freeSpaceAgreementB /*+= Af(l + aRect.Y1, k + aRect.X1)*/;
+
+        if(Bf(l + bRect.Y1, k + bRect.X1) &&
+          Af(l + aRect.Y1, k + aRect.X1))
           ++freeSpaceCross/* += Bf(l + bRect.Y1, k + bRect.X1) + Af(l + aRect.Y1, k + aRect.X1)*/;
 
-  }
+        if(Bf(l + bRect.Y1, k + bRect.X1))
+          ++averageFreeSpace;
+        if(Af(l + aRect.Y1, k + aRect.X1))
+          ++averageFreeSpace;
 
+        if(Ap(l + aRect.Y1, k + aRect.X1))
+          ++totalPointA;
+
+        if(Bp(l + bRect.Y1, k + bRect.X1))
+          ++totalPointB;
+      }
+    }
+  }
+  // averageFreeSpace /= 2.0;
   double averagePoint = (totalPointA + totalPointB)/2.0;
 
   if(averageFreeSpace == 0.0 || averagePoint == 0.0 || 
@@ -925,8 +931,72 @@ void place::TRWSolver(const Eigen::MatrixXS & adjacencyMatrix,
   }
 }
 
+static void condenseStack(std::vector<GRBVar> & stacked,
+  GRBModel & model) {
+  if(stacked.size() == 2) {
+    GRBVar first = stacked.back();
+    stacked.pop_back();
+    GRBVar second = stacked.back();
+    stacked.pop_back();
+
+    GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+    model.update();
+    model.addQConstr(first * second,
+      GRB_EQUAL, newStack);
+    stacked.push_back(newStack);
+
+  } else if (stacked.size() == 1) return;
+  else {
+    std::vector<GRBVar> firstHalf (stacked.begin(), 
+      stacked.begin() + stacked.size()/2);
+    std::vector<GRBVar> secondHalf(stacked.begin() + stacked.size()/2,
+      stacked.end());
+
+    condenseStack(firstHalf, model);
+    condenseStack(secondHalf, model);
+    stacked.clear();
+    stacked.insert(stacked.end(), firstHalf.begin(), firstHalf.end());
+    stacked.insert(stacked.end(), secondHalf.begin(), secondHalf.end());
+  }
+}
+
+static void stackTerms(const std::vector<int> & toStack,
+  const GRBVar * varList, GRBModel & model,
+  std::map<std::pair<int,int>, GRBVar> & preStacked,
+  std::vector<GRBVar> & stacked) {
+  int i = 0;
+  for(; i < toStack.size() - 1; i+=2) {
+    std::pair<int, int> key (toStack[i], toStack[i+1]);
+    auto it = preStacked.find(key);
+    if(it == preStacked.end()) {
+      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+      model.update();
+      model.addQConstr(varList[toStack[i]] * varList[toStack[i+1]],
+        GRB_EQUAL, newStack);
+      preStacked.emplace(key, newStack);
+      stacked.push_back(newStack);
+    } else {
+      stacked.push_back(it->second);
+    }
+  }
+  for(; i < toStack.size(); ++i) {
+    if(stacked.size() > 1) {
+      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+      model.update();
+      model.addQConstr(varList[toStack[i]] * stacked.back(),
+        GRB_EQUAL, newStack);
+      stacked.pop_back();
+      stacked.push_back(newStack);
+    } else {
+      stacked.push_back(varList[toStack[i]]);
+    }
+  }
+  while(stacked.size() > 2)
+    condenseStack(stacked, model);
+}
+
 void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix, 
-  const Eigen::ArrayXH & map, const std::vector<place::node> & nodes,
+  const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
   std::vector<const place::node *> & bestNodes) {
 
   std::vector<int> numberOfLabels;
@@ -949,6 +1019,7 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
   const int numOpts = nodes.size();
   try {
     GRBEnv env = GRBEnv();
+    env.set("TimeLimit", "300");
 
     GRBModel model = GRBModel(env);
 
@@ -984,9 +1055,6 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
       objective += varList[i]*(fpExplained + scanExplained)/2.0;
     }
 
-
-    model.setObjective(objective, GRB_MAXIMIZE);
-
     for(int i = 0, offset = 0; i < numVars; ++i) {
       GRBLinExpr constr = 0.0;
       double * coeff = new double [numberOfLabels[i]];
@@ -994,18 +1062,35 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
         coeff[a] = 1.0;
 
       constr.addTerms(coeff, varList + offset, numberOfLabels[i]);
-      model.addConstr(constr, GRB_LESS_EQUAL, 1.0);
+      model.addConstr(constr, GRB_EQUAL, 1.0);
       offset += numberOfLabels[i];
       delete [] coeff;
     }
 
+    std::map<std::pair<int, int>, GRBVar> termCondense;
+    for(auto & it : highOrder) {
+      auto & incident = it.first;
+      if(incident.size() == 2) {
+        objective += varList[incident[0]]*varList[incident[1]]*it.second;
+      } else if(incident.size() == 1) {
+        objective += varList[incident[0]]*it.second;
+      }else {
+        std::vector<GRBVar> final;
+        stackTerms(incident, varList, model, termCondense, final);
+        objective += final[0]*final[1]*it.second;
+      }
+    }
+
+    model.setObjective(objective, GRB_MAXIMIZE);
     model.optimize();
 
     for(int i = 0; i < numOpts; ++i) {
-      if(varList[i].get(GRB_DoubleAttr_X) == 1.0)
+      if(varList[i].get(GRB_DoubleAttr_X) == 1.0) {
         bestNodes.push_back(&(nodes[i]));
+        std::cout << i << "_";
+      }
     }
-
+    std::cout << std::endl;
   } catch(GRBException e) {
     std::cout << "Error code = " << e.getErrorCode() << std::endl;
     std::cout << e.getMessage() << std::endl;
@@ -1069,18 +1154,31 @@ bool place::localGroup(const Eigen::MatrixXb & toCheck, const int yOffset,
   return false;
 }
 
+static double harmonic(int stop, double r) {
+  double val = 0.0;
+  for(int i = 1; i <= stop; ++i) {
+    double v = std::pow(static_cast<double>(i), r);
+    val += 0.1/v;
+  }
+  return val;
+}
+
 void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
-  const std::vector<place::node> & nodes, Eigen::ArrayXH & map) {
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
+  const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
+    highOrder) {
+  Eigen::ArrayXH hMap (floorPlan.rows, floorPlan.cols);
   for(int a = 0; a < nodes.size(); ++a) {
     const place::node & currentNode = nodes[a];
     const Eigen::MatrixXb & currentScan = scans[currentNode.color][currentNode.s.rotation];
-    const int xOffset = currentNode.s.x, yOffset = currentNode.s.y;
+    const Eigen::Vector2i & zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
+    const int xOffset = currentNode.s.x - zeroZero[0], 
+      yOffset = currentNode.s.y - zeroZero[1];
 
-    map = Eigen::ArrayXH(floorPlan.rows, floorPlan.cols);
     for(int j = 0; j < currentScan.rows(); ++j) {
       const uchar * src = floorPlan.ptr(j + yOffset);
       for(int i = 0; i < currentScan.cols(); ++i) {
-        if(src[i + xOffset]) {
+        if(src[i + xOffset] != 255) {
           if(localGroup(currentScan, j, i)) {
             const place::posInfo & currentScore = currentNode.s;
             double scanExplained =
@@ -1089,15 +1187,75 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
             (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
 
 
-            map(j+yOffset, i + xOffset).incident.push_back(a);
-            const double weight = (scanExplained + fpExplained)/2.0*
-              1.0/map(j+yOffset, i + xOffset).incident.size();
-            map(j+yOffset, i + xOffset).weight += weight;
+            hMap(j+yOffset, i + xOffset).incident.push_back(a);
+            const double weight = (scanExplained + fpExplained)/2.0;
+            hMap(j+yOffset, i + xOffset).weight += weight;
           }
         }
       }
     }
   }
+
+  cv::Mat out (floorPlan.rows, floorPlan.cols, CV_8UC3);
+  fpColor.copyTo(out);
+  cv::Mat_<cv::Vec3b> _out = out;
+  for(int i = 0; i < hMap.cols(); ++i) {
+    for(int j = 0; j < hMap.rows(); ++j) {
+      if(hMap(j,i).incident.size() != 0) {
+        const int gray = 
+          cv::saturate_cast<uchar>(255*hMap(j,i).incident.size()/5.0);
+         int red, green, blue;
+        if (gray < 128) {
+          red = 0;
+          blue = 2 * gray;
+          green = 255 - blue;
+        } else {
+          blue = 0;
+          red = 2 * (gray - 128);
+          green = 255 - red;
+        }
+        _out(j,i)[0] = blue;
+        _out(j,i)[1] = green;
+        _out(j,i)[2] = red;
+      }
+    }
+  }
+
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  cv::imshow("Preview", out);
+  cv::waitKey(0);
+
+  place::hOrder * data = hMap.data();
+  for(int i = 0; i < hMap.size(); ++i) {
+    if((data + i)->incident.size() != 0) {
+      const double scale = harmonic((data + i)->incident.size(), 1.5);
+      (data + i)->weight /= (data + i)->incident.size();
+      (data + i)->weight *= scale;
+    }
+  }
+
+  for(int i = 0; i < hMap.size(); ++i) {
+    std::vector<int> & key = (data + i)->incident;
+    if(key.size() != 0 && (data + i)->weight > 0.0) {
+      auto it = highOrder.find(key);
+      if(it != highOrder.end())
+        it->second += (data + i)->weight;
+      else 
+        highOrder.emplace(key, (data + i)->weight);
+    }
+  }
+
+  double average = 0.0;
+  for(auto & it : highOrder)
+    average += it.second;
+  average /= highOrder.size();
+  double sigma = 0.0;
+  for(auto & it : highOrder)
+    sigma += (it.second - average)*(it.second -average);
+  sigma /= (highOrder.size() - 1);
+  sigma = sqrt(sigma);
+  for(auto & it : highOrder)
+    it.second = std::max(0.0,((it.second - average)/(sigma) + 2.0)/100.0);
 }
 
 /*void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan) {

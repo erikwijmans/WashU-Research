@@ -112,93 +112,163 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelB) {
 }
 
 
-void voxel::saveVoxelGrid(std::vector<Eigen::MatrixXi> & grid,
+void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
+  std::vector<Eigen::MatrixXi> & freeSpace,
   const std::vector<Eigen::Matrix3d> & R,
-  const Eigen::Vector3d & zeroZero,
-  const std::string & scanNumber, const std::string & type) {
+  const Eigen::Vector3d & zeroZeroD,
+  const Eigen::Vector3i & zeroZero,
+  const std::string & scanNumber) {
 
   int x, y, z;
-  z = grid.size();
-  y = grid[0].rows();
-  x = grid[0].cols();
+  z = pointGrid.size();
+  y = pointGrid[0].rows();
+  x = pointGrid[0].cols();
 
-  double average = 0.0;
-  int count = 0;
+  double averageP = 0.0, averageF = 0.0;
+  int countP = 0, countF = 0;
 
   for(int i = 0; i < z; ++i) {
-    const int * dataPtr = grid[i].data();
-    for(int j = 0; j < grid[i].size(); ++j) {
+    const int * dataPtr = pointGrid[i].data();
+    const int * fPtr = freeSpace[i].data();
+    for(int j = 0; j < pointGrid[i].size(); ++j) {
       const int value = *(dataPtr + j);
       if(value) {
-        average += value;
-        ++count;
+        averageP += value;
+        ++countP;
+      }
+      if(*(fPtr + j)) {
+        averageF += *(fPtr + j);
+        ++countF;
       }
     }
   }
-  average /= count;
-  double sigma = 0.0;
+  averageP /= countP;
+  averageF /= countF;
+  double sigmaP = 0.0, sigmaF = 0.0;
   for(int i = 0; i < z; ++i) {
-    const int * dataPtr = grid[i].data();
-    for(int j = 0; j < grid[i].size(); ++j) {
+    const int * dataPtr = pointGrid[i].data();
+    const int * fPtr = freeSpace[i].data();
+    for(int j = 0; j < pointGrid[i].size(); ++j) {
       const int value = *(dataPtr + j);
       if(value)
-        sigma += (value - average)*(value - average);
+        sigmaP += (value - averageP)*(value - averageP);
+      if(*(fPtr + j))
+        sigmaF += (*(fPtr + j) - averageF)*(*(fPtr + j) - averageF);
     }
   }
-  sigma /= count - 1;
-  sigma = sqrt(sigma);
+  sigmaP /= countP - 1;
+  sigmaP = sqrt(sigmaP);
+  sigmaF /= countF - 1;
+  sigmaF = sqrt(sigmaF);
+
+  std::string metaData = FLAGS_voxelFolder + "metaData/" + "DUC_scan_" + scanNumber + ".dat";
+  std::ofstream metaDataWriter (metaData, std::ios::out | std::ios::binary);
 
   for(int r = 0; r < NUM_ROTS; ++r) {
-    const std::string outName = FLAGS_voxelFolder + "R" + std::to_string(r) + "/"
-      + "DUC_" + type + "_" + scanNumber + ".dat";
+    const std::string outNamePoint = FLAGS_voxelFolder + "R" + std::to_string(r) + "/"
+      + "DUC_point_" + scanNumber + ".dat";
+    const std::string outNameFree = FLAGS_voxelFolder + "R" + std::to_string(r) + "/"
+      + "DUC_freeSpace_" + scanNumber + ".dat";  
 
-    size_t numNonZeros = 0;
-    std::vector<Eigen::MatrixXb> voxelB (z, Eigen::MatrixXb::Zero(y,x));
-    for(int k = 0; k < voxelB.size(); ++k) {
-      for(int i = 0; i < voxelB[0].cols(); ++i) {
-        for(int j = 0; j < voxelB[0].rows(); ++j) {
+    std::vector<Eigen::MatrixXb> voxelPoint (z, Eigen::MatrixXb::Zero(y,x));
+    std::vector<Eigen::MatrixXb> voxelFree (z, Eigen::MatrixXb::Zero(y,x));
+    size_t numNZP = 0, numNZF = 0;
+    for(int k = 0; k < voxelPoint.size(); ++k) {
+      for(int i = 0; i < voxelPoint[0].cols(); ++i) {
+        for(int j = 0; j < voxelPoint[0].rows(); ++j) {
           
           Eigen::Vector3d point (i,j,0);
-          Eigen::Vector3d src = R[r]*(point - zeroZero) + zeroZero;
+          Eigen::Vector3d src = R[r]*(point - zeroZeroD) + zeroZeroD;
 
           if(src[0] < 0 || src[0] >= x)
             continue;
           if(src[1] < 0 || src[1] >= y)
             continue;
 
-          if(grid[k](src[1],src[0]) != 0) {
-            double normalized = (grid[k](src[1],src[0]) - average)/sigma;
-            voxelB[k](j,i) = normalized > -0.5 ? 1 : 0;
-            numNonZeros += normalized > -0.5 ? 1 : 0;
+          if(pointGrid[k](src[1], src[0]) != 0) {
+            double normalized = (pointGrid[k](src[1],src[0]) - averageP)/sigmaP;
+            voxelPoint[k](j,i) = normalized > -1.0 ? 1 : 0;
+            numNZP += normalized > -1.0 ? 1 : 0;
+          }
+          if(freeSpace[k](src[1],src[0]) != 0) {
+            double normalized = (freeSpace[k](src[1],src[0]) - averageF)/sigmaF;
+            voxelFree[k](j,i) = normalized > -1.0 ? 1 : 0;
+            numNZF += normalized > -1.0 ? 1 : 0;
           }
         }
       }
     }
 
-    if(FLAGS_preview)
-      displayVoxelGrid(voxelB);
+    int minCol = x;
+    int minRow = y;
+    int maxCol = 0;
+    int maxRow = 0;
+    int minZ = z;
+    int maxZ = 0;
+    for(int k = 0; k < z; ++k) {
+      for(int i = 0; i < x; ++i) {
+        for(int j = 0; j < y; ++j) {
+          if(voxelPoint[k](j,i)) {
+            minCol = std::min(minCol, i);
+            maxCol = std::max(maxCol, i);
 
-    std::ofstream out (outName, std::ios::out | std::ios::binary);
+            minRow = std::min(minRow, j);
+            maxRow = std::max(maxRow, j);
 
-    const int vZ = voxelB.size();
-    const int vY = voxelB[0].rows();
-    const int vX = voxelB[0].cols();
+            minZ = std::min(minZ, k);
+            maxZ = std::max(maxZ, k);
+          }
+        }
+      }
+    }
+    const int newZ = maxZ - minZ + 1;
+    const int newY = maxRow - minRow + 1;
+    const int newX = maxCol - minCol + 1;
 
-    out.write(reinterpret_cast<const char *>(& vZ), sizeof(vZ));
-    out.write(reinterpret_cast<const char *>(& vY), sizeof(vY));
-    out.write(reinterpret_cast<const char *>(& vX), sizeof(vX));
+    std::vector<Eigen::MatrixXb> newPoint (newZ), 
+      newFree (newZ);
 
+    
+    for(int i = 0; i < newZ; ++i) {
+      newPoint[i] = voxelPoint[i + minZ].block(minRow, minCol, newY, newX);
+      newFree[i] = voxelFree[i + minZ].block(minRow, minCol, newY, newX);
+    }
 
-    for(int k = 0; k < vZ; ++k)
-      out.write(voxelB[k].data(), voxelB[k].size());
-    out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+    if(FLAGS_preview) {
+      displayVoxelGrid(newPoint);
+      displayVoxelGrid(newFree);
+    }
 
-    out.close();
+    voxel::writeGrid(newPoint, outNamePoint, numNZP);
+    voxel::writeGrid(newFree, outNameFree, numNZF);
+
+    voxel::metaData meta {zeroZero, newX, newY, newZ};
+    meta.zZ[0] -= minCol;
+    meta.zZ[1] -= minRow;
+    meta.zZ[2] -= minZ;
+    metaDataWriter.write(reinterpret_cast<const char *>(&meta), sizeof(meta));
   }
+  metaDataWriter.close();
+}
 
-  
+void voxel::writeGrid(const std::vector<Eigen::MatrixXb> & toWrite, 
+  const std::string & outName, const size_t numNonZeros) {
+  std::ofstream out (outName, std::ios::out | std::ios::binary);
 
-  
+  const int vZ = toWrite.size();
+  const int vY = toWrite[0].rows();
+  const int vX = toWrite[0].cols();
+
+  out.write(reinterpret_cast<const char *>(& vZ), sizeof(vZ));
+  out.write(reinterpret_cast<const char *>(& vY), sizeof(vY));
+  out.write(reinterpret_cast<const char *>(& vX), sizeof(vX));
+
+
+  for(int k = 0; k < vZ; ++k)
+    out.write(toWrite[k].data(), toWrite[k].size());
+  out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+
+  out.close();
 }
 
 void voxel::createVoxelGrids(const std::vector<Eigen::Vector3f> & points,
@@ -264,61 +334,13 @@ void voxel::pointBased(const std::vector<Eigen::Vector3f> & points,
     ++numTimesSeen3D[z](y, x); 
   }
 
- /* int minCol = numX;
-  int minRow = numY;
-  int maxCol = 0;
-  int maxRow = 0;
-  int minZ = numZ;
-  int maxZ = 0;
-  for(int k = 0; k < numZ; ++k) {
-    for(int i = 0; i < numX; ++i) {
-      for(int j = 0; j < numY; ++j) {
-        if(numTimesSeen3D[k](j,i)) {
-          minCol = std::min(minCol, i);
-          maxCol = std::max(maxCol, i);
-
-          minRow = std::min(minRow, j);
-          maxRow = std::max(maxRow, j);
-
-          minZ = std::min(minZ, k);
-          maxZ = std::max(maxZ, k);
-        }
-      }
-    }
-  }*/
-
+ 
   const int trimmedX = numX;
   const int trimmedY = numY;
   const int trimmedZ = numZ;
   std::vector<Eigen::MatrixXi> & trimmed = numTimesSeen3D;
 
- /* const int trimmedZ = maxZ - minZ + 1;
-
-  std::vector<Eigen::MatrixXi > trimmed (trimmedZ);
-  for(int i = minZ; i < maxZ + 1; ++i) {
-    trimmed[i - minZ] = numTimesSeen3D[i];
-  }*/
-
-  const Eigen::Vector3d zeroZeroD (-pointMin[0]*voxelsPerMeter,
-    -pointMin[1]*voxelsPerMeter, 0);
-  voxel::saveVoxelGrid(trimmed, R, zeroZeroD, scanNumber, "point");
-
-  Eigen::Vector3i zeroZero (-pointMin[0]*voxelsPerMeter, 
-    -pointMin[1]*voxelsPerMeter, -pointMin[2]*zScale);
-  /*zeroZero[0] -= minCol;
-  zeroZero[1] -= minRow; */
-  // zeroZero[2] -= minZ;
-
-  voxel::metaData tmp = {zeroZero, trimmedX, trimmedY, trimmedZ};
-
-  std::string metaData = FLAGS_voxelFolder + "metaData/" + "DUC_scan_" + scanNumber + ".dat";
-  std::ofstream metaDataWriter (metaData, std::ios::out | std::ios::binary);
-
-  for(int i = 0; i < NUM_ROTS; ++i)
-    metaDataWriter.write(reinterpret_cast<const char *>(&tmp), sizeof(tmp));
-
-  metaDataWriter.close();
-
+ 
   //Free space evidence
 
   float cameraCenter [3];
@@ -365,8 +387,12 @@ void voxel::pointBased(const std::vector<Eigen::Vector3f> & points,
   }
 
    
-  
-  voxel::saveVoxelGrid(numTimesSeen, R, zeroZeroD, scanNumber, "freeSpace");
+  const Eigen::Vector3d zeroZeroD (-pointMin[0]*voxelsPerMeter,
+    -pointMin[1]*voxelsPerMeter, 0);
+  const Eigen::Vector3i zeroZero (-pointMin[0]*voxelsPerMeter,
+    -pointMin[1]*voxelsPerMeter, -pointMin[2]*zScale);
+
+  voxel::saveVoxelGrids(trimmed, numTimesSeen, R, zeroZeroD, zeroZero, scanNumber);
 }
 
 void voxel::freeSpace(const std::vector<Eigen::Vector3f> & points,

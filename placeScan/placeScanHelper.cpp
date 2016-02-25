@@ -23,7 +23,6 @@ DEFINE_bool(debugMode, false,
 DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
 DEFINE_bool(V1, false, "Only will use V1 placement");
 DEFINE_bool(V2, false, "Ony will use V2 placement");
-DEFINE_bool(top5, false, "Only shows the top5 placements");
 DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
 	"Path to the floor plan that the scan should be placed on");
 DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
@@ -41,6 +40,7 @@ DEFINE_int32(numScans, -1,
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");
 DEFINE_int32(numLevels, 5, "Number of levels in the pyramid");
 DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for placement");
+DEFINE_int32(top, -1, "Only shows the top x placements, -1=ALL");
 
 cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
@@ -220,7 +220,7 @@ bool place::reshowPlacement(const std::string & scanName,
 
 	int num;
 	in.read(reinterpret_cast<char *>(&num), sizeof(num));
-	num = FLAGS_top5 && num > 5 ? 5 : num;
+	num = FLAGS_top > 0 && num > FLAGS_top ? FLAGS_top : num;
 
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
@@ -292,7 +292,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
-	const int cutOff = FLAGS_top5 ? 5 : 20;
+	const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
 
 	int currentCount = 0;
 	for(auto & min : minima){
@@ -361,9 +361,8 @@ void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> >
   const std::vector<Eigen::Vector2i> & zeroZero){
 
 	std::vector<const place::posInfo *> tmp;
-	const int offset = scores.size() - truePlacement.size();
 	for (int i = 0; i < truePlacement.size(); ++i) {
-		tmp.push_back(&scores[i + offset]);
+		tmp.push_back(&scores[i]);
 	}
 
 	std::cout << "displaying true placement" << std::endl;

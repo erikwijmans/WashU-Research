@@ -16,13 +16,13 @@ namespace place {
   typedef struct {
     double weight = 0.0;
     std::vector<int> incident;
-  } higherOrder;
+  } hOrder;
 } // place
 
 
 namespace Eigen {
   typedef Matrix<place::edgeWeight, Dynamic, Dynamic> MatrixXS;
-  typedef Array<place::higherOrder, Dynamic, Dynamic> ArrayXH;
+  typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
 } // Eigen
   
 namespace place {
@@ -109,7 +109,7 @@ namespace place {
     const place::voxel & bPoint,
     const place::voxel & aFree,
     const place::voxel & bFree, 
-    const place::cube & aRect, const place::cube & bRect, bool display);
+    const place::cube & aRect, const place::cube & bRect);
 
   void loadInVoxel(const std::string & name, 
     place::voxel & dst);
@@ -132,10 +132,12 @@ namespace place {
   const int xOffset);
 
   void createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
-    const std::vector<place::node> & nodes, Eigen::ArrayXH & map);
+    const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
+    const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
+    highOrder);
 
   void MIPSolver(const Eigen::MatrixXS & adjacencyMatrix, 
-    const Eigen::ArrayXH & map, const std::vector<place::node> & nodes,
+    const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
     std::vector<const place::node *> & bestNodes);
 }
 
