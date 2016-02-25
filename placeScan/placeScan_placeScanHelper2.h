@@ -98,7 +98,7 @@ namespace place {
     std::vector<place::node> & longestPath);
 
 
-  void displayTRW(const std::vector<const place::node *> & bestNodes,
+  void displayBest(const std::vector<const place::node *> & bestNodes,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 

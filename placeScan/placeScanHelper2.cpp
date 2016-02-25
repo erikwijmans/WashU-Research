@@ -1,4 +1,4 @@
-#include "placeScan_placeScanHelper2.h"
+ #include "placeScan_placeScanHelper2.h"
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -311,7 +311,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
 
     bestNodes.clear();
     place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
-    place::displayTRW(bestNodes, scans, zeroZeros);
+    place::displayBest(bestNodes, scans, zeroZeros);
   // }
 }
 
@@ -638,7 +638,6 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
         }
       }
 
-
       yOffset = nodeB.s.y - zeroZeroB[1];
       xOffset = nodeB.s.x - zeroZeroB[0];
       for (int k = 0; k < bScan.cols(); ++k) {
@@ -669,7 +668,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
   }
 }
 
-void place::displayTRW(const std::vector<const place::node *> & bestNodes,
+void place::displayBest(const std::vector<const place::node *> & bestNodes,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
  
@@ -706,30 +705,6 @@ void place::displayTRW(const std::vector<const place::node *> & bestNodes,
   
 }
 
-/*void place::findBestLabels(const Eigen::MatrixXS & adjacencyMatrix, 
-  const std::vector<place::node> & nodes, std::vector<place::node> & bestLabels) {
-  int currentColor = nodes[0].color;
-  const place::node * currentBest = &nodes[0];
-  double currentBestScore = adjacencyMatrix.col(0).sum();
-  for(int i = 1; i < adjacencyMatrix.cols(); ++i) {
-    const place::node & currentNode = nodes[i];
-    if(currentNode.color == currentColor) {
-      double score = adjacencyMatrix.col(i).sum();
-      if(score > currentBestScore) {
-        currentBestScore = score;
-        currentBest = &currentNode;
-      }
-    } else {
-      bestLabels.push_back(*currentBest);
-      currentColor = currentNode.color;
-      currentBestScore = adjacencyMatrix.col(i).sum();
-      currentBest = &currentNode;
-    }
-  }
-  bestLabels.push_back(*currentBest);
-}*/
-
-
 place::edgeWeight place::compare3D(const place::voxel & aPoint,
   const place::voxel & bPoint,
   const place::voxel & aFree,
@@ -747,7 +722,6 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   double totalPointA = 0.0, totalPointB = 0.0,
     averageFreeSpace = 0.0;
 
-  // #pragma omp parallel for schedule (static) num_threads(8) reduction (summer:pointAgreement) (summer: freeSpaceAgreementA) (summer: freeSpaceAgreementB) (summer: freeSpaceCross) (summer: totalPointA) (summer: totalPointB) (summer: averageFreeSpace) 
   for(int i = 0; i < z; ++i) {
     const Eigen::MatrixXb & Ap = aPoint.v[i + aRect.Z1];
     const Eigen::MatrixXb & Bp = bPoint.v[i + bRect.Z1];
