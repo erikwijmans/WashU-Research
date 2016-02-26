@@ -235,7 +235,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   std::vector<place::posInfo> scores;
   std::vector<const posInfo *> minima;
   Eigen::Vector4i rows, cols;
-  for (int k = FLAGS_numLevels; k > 0; --k) {
+  for (int k = FLAGS_numLevels; k >= 0; --k) {
     /*if(FLAGS_debugMode) {
       for(auto v : truePlacement) {
         v[0] /= pow(2,k);
@@ -249,7 +249,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
       eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], fpMasks[k], 
       pointsToAnalyze, scores);
     if(scores.size() == 0) return;
-    if(k!=1) {
+    if(k!=0) {
       const double exclusionSize = 2.0*(FLAGS_numLevels - k + 1);
       const posInfo *** maps = findLocalMinima(scores, 0.0, 
         fpPyramid[k].rows(), fpPyramid[k].cols(), exclusionSize);
@@ -260,7 +260,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   const double exclusionSize = 2.0*(FLAGS_numLevels + 1);
   const posInfo *** maps = findLocalMinima(scores, 0.2, 
     fpPyramid[0].rows(), fpPyramid[0].cols(), exclusionSize);
-  findGlobalMinimaV2(scores, maps, fpPyramid[1].rows(), fpPyramid[1].cols(), 
+  findGlobalMinimaV2(scores, maps, fpPyramid[0].rows(), fpPyramid[0].cols(), 
     exclusionSize, minima);
   std::sort(minima.begin(), minima.end(), 
     [](const place::posInfo* a, const place::posInfo * b) {

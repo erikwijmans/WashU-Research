@@ -38,6 +38,7 @@ namespace place {
 
 	typedef struct {
 		posInfo s;
+    double w;
 		int color;
 	} node;
 
@@ -136,9 +137,17 @@ namespace place {
     const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
     highOrder);
 
+  void displayHighOrder(const std::map<std::vector<int>, double> highOrder, 
+    const std::vector<place::node> & nodes, 
+    const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
+    const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
+
   void MIPSolver(const Eigen::MatrixXS & adjacencyMatrix, 
     const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
     std::vector<const place::node *> & bestNodes);
+
+  void normalizeWeights(Eigen::MatrixXS & adjacencyMatrix, 
+    std::vector<place::node> & nodes);
 }
 
 

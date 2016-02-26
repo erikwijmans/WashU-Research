@@ -338,7 +338,7 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 				const double count = numTimesSeen(src[1], src[0]);
 				if(count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
-						255.0 * (count - 1.5*average - 1.5*sigma) 
+						255.0 * (count - average - sigma) 
 						 	/ (bias * sigma));
 					dst[i] = 255 - gray;
 				}

@@ -364,7 +364,7 @@ void voxel::pointBased(const std::vector<Eigen::Vector3f> & points,
         unitRay[0] = ray[0]/length;
         unitRay[1] = ray[1]/length;
         unitRay[2] = ray[2]/length;
-        int stop = floor(length - 2);
+        int stop = floor(0.95*length - 3);
         int voxelHit [3];
         for (int a = 0; a < stop; ++a) {
       
@@ -500,7 +500,6 @@ void voxel::createBoundingBox(float * pointMin, float * pointMax,
   double dX = 1.1*10*sigmaX;
   double dY = 1.1*10*sigmaY;
   double dZ = 1.1*6*sigmaZ;
-
 
   pointMin[0] = averageX - dX/2;
   pointMin[1] = averageY - dY/2;

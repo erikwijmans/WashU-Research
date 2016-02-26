@@ -6,9 +6,17 @@
 
 #IncludeRegexTransform: 
 
-/home/erik/Projects/c++/scanDensity/3DInfo.cpp
+/home/erik/Projects/c++/scanDensity/scanDensity.cpp
+scanDensity_scanDensity.h
+/home/erik/Projects/c++/scanDensity/scanDensity_scanDensity.h
 scanDensity_3DInfo.h
 /home/erik/Projects/c++/scanDensity/scanDensity_3DInfo.h
+omp.h
+-
+pcl/point_types.h
+-
+pcl/io/ply_io.h
+-
 
 /home/erik/Projects/c++/scanDensity/scanDensity_3DInfo.h
 scanDensity_scanDensity.h

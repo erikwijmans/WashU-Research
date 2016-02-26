@@ -11,7 +11,7 @@ make
 ./cloudNormals -inFolder $1binaryFiles/ -outFolder $1cloudNormals/
 cd ../getRotations
 make
-./getRotations -inFolder $1cloudNormals/ -outFolder $1densityMaps/rotations/
+./getRotations -redo -inFolder $1cloudNormals/ -outFolder $1densityMaps/rotations/
 cd ../scanDensity
 make
 ./scanDensity -redo -inFolder $1binaryFiles/ -outFolder $1densityMaps/ -zerosFolder $1densityMaps/zeros/ -rotFolder $1densityMaps/rotations/ -voxelFolder $1voxelGrids/
