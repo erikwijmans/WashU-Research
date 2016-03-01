@@ -281,7 +281,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
   
-  const int numToParse = numScans;
+  const int numToParse = 10;
   const int nodeStart = 0;
   for (int i = nodeStart; i < numToParse + nodeStart; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
@@ -542,8 +542,36 @@ void place::loadInPlacementGraph(const std::string & imageName,
     scoretmp.push_back(tmp);
   }
 
-  for(int i = 0; i < scoretmp.size(); ++ i)
-    nodes.push_back({scoretmp[i], 0.0, num});
+  std::vector<place::node> nodestmp;
+  for(auto & s : scoretmp)
+    nodestmp.push_back({s, 0.0, num});
+
+  for(auto & n : nodestmp) {
+    const place::posInfo & currentScore = n.s;
+    double scanExplained =
+      (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
+    double fpExplained = 
+    (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
+    const double w = (scanExplained + fpExplained)/2.0;
+    n.w = w;
+  }
+  
+  double average = 0.0;
+  for(auto & n : nodestmp)
+    average += n.w;
+  average /= nodestmp.size();
+
+  double sigma = 0.0;
+  for(auto & n : nodestmp)
+    sigma += (n.w - average)*(n.w - average);
+
+  sigma /= nodestmp.size() - 1;
+  sigma = sqrt(sigma);
+
+  for(auto & n : nodestmp)
+    n.w = (n.w - average)/sigma;
+
+  nodes.insert(nodes.end(), nodestmp.begin(), nodestmp.end());
 }
 
 void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans, 
@@ -660,7 +688,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
       if(!FLAGS_quiteMode) {
         std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
         std::cout << adjacencyMatrix(j,i) << std::endl;
-
+        std::cout << nodeA.w << "   " << nodeB.w << std::endl;
       }
       cv::waitKey(0);
       ~output;
@@ -774,7 +802,7 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
      (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA)/2.0;*/
 
   double weight = pointAgreement/averagePoint
-    - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA)/2.0;
+    - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA);
 
 
   return {pointAgreement/averagePoint, freeSpaceAgreementA/totalPointA, 
@@ -1046,8 +1074,8 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
       auto & incident = it.first;
       for(auto & i : incident) 
         objective += varList[i]*it.second;
-    }*/
-
+    }
+*/
     std::map<std::pair<int, int>, GRBVar > termCondense;
     for(auto & it : highOrder) {
       auto & incident = it.first;
@@ -1172,19 +1200,15 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
       }
     }
   }
-
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", out);
-  cv::waitKey(0);
-
+  
   place::hOrder * data = hMap.data();
-  for(int i = 0; i < hMap.size(); ++i) {
+  /*for(int i = 0; i < hMap.size(); ++i) {
     if((data + i)->incident.size() != 0) {
       const double scale = harmonic((data + i)->incident.size(), 0.0);
       (data + i)->weight /= (data + i)->incident.size();
       // (data + i)->weight *= scale;
     }
-  }
+  }*/
 
   for(int i = 0; i < hMap.size(); ++i) {
     std::vector<int> & key = (data + i)->incident;
@@ -1201,13 +1225,15 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   for(auto & it : highOrder)
     average += it.second;
   average /= highOrder.size();
+
   double sigma = 0.0;
   for(auto & it : highOrder)
     sigma += (it.second - average)*(it.second -average);
+
   sigma /= (highOrder.size() - 1);
   sigma = sqrt(sigma);
   for(auto & it : highOrder)
-    it.second = std::max(0.0,((it.second - average)/(sigma) + 1.0)/2.0);
+    it.second = (((it.second - average)/(sigma) + 1.0)/2.0);
 }
 
 
@@ -1285,32 +1311,6 @@ void place::normalizeWeights(Eigen::MatrixXS & adjacencyMatrix,
       (dataPtr + i)->w = 
         ((dataPtr+i)->w - average)/sigma;
   }
-  
-
-  for(auto & n : nodes) {
-    const place::posInfo & currentScore = n.s;
-    double scanExplained =
-      (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
-    double fpExplained = 
-    (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
-    const double w = (scanExplained + fpExplained)/2.0;
-    n.w = w;
-  }
-  average = 0.0;
-  for(auto & n : nodes)
-    average += n.w;
-  
-  average /= nodes.size();
-  sigma = 0.0;
-  for(auto & n : nodes)
-    sigma += (n.w - average)*(n.w - average);
-
-  sigma /= nodes.size() - 1;
-  sigma = sqrt(sigma);
-
-  for(auto & n : nodes)
-    n.w = (n.w - average)/sigma;
-
 }
 
 /*void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan) {

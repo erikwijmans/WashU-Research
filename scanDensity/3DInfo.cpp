@@ -1,5 +1,73 @@
 #include "scanDensity_3DInfo.h"
 
+double voxelsPerMeter = 20.0;
+
+VoxelInfo::VoxelInfo(int argc, char * argv[]) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if(!FLAGS_2D && !FLAGS_3D) 
+    FLAGS_2D = FLAGS_3D = true;
+  
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
+    /* Add all the files and directories to a std::vector */
+    while ((ent = readdir (dir)) != NULL) {
+      std::string fileName = ent->d_name;
+      if(fileName != ".." && fileName != "."){
+        binaryNames.push_back(fileName);
+      }
+    }
+    closedir (dir);
+  }  else {
+    /* could not open directory */
+    perror ("");
+    exit(EXIT_FAILURE);
+  }
+
+  sort(binaryNames.begin(), binaryNames.end(), 
+    [](const std::string & a, const std::string & b) {
+        int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+        int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+        return numA < numB;
+    });
+
+  if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+    /* Add all the files and directories to a std::vector */
+    while ((ent = readdir (dir)) != NULL) {
+      std::string fileName = ent->d_name;
+      if(fileName != ".." && fileName != "."){
+        rotationsFiles.push_back(fileName);
+      }
+    }
+    closedir (dir);
+  }  else {
+    /* could not open directory */
+    perror ("");
+    exit(EXIT_FAILURE);
+  }
+  sort(rotationsFiles.begin(), rotationsFiles.end());
+}
+
+void VoxelInfo::run(int startIndex, int numScans) {
+  for(int i = startIndex; i < startIndex + numScans; ++i) {
+    const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+    const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+    voxel::analyzeScan3D(binaryFilePath, rotationFile);
+  }
+}
+
+void VoxelInfo::run() {
+  for(int i = 0; i < rotationsFiles.size(); ++i) {
+    const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+    const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+    voxel::analyzeScan3D(binaryFilePath, rotationFile);
+  }
+}
 
 void voxel::analyzeScan3D(const std::string & fileName,
   const std::string & rotationFile) {
@@ -164,21 +232,29 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
   std::string metaData = FLAGS_voxelFolder + "metaData/" + "DUC_scan_" + scanNumber + ".dat";
   std::ofstream metaDataWriter (metaData, std::ios::out | std::ios::binary);
 
+  int newRows = std::max(y, x);
+  int newCols = newRows;
+  int dX = (newCols - x)/2.0;
+  int dY = (newRows - y)/2.0;
+  Eigen::Vector3d newZZ = zeroZeroD;
+  newZZ[0] += dX;
+  newZZ[1] += dY;
+
   for(int r = 0; r < NUM_ROTS; ++r) {
     const std::string outNamePoint = FLAGS_voxelFolder + "R" + std::to_string(r) + "/"
       + "DUC_point_" + scanNumber + ".dat";
     const std::string outNameFree = FLAGS_voxelFolder + "R" + std::to_string(r) + "/"
       + "DUC_freeSpace_" + scanNumber + ".dat";  
 
-    std::vector<Eigen::MatrixXb> voxelPoint (z, Eigen::MatrixXb::Zero(y,x));
-    std::vector<Eigen::MatrixXb> voxelFree (z, Eigen::MatrixXb::Zero(y,x));
+    std::vector<Eigen::MatrixXb> voxelPoint (z, Eigen::MatrixXb::Zero(newRows,newCols));
+    std::vector<Eigen::MatrixXb> voxelFree (z, Eigen::MatrixXb::Zero(newRows, newCols));
     size_t numNZP = 0, numNZF = 0;
     for(int k = 0; k < voxelPoint.size(); ++k) {
       for(int i = 0; i < voxelPoint[0].cols(); ++i) {
         for(int j = 0; j < voxelPoint[0].rows(); ++j) {
           
           Eigen::Vector3d point (i,j,0);
-          Eigen::Vector3d src = R[r]*(point - zeroZeroD) + zeroZeroD;
+          Eigen::Vector3d src = R[r]*(point - newZZ) + zeroZeroD;
 
           if(src[0] < 0 || src[0] >= x)
             continue;
@@ -243,6 +319,8 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
     voxel::writeGrid(newFree, outNameFree, numNZF);
 
     voxel::metaData meta {zeroZero, newX, newY, newZ};
+    meta.zZ[0] += dX;
+    meta.zZ[1] += dY;
     meta.zZ[0] -= minCol;
     meta.zZ[1] -= minRow;
     meta.zZ[2] -= minZ;

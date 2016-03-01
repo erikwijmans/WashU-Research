@@ -79,7 +79,7 @@ int main(int argc, char const *argv[])
 {
 
   if(argc != 2){
-    cout << "usage: cloudNormalVizualization.o <RGBZXY>.ptx " << endl;
+    cout << "usage: cloudNormalVizualization <RGBZXY>.ptx " << endl;
     exit(0);
   }
 
@@ -208,8 +208,8 @@ void createBoundingBox(float * pointMin, float * pointMax,
   sigmaY = sqrt(sigmaY);
   sigmaZ = sqrt(sigmaZ);
 
-  double dX = 1.1*5*sigmaX;
-  double dY = 1.1*5*sigmaX;
+  double dX = 1.1*7*sigmaX;
+  double dY = 1.1*7*sigmaX;
   double dZ = 1.1*5*sigmaZ;
 
   pointMin[0] = averageX - dX/2;

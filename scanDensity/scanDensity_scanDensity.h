@@ -22,6 +22,7 @@ DECLARE_bool(quiteMode);
 DECLARE_bool(preview);
 DECLARE_bool(redo);
 DECLARE_bool(3D);
+DECLARE_bool(2D);
 DECLARE_string(inFolder);
 DECLARE_string(outFolder);
 DECLARE_string(zerosFolder);
@@ -30,6 +31,19 @@ DECLARE_string(rotFolder);
 DECLARE_double(scale);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
+
+
+class DensityMaps {
+	private:
+		std::vector<std::string> binaryNames, rotationsFiles;
+	public:
+		DensityMaps(int argc, char * argv[]);
+		void run();
+		void run(int startIndex, int numScans);
+		void setScale(double newScale) {FLAGS_scale = newScale;};
+		double getScale() {return FLAGS_scale;};
+};
+
 
 typedef struct {
 	float * p;

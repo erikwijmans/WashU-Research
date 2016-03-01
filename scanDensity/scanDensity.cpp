@@ -11,8 +11,6 @@
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>*/
 
-static cv::Mat heatMap;
-
 DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
 DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
 DEFINE_bool(quiteMode, true, "Turns of all extrenous statements");
@@ -103,6 +101,76 @@ int main(int argc, char *argv[]) {
 	std::cout << "Scan Density Done!" << std::endl;
 
 	return 0;
+}
+
+
+DensityMaps::DensityMaps(int argc, char * argv[]) {
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+	if(!FLAGS_2D && !FLAGS_3D) 
+		FLAGS_2D = FLAGS_3D = true;
+	
+	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+
+	std::vector<std::string> binaryNames, rotationsFiles;
+	
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if(fileName != ".." && fileName != "."){
+	  		binaryNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(EXIT_FAILURE);
+	}
+
+	sort(binaryNames.begin(), binaryNames.end(), 
+		[](const std::string & a, const std::string & b) {
+				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+				return numA < numB;
+		});
+
+	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if(fileName != ".." && fileName != "."){
+	  		rotationsFiles.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(EXIT_FAILURE);
+	}
+	sort(rotationsFiles.begin(), rotationsFiles.end());
+}
+
+void DensityMaps::run() {
+	for(int i =0; i < rotationsFiles.size(); ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+		analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+	}
+}
+
+void DensityMaps::run(int startIndex, int numScans) {
+	for(int i = startIndex; i < startIndex + numScans; ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+		analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+	}
 }
 
 void analyzeScan(const std::string & fileName, const std::string & outputFolder,
@@ -318,16 +386,24 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 	}
 
 
+	int newRows = std::max(numTimesSeen.rows(), numTimesSeen.cols());
+	int newCols = newRows;
+	int dX = (newCols - numTimesSeen.cols())/2.0;
+	int dY = (newRows - numTimesSeen.rows())/2.0;
+	Eigen::Vector3d newZZ = zeroZero;
+	newZZ[0] += dX;
+	newZZ[1] += dY;
+
 	for(int r = 0; r < NUM_ROTS; ++r) {
 		const std::string imageName = FLAGS_outFolder + "R" + std::to_string(r) + "/"
 			+ "DUC_point_" + scanNumber + ".png";
 
-		heatMap = cv::Mat (numTimesSeen.rows(), numTimesSeen.cols(), CV_8UC1, cv::Scalar::all(255));
+		cv::Mat heatMap  (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 		for (int j = 0; j < heatMap.rows; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j);
 			for (int i = 0; i < heatMap.cols; ++i) {
 				const Eigen::Vector3d pixel (i, j, 0);
-				const Eigen::Vector3d src = R[r]*(pixel - zeroZero) + zeroZero;
+				const Eigen::Vector3d src = R[r]*(pixel - newZZ) + zeroZero;
 				// const Eigen::Vector3d & src = pixel;
 
 				if(src[0] < 0 || src[0] >= numTimesSeen.cols())
@@ -338,7 +414,7 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 				const double count = numTimesSeen(src[1], src[0]);
 				if(count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
-						255.0 * (count - average - sigma) 
+						255.0 * (count - 1.5*average - 1.5*sigma) 
 						 	/ (bias * sigma));
 					dst[i] = 255 - gray;
 				}
@@ -392,7 +468,7 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 		
 		cv::imwrite(imageName, heatMap);
 
-		Eigen::Vector2i tmp (zeroZero[0], zeroZero[1]);
+		Eigen::Vector2i tmp (newZZ[0], newZZ[1]);
 		zZOut.write(reinterpret_cast<const char *>(tmp.data()), sizeof(tmp));
 	}
 
@@ -595,16 +671,24 @@ void displayCollapsed(const Eigen::MatrixXd & numTimesSeen,
 	sigma = sqrt(sigma);
 
 
+	int newRows = std::max(numTimesSeen.rows(), numTimesSeen.cols());
+	int newCols = newRows;
+	int dX = (newCols - numTimesSeen.cols())/2.0;
+	int dY = (newRows - numTimesSeen.rows())/2.0;
+	Eigen::Vector3d newZZ = zeroZero;
+	newZZ[0] += dX;
+	newZZ[1] += dY;
+
 	for(int r = 0; r < NUM_ROTS; ++r) {
 			const std::string imageName = FLAGS_outFolder + "R" + std::to_string(r) + "/"
 				+ "DUC_freeSpace_" + scanNumber + ".png";
 
-			heatMap = cv::Mat (numTimesSeen.rows(), numTimesSeen.cols(), CV_8UC1, cv::Scalar::all(255));
+			cv::Mat heatMap (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 			for (int j = 0; j < heatMap.rows; ++j) {
 				uchar * dst = heatMap.ptr<uchar>(j);
 				for (int i = 0; i < heatMap.cols; ++i) {
 					const Eigen::Vector3d pixel (i, j, 0);
-					const Eigen::Vector3d src = R[r]*(pixel - zeroZero) + zeroZero;
+					const Eigen::Vector3d src = R[r]*(pixel - newZZ) + zeroZero;
 
 					if(src[0] < 0 || src[0] >= numTimesSeen.cols())
 						continue;

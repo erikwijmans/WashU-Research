@@ -179,15 +179,39 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 	}
 }
 
+static void normalize(const std::vector<const place::posInfo *> & minima,
+	std::vector<place::posInfo> & out) {
+	double average = 0;
+	for(auto & m : minima)
+		average += m->score;
+	average /= minima.size();
+
+	double sigma = 0;
+	for(auto & m : minima)
+		sigma += (m->score - average)*(m->score - average);
+	sigma /= minima.size() - 1;
+	sigma = sqrt(sigma);
+
+	for(auto & m : minima) {
+		place::posInfo minScore = *m;
+		minScore.score = (minScore.score - average)/sigma;
+		out.push_back(minScore);
+	}
+}
+
 void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 	const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero){
 	std::ofstream out (outName, std::ios::out);
 	std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
+
+	/*std::vector<place::posInfo> outVec;
+	normalize(minima, outVec);*/
+
 	out << "Score x y rotation" << std::endl;
 	const int num = minima.size() < 20 ? minima.size() : 20;
 	outB.write(reinterpret_cast<const char *>(&num), sizeof(num));
 	for(auto & min : minima){
-		place::posInfo  minScore = *min;
+		place::posInfo minScore = *min;
 		minScore.x += zeroZero[minScore.rotation][0];
 		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "

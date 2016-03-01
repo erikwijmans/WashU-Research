@@ -12,8 +12,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/eigen.hpp>
 
-#include "placeScan_confidence.h"
-
 
 static constexpr float fpScale = 86.0*3.28084;  /*pixels per meter */
 /*Something like 75 is looking more likely however...Maybe the scanner
@@ -33,13 +31,22 @@ int main(int argc, char *argv[]) {
     FLAGS_redo = true;
   }
 
-  floorPlan = cv::imread(FLAGS_floorPlan, 0);
-  if(!floorPlan.data) {
+  cv::Mat inFP = cv::imread(FLAGS_floorPlan, 0);
+  if(!inFP.data) {
     std::cout << "Error reading floorPlan" << std::endl;
     exit(1);
   }
 
-
+  const int newRows = inFP.rows*1.1, newCols = inFP.cols*1.1;
+  const int dY = (newRows - inFP.rows)/2, dX = (newCols - inFP.cols)/2;
+  floorPlan = cv::Mat(newRows, newCols, CV_8UC1, cv::Scalar::all(255));
+  for(int i = 0; i < 0.99*inFP.rows; ++i) {
+    const uchar * src = inFP.ptr<uchar>(i);
+    uchar * dst = floorPlan.ptr<uchar>(i + dY);
+    for(int j = 0.01*inFP.cols; j < 0.99*inFP.cols; ++j) {
+      dst[j + dX] = src[j];
+    }
+  }
 
   fpColor = cv::Mat (floorPlan.rows, floorPlan.cols, CV_8UC3, cv::Scalar::all(255));
   for (int i = 0; i < fpColor.rows; ++i) {
@@ -251,14 +258,14 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     if(scores.size() == 0) return;
     if(k!=0) {
       const double exclusionSize = 2.0*(FLAGS_numLevels - k + 1);
-      const posInfo *** maps = findLocalMinima(scores, 0.0, 
+      const posInfo *** maps = findLocalMinima(scores, 0.2, 
         fpPyramid[k].rows(), fpPyramid[k].cols(), exclusionSize);
       findGlobalMinimaV2(scores, maps, fpPyramid[k].rows(), fpPyramid[k].cols(), exclusionSize, minima);
       findPointsToAnalyzeV2(minima, pointsToAnalyze);
     }
   }
   const double exclusionSize = 2.0*(FLAGS_numLevels + 1);
-  const posInfo *** maps = findLocalMinima(scores, 0.2, 
+  const posInfo *** maps = findLocalMinima(scores, 0.5, 
     fpPyramid[0].rows(), fpPyramid[0].cols(), exclusionSize);
   findGlobalMinimaV2(scores, maps, fpPyramid[0].rows(), fpPyramid[0].cols(), 
     exclusionSize, minima);

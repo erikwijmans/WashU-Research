@@ -168,50 +168,44 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M) {
 	double K = 1.0e5;
 	int k=0;
 
-	#pragma omp parallel shared(N, M, maxInliers, K, k)
-	{
-		int randomIndex;
-		Vector3d nest;
-		Vector3d ndata;
+	int randomIndex;
+	Vector3d nest;
+	Vector3d ndata;
 
-		while(k < K) {
-			// random sampling
-			randomIndex = rand()%m;
-			// compute the model parameters
-			nest[0] = N[3*randomIndex+0];
-			nest[1] = N[3*randomIndex+1];
-			nest[2] = N[3*randomIndex+2];			
+	while(k < K) {
+		// random sampling
+		randomIndex = rand()%m;
+		// compute the model parameters
+		nest[0] = N[3*randomIndex+0];
+		nest[1] = N[3*randomIndex+1];
+		nest[2] = N[3*randomIndex+2];			
 
-			// counting inliers and outliers
-			double numInliers = 0;
-			Vector3d average = Vector3d::Zero();
-			for(int i=0;i<m;i++) {
-				ndata[0] = N[3*i+0];
-				ndata[1] = N[3*i+1];
-				ndata[2] = N[3*i+2];
+		// counting inliers and outliers
+		double numInliers = 0;
+		Vector3d average = Vector3d::Zero();
+		for(int i=0;i<m;i++) {
+			ndata[0] = N[3*i+0];
+			ndata[1] = N[3*i+1];
+			ndata[2] = N[3*i+2];
 
-				if(acos(abs(nest.dot(ndata))) < 0.02) {
-					++numInliers;
-					average += ndata;
-				}
+			if(acos(abs(nest.dot(ndata))) < 0.02) {
+				++numInliers;
+				average += ndata;
 			}
-			
-			#pragma omp critical
-			{
-				if(numInliers > maxInliers) {
-					maxInliers = numInliers;
-					
-					M = average/average.norm();
-					
-					double w = (numInliers-3)/m;
-					double p = max(0.001,pow(w,3));
-					K = log(1-0.999)/log(1-p);	
-				}
-				if(k > 10000) k = 10*k;
-				++k;
-			}
-			
 		}
+		
+		
+		if(numInliers > maxInliers) {
+			maxInliers = numInliers;
+			
+			M = average/average.norm();
+			
+			double w = (numInliers-3)/m;
+			double p = max(0.001,pow(w,3));
+			K = log(1-0.999)/log(1-p);	
+		}
+		if(k > 10000) k = 10*k;
+		++k;
 	}
 	
 }
@@ -225,68 +219,64 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 	double K = 1.0e5;
 	int k=0;
 
-	#pragma omp parallel shared(maxInliers, k, K, N, n1, M1, M2)
-	{
-		int randomIndex;
-		Vector3d nest;
-		Vector3d nest2;
-		Vector3d ndata;			
-		while(k < K) {
-			// random sampling
-			randomIndex = rand()%m;
-			// compute the model parameters
-			nest[0] = N[3*randomIndex+0];
-			nest[1] = N[3*randomIndex+1];
-			nest[2] = N[3*randomIndex+2];	
+	int randomIndex;
+	Vector3d nest;
+	Vector3d nest2;
+	Vector3d ndata;		
 
-			nest2 = nest.cross(n1);
+	while(k < K) {
+		// random sampling
+		randomIndex = rand()%m;
+		// compute the model parameters
+		nest[0] = N[3*randomIndex+0];
+		nest[1] = N[3*randomIndex+1];
+		nest[2] = N[3*randomIndex+2];	
 
-			// counting inliers and outliers
-			double numInliers = 0, numInliers2 = 0;
-			Vector3d average = Vector3d::Zero(), average2 = Vector3d::Zero();
-			for(int i=0;i<m;i++) {
-				ndata[0] = N[3*i+0];
-				ndata[1] = N[3*i+1];
-				ndata[2] = N[3*i+2];
+		nest2 = nest.cross(n1);
 
-				if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02) {
-					if(acos(abs(nest.dot(ndata))) < 0.02) {
-						++numInliers;
-						average += ndata;
-					} else {
-						++numInliers2;
-						average2 += ndata;
-					}
+		// counting inliers and outliers
+		double numInliers = 0, numInliers2 = 0;
+		Vector3d average = Vector3d::Zero(), average2 = Vector3d::Zero();
+		for(int i=0;i<m;i++) {
+			ndata[0] = N[3*i+0];
+			ndata[1] = N[3*i+1];
+			ndata[2] = N[3*i+2];
+
+			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02) {
+				if(acos(abs(nest.dot(ndata))) < 0.02) {
+					++numInliers;
+					average += ndata;
+				} else {
+					++numInliers2;
+					average2 += ndata;
 				}
-						
-			}
-
-			#pragma omp critical
-			{
-				if((numInliers + numInliers2) > maxInliers) {
-					maxInliers = numInliers + numInliers2;
-					
-					if(numInliers > numInliers2) {
-						average /= average.norm();
-						M1 = average;
-						M2 = average.cross(n1);
-					} else {
-						average2 /= average2.norm();
-						M1 = average2.cross(n1);
-						M2 = average2;
-					}
-					
-					
-					double w = (maxInliers-3)/m;
-					double p = max(0.001,pow(w,3));
-					K = log(1-0.999)/log(1-p);	
-				}
-					
-				if(k > 10000) k = 10*K;
-				++k;
 			}		
 		}
+
+		if((numInliers + numInliers2) > maxInliers) {
+			maxInliers = numInliers + numInliers2;
+			
+			if(numInliers > numInliers2) {
+				average /= average.norm();
+				M1 = average;
+				M2 = average.cross(n1);
+			} else {
+				average2 /= average2.norm();
+				M1 = average2.cross(n1);
+				M2 = average2;
+			}
+			
+			
+			double w = (maxInliers-3)/m;
+			double p = max(0.001,pow(w,3));
+			K = log(1-0.999)/log(1-p);	
+		}
+			
+		if(k > 10000) k = 10*K;
+		++k;
+		
 	}
+	
 }
 
 void getMajorAngles(const Vector3d & M, vector<Matrix3d> & R) {
