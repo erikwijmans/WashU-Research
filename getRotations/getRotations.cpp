@@ -75,9 +75,10 @@ int main(int argc, char *argv[])
 void analyzeNormals(const string & normalsFileName, const string & outputFolder) {
 	vector<Vector3d> normals;
 	const string number = normalsFileName.substr(normalsFileName.find(".") - 3, 3);
-	const string rotOut = outputFolder + "DUC_rotation_" + number + ".dat";
+	const string buildName = normalsFileName.substr(normalsFileName.rfind("/") + 1, 3);
+	const string rotOut = outputFolder + buildName + "_rotation_" + number + ".dat";
 
-	cout << number << endl;
+	cout << rotOut << endl;
 
 	if(!FLAGS_redo) {
 		ifstream out (rotOut, ios::in | ios::binary);

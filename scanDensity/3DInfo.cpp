@@ -318,7 +318,7 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
     voxel::writeGrid(newPoint, outNamePoint, numNZP);
     voxel::writeGrid(newFree, outNameFree, numNZF);
 
-    voxel::metaData meta {zeroZero, newX, newY, newZ};
+    voxel::metaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, FLAGS_scale};
     meta.zZ[0] += dX;
     meta.zZ[1] += dY;
     meta.zZ[0] -= minCol;

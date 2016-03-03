@@ -1,1 +1,0 @@
-/usr/bin/g++    -std=c++14 -Ofast -g -fopenmp -std=c++14 -Ofast -fopenmp -g    CMakeFiles/csvToBinary.dir/csvToBinary.cpp.o  -o csvToBinary -rdynamic /usr/local/lib/libgflags.a 

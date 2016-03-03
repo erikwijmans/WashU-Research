@@ -281,7 +281,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
   
-  const int numToParse = 10;
+  const int numToParse = numScans;
   const int nodeStart = 0;
   for (int i = nodeStart; i < numToParse + nodeStart; ++i) {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
@@ -300,7 +300,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
 
   place::normalizeWeights(adjacencyMatrix, nodes);
 
-  // place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
+  place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 
   std::map<std::vector<int>, double> highOrder;
   place::createHigherOrderTerms(scans, zeroZeros, nodes, highOrder);
@@ -308,8 +308,8 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
   // place::displayHighOrder(highOrder, nodes, scans, zeroZeros);
 
   bestNodes.clear();
-  place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
-  // place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
+  // place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
+  place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
   while(true){
     place::displayBest(bestNodes, scans, zeroZeros);
   }
@@ -419,16 +419,16 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         const place::metaData & metaB = voxelInfo[nodeB.color][nodeB.s.rotation];
 
         place::cube aBox, bBox;
-        aBox.X1 = nodeA.s.x*(voxelsPerMeter/pixelsPerMeter) - metaA.zZ[0];
+        aBox.X1 = nodeA.s.x*(metaA.vox/ metaA.s) - metaA.zZ[0];
         aBox.X2 = aBox.X1 + metaA.x - 1;
-        aBox.Y1 = nodeA.s.y*(voxelsPerMeter/pixelsPerMeter) - metaA.zZ[1];
+        aBox.Y1 = nodeA.s.y*(metaA.vox/ metaA.s) - metaA.zZ[1];
         aBox.Y2 = aBox.Y1 + metaA.y - 1;
         aBox.Z1 = 0 - metaA.zZ[2];
         aBox.Z2 = aBox.Z1 + metaA.z - 1;
 
-        bBox.X1 = nodeB.s.x*(voxelsPerMeter/pixelsPerMeter) - metaB.zZ[0];
+        bBox.X1 = nodeB.s.x*(metaB.vox/ metaB.s) - metaB.zZ[0];
         bBox.X2 = bBox.X1 + metaB.x - 1;
-        bBox.Y1 = nodeB.s.y*(voxelsPerMeter/pixelsPerMeter) - metaB.zZ[1];
+        bBox.Y1 = nodeB.s.y*(metaB.vox/ metaB.s) - metaB.zZ[1];
         bBox.Y2 = bBox.Y1 + metaB.y - 1;
         bBox.Z1 = 0 - metaB.zZ[2];
         bBox.Z2 = bBox.Z1 + metaB.z - 1;
@@ -490,7 +490,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
           crossWRTB.Z2 = XSection.Z2 - bBox.Z1;
 
 
-          place::edgeWeight weight = place::compare3D(aPoint, bPoint, aFree, 
+          const place::edgeWeight weight = place::compare3D(aPoint, bPoint, aFree, 
             bFree, crossWRTA, crossWRTB);
 
           if(false) {
@@ -511,8 +511,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
 
           }
           
-
-
           adjacencyMatrix(j, i) = weight; 
 
           //adjacencyMatrix(j, i) = {0, 0, 0, 0, 0};
@@ -625,7 +623,7 @@ void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix,
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
 
-  for(int i = 0; i < cols; ++i) {
+  for(int i = 200; i < cols; ++i) {
     for(int j = 0; j < rows; ++j) {
 
       const place::node & nodeA = nodes[i];
@@ -869,13 +867,7 @@ void place::TRWSolver(const Eigen::MatrixXS & adjacencyMatrix,
     const size_t shape [] = {numberOfLabels[i]};
     Function f(shape, shape + 1);
     for(int j = 0; j < numberOfLabels[i]; ++j) {
-      const place::posInfo & currentScore = nodes[offset + j].s;
-      double scanExplained =
-        (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
-      double fpExplained = 
-      (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
-
-      f(j) = (scanExplained + fpExplained)/2.0;
+      f(j) = 0; //nodes[j + offset].w;
     }
     Model::FunctionIdentifier fid = gm.addFunction(f);
     const size_t factors [] = {i};
@@ -1021,7 +1013,7 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
   const int numOpts = nodes.size();
   try {
     GRBEnv env = GRBEnv();
-    env.set("TimeLimit", "300");
+    env.set("TimeLimit", "600");
 
     GRBModel model = GRBModel(env);
 
@@ -1033,11 +1025,15 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
     }
     
     GRBVar * varList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
+    GRBVar * inverseVarList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
     delete [] upperBound;
     delete [] type;
     // Integrate new variables
 
     model.update();
+    for(int i = 0; i < numOpts; ++i) {
+      model.addConstr(varList[i] + inverseVarList[i], GRB_EQUAL, 1.0);
+    }
 
     
     GRBQuadExpr objective = 0.0;
@@ -1080,24 +1076,26 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
     for(auto & it : highOrder) {
       auto & incident = it.first;
       if(incident.size() == 2) {
-        objective += varList[incident[0]]*varList[incident[1]]*it.second;
+        objective -= inverseVarList[incident[0]]*inverseVarList[incident[1]]*it.second;
       } else if(incident.size() == 1) {
-        objective += varList[incident[0]]*it.second;
+        /*objective -= inverseVarList[incident[0]]*it.second;*/
       }else {
         std::vector<GRBVar> final;
-        stackTerms(incident, varList, model, termCondense, final);
-        objective += final[0]*final[1]*it.second;
+        stackTerms(incident, inverseVarList, model, termCondense, final);
+        objective -= final[0]*final[1]*it.second;
       }
     }
 
     model.setObjective(objective, GRB_MAXIMIZE);
     model.optimize();
 
-    for(int i = 0; i < numOpts; ++i) {
+    for(int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
       if(varList[i].get(GRB_DoubleAttr_X) == 1.0) {
         bestNodes.push_back(&(nodes[i]));
-        std::cout << i << "_";
+        std::cout << i - offset << "_";
       }
+      if(numberOfLabels[k] == i + 1 - offset)
+        offset += numberOfLabels[k++];
     }
     std::cout << std::endl;
   } catch(GRBException e) {

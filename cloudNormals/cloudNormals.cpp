@@ -150,7 +150,7 @@ void calculateNormals(const string & inFile, const string & outFile){
 		normals[1] = cloud_normals->points[i].normal_y;
 		normals[2] = cloud_normals->points[i].normal_z;
 		
-		binaryFile.write(reinterpret_cast<const char *> (&normals[0]),
+		binaryFile.write(reinterpret_cast<const char *> (normals.data()),
 			sizeof(Vector3f));
 	}
 

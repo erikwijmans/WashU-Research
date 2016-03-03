@@ -22,6 +22,12 @@ static int levelNum;
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  FLAGS_floorPlan = FLAGS_dataPath + FLAGS_floorPlan;
+  FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
+  FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
+  FLAGS_preDone = FLAGS_dataPath + FLAGS_preDone;
+  FLAGS_preDoneV2 = FLAGS_dataPath + FLAGS_preDoneV2;
+  FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
 
   if(!FLAGS_V1 && !FLAGS_V2) 
     FLAGS_V1 = FLAGS_V2 = true;
@@ -722,10 +728,27 @@ void place::createFPPyramids(const cv::Mat & floorPlan,
   place::scanToSparse(floorPlan, fpSparse);
   place::scanToSparse(fpEroded, erodedFpSparse);
 
-  fpPyramid.push_back(fpSparse);
+  Eigen::SparseMatrix<double> fpTresh (fpSparse.rows(), fpSparse.cols()), 
+    erodedFpTresh (fpSparse.rows(), fpSparse.cols());
+  std::vector<Eigen::Triplet<double> > fpTrip, erodedTrip;
+
+  for(int i = 0; i < fpSparse.outerSize(); ++i)
+    for(Eigen::SparseMatrix<double>::InnerIterator it (fpSparse, i); it; ++it)
+      if(it.value() > 0.75)
+        fpTrip.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+
+  for(int i = 0; i < erodedFpSparse.outerSize(); ++i)
+    for(Eigen::SparseMatrix<double>::InnerIterator it (erodedFpSparse, i); it; ++it)
+      if(it.value() > 0.75)
+        erodedTrip.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+  
+  fpTresh.setFromTriplets(fpTrip.begin(), fpTrip.end());
+  erodedFpTresh.setFromTriplets(erodedTrip.begin(), erodedTrip.end());
+
+  fpPyramid.push_back(fpTresh);
   createPyramid(fpPyramid);
 
-  erodedFpPyramid.push_back(erodedFpSparse);
+  erodedFpPyramid.push_back(erodedFpTresh);
   createPyramid(erodedFpPyramid);
 
   for(auto & level : fpPyramid) {

@@ -28,6 +28,7 @@ namespace voxel {
   typedef struct {
     Eigen::Vector3i zZ;
     int x, y, z;
+    double vox, s;
   } metaData;
 
   void analyzeScan3D(const std::string & fileName,

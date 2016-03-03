@@ -29,6 +29,7 @@ DECLARE_string(preDone);
 DECLARE_string(preDoneV2);
 DECLARE_string(zerosFolder);
 DECLARE_string(voxelFolder);
+DECLARE_string(dataPath);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
 DECLARE_int32(numLevels);

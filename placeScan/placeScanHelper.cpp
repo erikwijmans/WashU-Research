@@ -23,18 +23,20 @@ DEFINE_bool(debugMode, false,
 DEFINE_bool(reshow, true, "Reshows the placement from a previous run");
 DEFINE_bool(V1, false, "Only will use V1 placement");
 DEFINE_bool(V2, false, "Ony will use V2 placement");
-DEFINE_string(floorPlan, "/home/erik/Projects/3DscanData/DUC/floorPlans/DUC-floor-1_cropped.png", 
-	"Path to the floor plan that the scan should be placed on");
-DEFINE_string(dmFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/",
-	"Path to folder containing densityMaps");
-DEFINE_string(preDone, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V1/",
-	"Path to folder containing previous placements of a scan");
-DEFINE_string(preDoneV2, "/home/erik/Projects/3DscanData/DUC/Floor1/placementOptions/V2/",
-	"Path to folder containing previous placements of a scan");
-DEFINE_string(zerosFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/zeros/",
-	"Path to folder where the pixel coordinates of (0,0) are");
-DEFINE_string(voxelFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/voxelGrids/",
-	"Path to the folder where the voxelGrids are saved to.");
+DEFINE_string(floorPlan, "floorPlan.png", 
+	"Path to the floor plan that the scan should be placed on.  This will be appended to the dataPath.");
+DEFINE_string(dmFolder, "densityMaps/",
+	"Path to folder containing densityMaps. This will be appended to the dataPath.");
+DEFINE_string(preDone, "placementOptions/V1/",
+	"Path to folder containing previous placements of a scan. This will be appended to the dataPath.");
+DEFINE_string(preDoneV2, "placementOptions/V2/",
+	"Path to folder containing previous placements of a scan. This will be appended to the dataPath.");
+DEFINE_string(zerosFolder, "densityMaps/zeros/",
+	"Path to folder where the pixel coordinates of (0,0) are. This will be appended to the dataPath.");
+DEFINE_string(voxelFolder, "voxelGrids/",
+	"Path to the folder where the voxelGrids are saved to. This will be appended to the dataPath.");
+DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
+	"Path to where the program should search for the various folders it needs");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");

@@ -4,9 +4,6 @@
 #include "placeScan_placeScanHelper.h"
 
 
-const double pixelsPerMeter = 73.5;
-const double voxelsPerMeter = 20.0;
-
 namespace place {
   typedef struct {
     double pA, feA, feB, fx;
@@ -57,6 +54,7 @@ namespace place {
    typedef struct {
     Eigen::Vector3i zZ;
     int x, y, z;
+    double vox, s;
   } metaData;
 
 	void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);
