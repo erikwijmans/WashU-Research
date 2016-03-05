@@ -1,4 +1,0 @@
-[ 33%] Building CXX object CMakeFiles/placeScan.dir/placeScanHelper2.cpp.o
-CMakeFiles/placeScan.dir/build.make:54: recipe for target 'CMakeFiles/placeScan.dir/placeScanHelper2.cpp.o' failed
-CMakeFiles/Makefile2:60: recipe for target 'CMakeFiles/placeScan.dir/all' failed
-Makefile:76: recipe for target 'all' failed

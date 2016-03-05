@@ -304,7 +304,6 @@ bool place::reshowPlacement(const std::string & scanName,
 			std::cout << &minScore << std::endl;
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
 		}
-		cv::imwrite("Out.png", output);
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
 	}
