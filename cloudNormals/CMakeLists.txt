@@ -1,4 +1,4 @@
-set(CMAKE_CXX_COMPILER g++)
+set(CMAKE_CXX_COMPILER g++-4.9)
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 project(cloudNormals)
 find_package(PCL 1.7 REQUIRED)

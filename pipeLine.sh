@@ -18,7 +18,7 @@ make
 ./getRotations -inFolder=$1cloudNormals/ -outFolder=$1densityMaps/rotations/
 cd ../scanDensity
 make
-./scanDensity -dataPath=$1 -redo 
+./scanDensity -dataPath=$1 -scale=98.0
 cd ../placeScan
 make
 ./placeScan -dataPath=$1 -nopreviewOut -redo -V1

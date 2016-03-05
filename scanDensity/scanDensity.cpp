@@ -342,8 +342,6 @@ void examinePointEvidence(const std::vector<Eigen::Vector3f> & points,
 	const Eigen::Vector3d zeroZero (-pointMin[0]*FLAGS_scale, -pointMin[1]*FLAGS_scale, 0);
 	displayPointEvenidence(total, R, zeroZero, scanNumber, buildName, 3.0, zZOut);
 	
-	
-
 }
 
 void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
@@ -413,7 +411,7 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 				const double count = numTimesSeen(src[1], src[0]);
 				if(count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
-						255.0 * (count - 1.5*average - 1.5*sigma) 
+						255.0 * (count - average - sigma) 
 						 	/ (bias * sigma));
 					dst[i] = 255 - gray;
 				}
@@ -470,8 +468,6 @@ void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
 		Eigen::Vector2i tmp (newZZ[0], newZZ[1]);
 		zZOut.write(reinterpret_cast<const char *>(tmp.data()), sizeof(tmp));
 	}
-
-	
 }
 
 void examineFreeSpaceEvidence(const std::vector<Eigen::Vector3f> & points, 
@@ -525,7 +521,7 @@ void examineFreeSpaceEvidence(const std::vector<Eigen::Vector3f> & points,
 				unitRay[1] = ray[1]/length;
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
-				for (int a = 0; a < floor(length-1); ++a) {
+				for (int a = 0; a <= ceil(length); ++a) {
 			
 					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);

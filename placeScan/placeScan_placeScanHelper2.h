@@ -3,6 +3,8 @@
 
 #include "placeScan_placeScanHelper.h"
 
+#include <unordered_map>
+
 
 namespace place {
   typedef struct {
@@ -18,7 +20,7 @@ namespace place {
 
 
 namespace Eigen {
-  typedef Matrix<place::edgeWeight, Dynamic, Dynamic> MatrixXS;
+  typedef Matrix<place::edgeWeight, Dynamic, Dynamic> MatrixXE;
   typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
 } // Eigen
   
@@ -64,7 +66,7 @@ namespace place {
 
   void displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan);
 
-  void createGraph(Eigen::MatrixXS & adjacencyMatrix,
+  void createGraph(Eigen::MatrixXE & adjacencyMatrix,
     std::vector<place::node> & nodes,
     std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
     std::vector<const place::node *> & bestNodes);
@@ -73,7 +75,7 @@ namespace place {
     const std::vector<std::vector<place::metaData> > & voxelInfo,
     const std::vector<std::string> & pointVoxelFileNames,
     const std::vector<std::string> & freeVoxelFileNames,
-    Eigen::MatrixXS & adjacencyMatrix);
+    Eigen::MatrixXE & adjacencyMatrix);
 
   void loadInPlacementGraph(const std::string & imageName, 
     std::vector<place::node> & nodes, const int num);
@@ -82,16 +84,16 @@ namespace place {
     const std::vector<cv::Mat> & toTrimMasks, std::vector<cv::Mat> & trimmedScans,
     std::vector<cv::Mat> & trimmedMasks, std::vector<Eigen::Vector2i> & zeroZero);
 
-  void displayGraph(const Eigen::MatrixXS & adjacencyMatrix, 
+  void displayGraph(const Eigen::MatrixXE & adjacencyMatrix, 
     const std::vector<place::node> & nodes,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void findLongestPath(const Eigen::MatrixXS & adjacencyMatrix,
+  void findLongestPath(const Eigen::MatrixXE & adjacencyMatrix,
     const std::vector<place::node> & nodes,
     std::vector<place::node> & longestPath);
 
-  void pathFinder(const Eigen::MatrixXS & adjacencyMatrix,
+  void pathFinder(const Eigen::MatrixXE & adjacencyMatrix,
     const std::vector<place::node> & nodes,
     int currentNode, bool * colorMap, int numColors, double currentLength,
     std::vector<place::node> & longestPath);
@@ -101,7 +103,7 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void findBestLabels(const Eigen::MatrixXS & adjacencyMatrix, 
+  void findBestLabels(const Eigen::MatrixXE & adjacencyMatrix, 
     const std::vector<place::node> & nodes, std::vector<place::node> & bestLabels);
 
   place::edgeWeight compare3D(const place::voxel & aPoint,
@@ -120,12 +122,12 @@ namespace place {
   std::vector<std::vector<Eigen::MatrixXb> > & masks,
   std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void TRWSolver(const Eigen::MatrixXS & adjacencyMatrix,
+  void TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     const std::vector<place::node> & nodes,
     std::vector<const place::node * > & bestNodes);
 
-  bool reloadGraph(Eigen::MatrixXS & adjacencyMatrix);
-  void saveGraph(Eigen::MatrixXS & adjacencyMatrix);
+  bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix);
+  void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
 
   bool localGroup(const Eigen::MatrixXb & toCheck, const int yOffset, 
   const int xOffset);
@@ -140,11 +142,11 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void MIPSolver(const Eigen::MatrixXS & adjacencyMatrix, 
+  void MIPSolver(const Eigen::MatrixXE & adjacencyMatrix, 
     const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
     std::vector<const place::node *> & bestNodes);
 
-  void normalizeWeights(Eigen::MatrixXS & adjacencyMatrix, 
+  void normalizeWeights(Eigen::MatrixXE & adjacencyMatrix, 
     std::vector<place::node> & nodes);
 }
 

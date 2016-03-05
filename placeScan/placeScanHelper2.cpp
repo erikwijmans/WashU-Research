@@ -17,7 +17,6 @@
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
-#include <unordered_map>
 #include "gurobi_c++.h"
 
 static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
@@ -202,7 +201,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
 
 }
 
-void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
+void place::createGraph(Eigen::MatrixXE & adjacencyMatrix,
   std::vector<place::node> & nodes, 
   std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
   std::vector<const place::node *> & bestNodes) {
@@ -290,7 +289,7 @@ void place::createGraph(Eigen::MatrixXS & adjacencyMatrix,
 
 
   const int numNodes = nodes.size();
-  adjacencyMatrix = Eigen::MatrixXS (numNodes, numNodes);
+  adjacencyMatrix = Eigen::MatrixXE (numNodes, numNodes);
 
   place::weightEdges(nodes, voxelInfo, 
     pointVoxelFileNames, freeVoxelFileNames, adjacencyMatrix);
@@ -381,7 +380,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   const std::vector<std::vector<place::metaData> > & voxelInfo,
   const std::vector<std::string> & pointVoxelFileNames,
   const std::vector<std::string> & freeVoxelFileNames,
-  Eigen::MatrixXS & adjacencyMatrix) {
+  Eigen::MatrixXE & adjacencyMatrix) {
 
   if(!FLAGS_redo && place::reloadGraph(adjacencyMatrix))
     return;
@@ -614,7 +613,7 @@ void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans,
   }
 }
 
-void place::displayGraph(const Eigen::MatrixXS & adjacencyMatrix, 
+void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix, 
   const std::vector<place::node> & nodes,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
@@ -825,7 +824,7 @@ void place::loadInVoxel(const std::string & name,
   in.close();
 }
 
-void place::TRWSolver(const Eigen::MatrixXS & adjacencyMatrix,
+void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   const std::vector<place::node> & nodes, 
   std::vector<const place::node * > & bestNodes) {
 
@@ -881,7 +880,7 @@ void place::TRWSolver(const Eigen::MatrixXS & adjacencyMatrix,
     rowOffset += numberOfLabels[i];
     int rowOcp = rowOffset;
     for(size_t j = i + 1; j < numVars; ++j) {
-      Eigen::MatrixXS currentMat = adjacencyMatrix.block(rowOcp, colOffset,
+      Eigen::MatrixXE currentMat = adjacencyMatrix.block(rowOcp, colOffset,
         numberOfLabels[j], numberOfLabels[i]);
 
       const size_t shape [] = {numberOfLabels[i], numberOfLabels[j]};
@@ -989,7 +988,7 @@ static void stackTerms(const std::vector<int> & toStack,
     condenseStack(stacked, model);
 }
 
-void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix, 
+void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix, 
   const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
   std::vector<const place::node *> & bestNodes) {
 
@@ -1066,14 +1065,14 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
     }
 
 
-    /*for(auto & it : highOrder) {
+    /*for(auto it : highOrder) {
       auto & incident = it.first;
       for(auto & i : incident) 
         objective += varList[i]*it.second;
     }
 */
     std::map<std::pair<int, int>, GRBVar > termCondense;
-    for(auto & it : highOrder) {
+    for(auto it : highOrder) {
       auto & incident = it.first;
       if(incident.size() == 2) {
         objective -= inverseVarList[incident[0]]*inverseVarList[incident[1]]*it.second;
@@ -1106,7 +1105,7 @@ void place::MIPSolver(const Eigen::MatrixXS & adjacencyMatrix,
   }
 }
 
-bool place::reloadGraph(Eigen::MatrixXS & adjacencyMatrix) {
+bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
   const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
   std::ifstream in (graphName, std::ios::in | std::ios::binary);
 
@@ -1117,7 +1116,7 @@ bool place::reloadGraph(Eigen::MatrixXS & adjacencyMatrix) {
   in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
   in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
 
-  adjacencyMatrix = Eigen::MatrixXS(rows, cols);
+  adjacencyMatrix = Eigen::MatrixXE(rows, cols);
   in.read(reinterpret_cast<char *>(adjacencyMatrix.data()),
     sizeof(place::edgeWeight)*adjacencyMatrix.size());
 
@@ -1126,7 +1125,7 @@ bool place::reloadGraph(Eigen::MatrixXS & adjacencyMatrix) {
   return true;
 }
 
-void place::saveGraph(Eigen::MatrixXS & adjacencyMatrix) {
+void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
   const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
   std::ofstream out (graphName, std::ios::out | std::ios::binary);
 
@@ -1200,13 +1199,13 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   }
   
   place::hOrder * data = hMap.data();
-  /*for(int i = 0; i < hMap.size(); ++i) {
+  for(int i = 0; i < hMap.size(); ++i) {
     if((data + i)->incident.size() != 0) {
-      const double scale = harmonic((data + i)->incident.size(), 0.0);
+      // const double scale = harmonic((data + i)->incident.size(), 0.0);
       (data + i)->weight /= (data + i)->incident.size();
       // (data + i)->weight *= scale;
     }
-  }*/
+  }
 
   for(int i = 0; i < hMap.size(); ++i) {
     std::vector<int> & key = (data + i)->incident;
@@ -1220,17 +1219,17 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   }
 
   double average = 0.0;
-  for(auto & it : highOrder)
+  for(auto it : highOrder)
     average += it.second;
   average /= highOrder.size();
 
   double sigma = 0.0;
-  for(auto & it : highOrder)
+  for(auto it : highOrder)
     sigma += (it.second - average)*(it.second -average);
 
   sigma /= (highOrder.size() - 1);
   sigma = sqrt(sigma);
-  for(auto & it : highOrder)
+  for(auto it : highOrder)
     it.second = (((it.second - average)/(sigma) + 1.0)/2.0);
 }
 
@@ -1240,7 +1239,7 @@ void place::displayHighOrder(const std::map<std::vector<int>, double> highOrder,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
 
-  for(auto & it : highOrder) {
+  for(auto it : highOrder) {
     auto & key = it.first;
     cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
@@ -1283,7 +1282,7 @@ void place::displayHighOrder(const std::map<std::vector<int>, double> highOrder,
 
 }
 
-void place::normalizeWeights(Eigen::MatrixXS & adjacencyMatrix, 
+void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix, 
   std::vector<place::node> & nodes) {
   double average = 0.0;
   int count = 0;

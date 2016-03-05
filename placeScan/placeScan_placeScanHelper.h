@@ -105,7 +105,13 @@ namespace place {
 	void erodeSparse(const Eigen::SparseMatrix<double> & src,
 		Eigen::SparseMatrix<double> & dst);
 
+	void displayOutput(const Eigen::SparseMatrix<double> & fp,
+		const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
+		const std::vector<const place::posInfo *> & minima);
+
 } //namespace place
+
+std::ostream & operator<<(std::ostream & os, const place::posInfo * print);
 
 
 #endif

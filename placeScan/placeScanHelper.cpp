@@ -48,6 +48,13 @@ cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
 
 
+std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
+	os << print->score <<"      " << print->x << "      " <<print->y << std::endl;
+	os << print->scanFP << "      " << print->fpScan << std::endl;
+	os << print->scanPixels << "    " << print->fpPixels;
+	return os;
+}
+
 void place::parseFolders(std::vector<std::string> & pointFileNames, 
 	std::vector<std::string> & zerosFileNames,
 	std::vector<std::string> * freeFileNames){
@@ -294,9 +301,7 @@ bool place::reshowPlacement(const std::string & scanName,
 		}
 
 		if(!FLAGS_quiteMode) {
-			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << "     "<< minScore.rotation << std::endl;
-			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
-			std::cout << minScore.scanPixels << "    " << minScore.fpPixels  << std::endl;
+			std::cout << &minScore << std::endl;
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
 		}
 		cv::imwrite("Out.png", output);
@@ -322,13 +327,10 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 
 	int currentCount = 0;
 	for(auto & min : minima){
-		place::posInfo minScore = *min;
-		const int xOffset = minScore.x;
-		const int yOffset = minScore.y;
-		minScore.x += zeroZero[minScore.rotation][0];
-		minScore.y += zeroZero[minScore.rotation][1];
+		const int xOffset = min->x;
+		const int yOffset = min->y;
 		const Eigen::SparseMatrix<double> & currentScan = 
-			rSSparseTrimmed[minScore.rotation]; 
+			rSSparseTrimmed[min->rotation]; 
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
 		fpColor.copyTo(output);
 
@@ -350,9 +352,69 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 
 		cv::imshow("Preview", output);
 		if(!FLAGS_quiteMode) {
-			std::cout << minScore.score <<"      " << minScore.x << "      " <<minScore.y << std::endl;
-			std::cout << minScore.scanFP << "      " << minScore.fpScan << std::endl;
-			std::cout << minScore.scanPixels << "    " << minScore.fpPixels << std::endl << std::endl;
+			std::cout << min << std::endl << std::endl;
+    }
+		cv::waitKey(0);
+		~output;
+		if(++currentCount == cutOff) break;
+	}
+}
+
+void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
+	const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
+	const std::vector<const place::posInfo *> & minima) {
+	const int num = minima.size() < 20 ? minima.size() : 20;
+	if(!FLAGS_quiteMode) {
+		std::cout << "Num minima: " << num << std::endl;
+		std::cout << "Press a key to begin displaying placement options" << std::endl;
+	}
+	cv::Mat fpImg = place::sparseToImage(fp);
+	cv::Mat tmpColor (fpImg.rows, fpImg.cols, CV_8UC3, cv::Scalar::all(255));
+
+	for (int i = 0; i < tmpColor.rows; ++i) {
+    uchar * dst = tmpColor.ptr<uchar>(i);
+    const uchar * src = fpImg.ptr<uchar>(i);
+    for (int j = 0; j < tmpColor.cols; ++j) {
+      if(src[j]!=255) {
+        dst[j*3] = 128;
+        dst[j*3+1] = 128;
+        dst[j*3+2] = 128;
+      }
+    }
+  }
+	
+	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+	cv::imshow("Preview", tmpColor);
+	cv::waitKey(0);
+	const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
+
+	int currentCount = 0;
+	for(auto & min : minima){
+		const int xOffset = min->x;
+		const int yOffset = min->y;
+		const Eigen::SparseMatrix<double> & currentScan = 
+			rSSparseTrimmed[min->rotation]; 
+		cv::Mat output (tmpColor.rows, tmpColor.cols, CV_8UC3, cv::Scalar::all(255));
+		tmpColor.copyTo(output);
+		cv::Mat_<cv::Vec3b> _output = output;
+
+		for (int i = 0; i < currentScan.outerSize(); ++i) {
+			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
+				if(it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
+					continue;
+				if(it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
+					continue;
+				
+				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
+				_output(it.row() + yOffset, it.col() + xOffset)[1]=0;
+				_output(it.row() + yOffset, it.col() + xOffset)[2]=255;
+
+			}
+		}
+
+		cv::imshow("Preview", output);
+		if(!FLAGS_quiteMode) {
+			std::cout << min << std::endl << std::endl;
     }
 		cv::waitKey(0);
 		~output;
@@ -387,7 +449,7 @@ void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> >
   const std::vector<Eigen::Vector2i> & zeroZero){
 
 	std::vector<const place::posInfo *> tmp;
-	for (int i = 0; i < truePlacement.size(); ++i) {
+	for (int i = 0; i < scores.size(); ++i) {
 		tmp.push_back(&scores[i]);
 	}
 
@@ -397,6 +459,7 @@ void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> >
 
 void place::sparseToImage(const Eigen::SparseMatrix<double> & toImage,
 	cv::Mat & imageOut){
+
 	imageOut = cv::Mat(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
 
 	double maxV = 0;
@@ -414,8 +477,8 @@ void place::sparseToImage(const Eigen::SparseMatrix<double> & toImage,
 }
 
 cv::Mat place::sparseToImage(const Eigen::SparseMatrix<double> & toImage){
-	cv::Mat image (toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
 
+	cv::Mat image (toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
 	double maxV = 0;
 	for (int i = 0; i < toImage.outerSize(); ++i) {
 		for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
@@ -520,23 +583,19 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 
 	for(int i = 0; i < srcNS.cols(); ++i) {
 		for(int j = 0; j < srcNS.rows(); ++j) {
-			Eigen::Matrix3d kernel;
+			double V = 0.0;
 			for(int k = -1; k < 1; ++k) {
 				for(int l = -1; l < 1; ++l) {
 					if(i + k < 0 || i + k >=srcNS.cols() ||
 						j+l < 0 || j + l >=srcNS.rows())
-						kernel(l+1,k+1) = 0;
+						continue;
 					else
-						kernel(l+1,k+1) = srcNS(j + l, i + k);
+						V = std::max(V, srcNS(j + l, i + k));
 				}
 			}
-			double maxV = 0;
-			const double * kernelPtr = kernel.data();
-			for(int i = 0; i < kernel.size(); ++i) {
-				maxV = std::max(maxV, *(kernelPtr + i));
-			}
-			if(maxV != 0)
-				tripletList.push_back(Eigen::Triplet<double> (j, i, maxV));
+			
+			if(V != 0)
+				tripletList.push_back(Eigen::Triplet<double> (j, i, V));
 		}
 	}
 	dst.setFromTriplets(tripletList.begin(), tripletList.end());
