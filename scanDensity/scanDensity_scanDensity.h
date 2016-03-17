@@ -37,9 +37,26 @@ class DensityMaps {
 	private:
 		std::vector<std::string> binaryNames, rotationsFiles;
 	public:
+		/* Constructs argv and argc, then called the constructor with them */
+		DensityMaps(const std::string & commandLine);
 		DensityMaps(int argc, char * argv[]);
+		/*Runs both 2D and 3D based on whether their flags have been set
+			uses flags to determine how much to run. This exists
+			to work as a main method if this class was a program to be
+			run from the command line */
 		void run();
+		/*Runs 2D and 3D based on flags in the range specified */
 		void run(int startIndex, int numScans);
+		/*Runs all in 2D, -pe and -fe still apply */
+		void run2D();
+		void run2D(int startIndex, int numScans);
+		/*Runs all in 3D */
+		void run3D();
+		void run3D(int startIndex, int numScans);
+		/* resetFlags CANNOT change the dataPath or and folderFlags
+			and folders will not be reparsed */
+		void resetFlags(const std::string & commandLine);
+		void resetFlags(int argc, char * argv[]);
 		void setScale(double newScale) {FLAGS_scale = newScale;};
 		double getScale() {return FLAGS_scale;};
 };

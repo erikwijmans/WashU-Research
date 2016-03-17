@@ -12,13 +12,13 @@ make
 ./csvToBinary -inFolder=$1PTXFiles/ -outFolder=$1binaryFiles/
 cd ../cloudNormals
 make
-./cloudNormals -inFolder=$1binaryFiles/ -outFolder=$1cloudNormals/
+./cloudNormals -inFolder=$1binaryFiles/ -outFolder=$1cloudNormals/ -redo 
 cd ../getRotations
 make
-./getRotations -inFolder=$1cloudNormals/ -outFolder=$1densityMaps/rotations/
+./getRotations -inFolder=$1cloudNormals/ -outFolder=$1densityMaps/rotations/ -redo
 cd ../scanDensity
 make
-./scanDensity -dataPath=$1 -scale=98.0
+./scanDensity -dataPath=$1 -redo
 cd ../placeScan
 make
-./placeScan -dataPath=$1 -nopreviewOut -redo -V1
+./placeScan -dataPath=$1 -redo

@@ -37,6 +37,9 @@ DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 DECLARE_int32(top);
 
+
+extern const double maxDelta, maxTotal;
+
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;
 
@@ -64,13 +67,16 @@ namespace place {
 		std::vector<std::string> * freeFileNames);
 
 	void loadInScans(const std::string & scanName,
-		 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
-	   std::vector<Eigen::Vector2i> * zeroZero);
+		const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
+	  std::vector<Eigen::Vector2i> & zeroZero);
+
+	void loadInScans(const std::string & scanName,
+		 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans);
 
 	void loadInScansAndMasks(const std::string & scanName, 
-	    const std::string & zerosFile, 
-	    const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
-	    std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero);
+	  const std::string & zerosFile, 
+	  const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
+	  std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero);
 
 	void trimScans(const std::vector<cv::Mat> & toTrim, 
 		std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero);
@@ -82,8 +88,7 @@ namespace place {
 		const std::string & zerosFile, const std::string & preDone);	
 
 	void displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
-		const std::vector<const place::posInfo *> & minima,
-		const std::vector<Eigen::Vector2i> & zeroZero);
+		const std::vector<const place::posInfo *> & minima);
 
 	void loadInTruePlacement(const std::string & scanName, 
 		const std::vector<Eigen::Vector2i> & zeroZero);

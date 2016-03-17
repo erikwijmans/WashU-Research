@@ -11,18 +11,6 @@ namespace Eigen {
   typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 }
 
-
-class VoxelInfo {
-  private:
-    std::vector<std::string> binaryNames, rotationsFiles;
-  public:
-    VoxelInfo (int argc, char * argv[]);
-    void run();
-    void run(int startIndex, int numScans);
-    void setScale(double newScale) {voxelsPerMeter = newScale;};
-    double getScale() {return voxelsPerMeter;};
-};
-
 namespace voxel {
 
   typedef struct {

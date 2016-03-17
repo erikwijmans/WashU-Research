@@ -6,15 +6,26 @@
 
 
 
-namespace place{
+namespace place {
+
+	typedef struct {
+		const posInfo *** maps;
+		double exclusionSize;
+		int rows, cols;
+	} exclusionMap;
+
 	void analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
 	  const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
 	  const std::vector<Eigen::MatrixXb> & fpMasks,
 	  const std::string & scanName,
 	  const std::string & zerosFile, const std::string & maskName);
 
-	const posInfo *** findLocalMinima(const std::vector<place::posInfo> & scores,
-	  const float bias, const int rows, const int cols, const double exclusionSize);
+	void findLocalMinima(const std::vector<place::posInfo> & scores,
+	  const float bias, place::exclusionMap & maps);
+
+	void findGlobalMinima(const std::vector<place::posInfo> & scores, 
+	  place::exclusionMap & maps,
+	  std::vector<const place::posInfo *> & minima);
 
 	void createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid);
 
@@ -41,12 +52,6 @@ namespace place{
 	void findPointsToAnalyzeV2(const std::vector<const place::posInfo *> & minima, 
   	std::vector<Eigen::Vector3i> & pointsToAnalyze);
 
-	void findGlobalMinima(const std::vector<posInfo> & scores, const std::vector<int> & localMinima);
-
-	void findGlobalMinimaV2(const std::vector<place::posInfo> & scores, 
-	  const place::posInfo *** map, const int rows, const int cols, const double exclusionSize, 
-	  std::vector<const place::posInfo *> & minima);
-
 	Eigen::MatrixXd distanceTransform(const Eigen::SparseMatrix<double> & image);
 
 	void createFPPyramids(const cv::Mat & floorPlan, 
@@ -70,6 +75,7 @@ namespace place{
 	void createFPPyramidsWeighted(const Eigen::SparseMatrix<double> & weightedFloorPlan,
 		std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
 		std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid);
+
 } //namespace place
 
 

@@ -3,13 +3,13 @@
 
 #include "placeScan_placeScanHelper.h"
 
-#include <unordered_map>
+extern const int minScans;
 
 
 namespace place {
   typedef struct {
-    double pA, feA, feB, fx;
-    double w;
+    double pA = 0.0, feA = 0.0, feB = 0.0, fx = 0.0;
+    double w = 0.0;
   } edgeWeight;
 
   typedef struct {
@@ -48,10 +48,14 @@ namespace place {
     int Y2;
   } rect;
 
-  typedef struct {
-    int X1, Y1, Z1;
-    int X2, Y2, Z2;
-  } cube;
+  class cube {
+    public:
+      int X1, Y1, Z1;
+      int X2, Y2, Z2;
+      cube();
+      ~cube();
+      int volume();
+  };
 
    typedef struct {
     Eigen::Vector3i zZ;

@@ -2,73 +2,6 @@
 
 double voxelsPerMeter = 20.0;
 
-VoxelInfo::VoxelInfo(int argc, char * argv[]) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  if(!FLAGS_2D && !FLAGS_3D) 
-    FLAGS_2D = FLAGS_3D = true;
-  
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
-    /* Add all the files and directories to a std::vector */
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if(fileName != ".." && fileName != "."){
-        binaryNames.push_back(fileName);
-      }
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(EXIT_FAILURE);
-  }
-
-  sort(binaryNames.begin(), binaryNames.end(), 
-    [](const std::string & a, const std::string & b) {
-        int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-        int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-        return numA < numB;
-    });
-
-  if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
-    /* Add all the files and directories to a std::vector */
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if(fileName != ".." && fileName != "."){
-        rotationsFiles.push_back(fileName);
-      }
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(EXIT_FAILURE);
-  }
-  sort(rotationsFiles.begin(), rotationsFiles.end());
-}
-
-void VoxelInfo::run(int startIndex, int numScans) {
-  for(int i = startIndex; i < startIndex + numScans; ++i) {
-    const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
-    const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
-
-    voxel::analyzeScan3D(binaryFilePath, rotationFile);
-  }
-}
-
-void VoxelInfo::run() {
-  for(int i = 0; i < rotationsFiles.size(); ++i) {
-    const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
-    const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
-
-    voxel::analyzeScan3D(binaryFilePath, rotationFile);
-  }
-}
-
 void voxel::analyzeScan3D(const std::string & fileName,
   const std::string & rotationFile) {
   const std::string scanNumber = fileName.substr(fileName.find(".") - 3, 3);
@@ -248,7 +181,8 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
 
     std::vector<Eigen::MatrixXb> voxelPoint (z, Eigen::MatrixXb::Zero(newRows,newCols));
     std::vector<Eigen::MatrixXb> voxelFree (z, Eigen::MatrixXb::Zero(newRows, newCols));
-    size_t numNZP = 0, numNZF = 0;
+
+    size_t numNonZerosPoint = 0, numNonZerosFreeSpace = 0;
     for(int k = 0; k < voxelPoint.size(); ++k) {
       for(int i = 0; i < voxelPoint[0].cols(); ++i) {
         for(int j = 0; j < voxelPoint[0].rows(); ++j) {
@@ -264,12 +198,12 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
           if(pointGrid[k](src[1], src[0]) != 0) {
             double normalized = (pointGrid[k](src[1],src[0]) - averageP)/sigmaP;
             voxelPoint[k](j,i) = normalized > -1.0 ? 1 : 0;
-            numNZP += normalized > -1.0 ? 1 : 0;
+            numNonZerosPoint += normalized > -1.0 ? 1 : 0;
           }
           if(freeSpace[k](src[1],src[0]) != 0) {
             double normalized = (freeSpace[k](src[1],src[0]) - averageF)/sigmaF;
             voxelFree[k](j,i) = normalized > -1.0 ? 1 : 0;
-            numNZF += normalized > -1.0 ? 1 : 0;
+            numNonZerosFreeSpace += normalized > -1.0 ? 1 : 0;
           }
         }
       }
@@ -304,8 +238,8 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
     std::vector<Eigen::MatrixXb> newPoint (newZ), 
       newFree (newZ);
 
-    
-    for(int i = 0; i < newZ; ++i) {
+   
+    for (int i = 0; i < newZ; ++i) {
       newPoint[i] = voxelPoint[i + minZ].block(minRow, minCol, newY, newX);
       newFree[i] = voxelFree[i + minZ].block(minRow, minCol, newY, newX);
     }
@@ -314,9 +248,9 @@ void voxel::saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
       displayVoxelGrid(newPoint);
       displayVoxelGrid(newFree);
     }
-
-    voxel::writeGrid(newPoint, outNamePoint, numNZP);
-    voxel::writeGrid(newFree, outNameFree, numNZF);
+    
+    voxel::writeGrid(newPoint, outNamePoint, numNonZerosPoint);
+    voxel::writeGrid(newFree, outNameFree, numNonZerosFreeSpace);
 
     voxel::metaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, FLAGS_scale};
     meta.zZ[0] += dX;
@@ -341,9 +275,9 @@ void voxel::writeGrid(const std::vector<Eigen::MatrixXb> & toWrite,
   out.write(reinterpret_cast<const char *>(& vY), sizeof(vY));
   out.write(reinterpret_cast<const char *>(& vX), sizeof(vX));
 
-
   for(int k = 0; k < vZ; ++k)
     out.write(toWrite[k].data(), toWrite[k].size());
+
   out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
 
   out.close();

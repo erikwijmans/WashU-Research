@@ -5,6 +5,7 @@
 #include <omp.h>
 
 
+#include <sstream>
 
 
 /*#include <pcl/point_cloud.h>
@@ -35,7 +36,7 @@ DEFINE_int32(startIndex, 0, "Number to start with");
 DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
 
 
-int main(int argc, char *argv[]) {
+/*int main(int argc, char *argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 	FLAGS_inFolder = FLAGS_dataPath + FLAGS_inFolder;
 	FLAGS_outFolder = FLAGS_dataPath + FLAGS_outFolder;
@@ -53,7 +54,6 @@ int main(int argc, char *argv[]) {
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
-	  /* Add all the files and directories to a std::vector */
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
 	  	if(fileName != ".." && fileName != "."){
@@ -62,7 +62,6 @@ int main(int argc, char *argv[]) {
 	  }
 	  closedir (dir);
 	}  else {
-	  /* could not open directory */
 	  perror ("");
 	  return EXIT_FAILURE;
 	}
@@ -75,7 +74,6 @@ int main(int argc, char *argv[]) {
 		});
 
 	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
-	  /* Add all the files and directories to a std::vector */
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
 	  	if(fileName != ".." && fileName != "."){
@@ -84,7 +82,6 @@ int main(int argc, char *argv[]) {
 	  }
 	  closedir (dir);
 	}  else {
-	  /* could not open directory */
 	  perror ("");
 	  return EXIT_FAILURE;
 	}
@@ -108,18 +105,34 @@ int main(int argc, char *argv[]) {
 	std::cout << "Scan Density Done!" << std::endl;
 
 	return 0;
-}
+}*/
 
+DensityMaps::DensityMaps(const std::string & commandLine) {
+	std::vector<std::string> v;
+	std::istringstream is (commandLine);
+	std::string tmp;
+	while(is >> tmp)
+		v.push_back(tmp);
+	char ** argv = new char * [v.size() + 1];
+	for (int i = 0; i < v.size(); ++i) {
+		argv[i] = &v[i][0];
+	}
+	argv[v.size()] = NULL;
+	DensityMaps(v.size(), argv);
+}
 
 DensityMaps::DensityMaps(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
+	FLAGS_inFolder = FLAGS_dataPath + FLAGS_inFolder;
+	FLAGS_outFolder = FLAGS_dataPath + FLAGS_outFolder;
+	FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
+	FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
+	FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
 
 	if(!FLAGS_2D && !FLAGS_3D) 
 		FLAGS_2D = FLAGS_3D = true;
 	
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-
-	std::vector<std::string> binaryNames, rotationsFiles;
 	
 	DIR *dir;
 	struct dirent *ent;
@@ -163,11 +176,17 @@ DensityMaps::DensityMaps(int argc, char * argv[]) {
 }
 
 void DensityMaps::run() {
-	for(int i =0; i < rotationsFiles.size(); ++i) {
+	int numScans = FLAGS_numScans;
+	if(FLAGS_numScans == -1)
+		numScans = binaryNames.size() - FLAGS_startIndex;
+	for (int i = FLAGS_startIndex; i < FLAGS_startIndex + numScans; ++i) {
 		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
 		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
 
-		analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+		if(FLAGS_2D)
+			analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+		if(FLAGS_3D)
+			voxel::analyzeScan3D(binaryFilePath, rotationFile);
 	}
 }
 
@@ -176,8 +195,68 @@ void DensityMaps::run(int startIndex, int numScans) {
 		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
 		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
 
+		if(FLAGS_2D)
+			analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+		if(FLAGS_3D)
+			voxel::analyzeScan3D(binaryFilePath, rotationFile);
+	}
+}
+
+void DensityMaps::run2D() {
+	for(int i =0; i < rotationsFiles.size(); ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
 		analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
 	}
+}
+
+void DensityMaps::run2D(int startIndex, int numScans) {
+	for(int i = startIndex; i < startIndex + numScans; ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+		analyzeScan(binaryFilePath, FLAGS_outFolder, rotationFile);
+	}
+}
+
+void DensityMaps::run3D() {
+	for(int i =0; i < rotationsFiles.size(); ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+		voxel::analyzeScan3D(binaryFilePath, rotationFile);
+	}
+}
+
+void DensityMaps::run3D(int startIndex, int numScans) {
+	for(int i = startIndex; i < startIndex + numScans; ++i) {
+		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
+		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];
+
+		voxel::analyzeScan3D(binaryFilePath, rotationFile);
+	}
+}
+
+void DensityMaps::resetFlags(const std::string & commandLine) {
+	std::vector<std::string> v;
+	std::istringstream is (commandLine);
+	std::string tmp;
+	while(is >> tmp)
+		v.push_back(tmp);
+	char ** argv = new char * [v.size() + 1];
+	for (int i = 0; i < v.size(); ++i) {
+		argv[i] = &v[i][0];
+	}
+	argv[v.size()] = NULL;
+	resetFlags(v.size(), argv);
+}
+
+void DensityMaps::resetFlags(int argc, char * argv[]) {
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+	if(!FLAGS_2D && !FLAGS_3D) 
+		FLAGS_2D = FLAGS_3D = true;
 }
 
 void analyzeScan(const std::string & fileName, const std::string & outputFolder,

@@ -1,19 +1,18 @@
 #include "placeScan_placeScanHelper.h"
 
-#include <algorithm>
-
 #include <dirent.h>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 
 DEFINE_bool(visulization, false, 
 	"Turns on all visualization options that do not impact performance");
 DEFINE_bool(previewIn, false, "Turns on a preview of the scan before it is placed");
-DEFINE_bool(previewOut, true, "Shows a preview of the scans placement before saving");
+DEFINE_bool(previewOut, false, "Shows a preview of the scans placement before saving");
 DEFINE_bool(redo, false, "Forces the program to redo the placement of all scans given");
 DEFINE_bool(quiteMode, false, "Very minimal status reports");
 DEFINE_bool(tinyPreviewIn, false, "Shows the input scan before any processing");
@@ -46,10 +45,13 @@ DEFINE_int32(top, -1, "Only shows the top x placements, -1=ALL");
 
 cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
+const double maxDelta = 0.10, maxTotal = 0.15;
 
+static const int minWrite = 20;
 
 std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
-	os << print->score <<"      " << print->x << "      " <<print->y << std::endl;
+	os << print->score <<"      " << print->x << "      " 
+		<<print->y << "      " << print->rotation << std::endl;
 	os << print->scanFP << "      " << print->fpScan << std::endl;
 	os << print->scanPixels << "    " << print->fpPixels;
 	return os;
@@ -65,7 +67,7 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	if ((dir = opendir (newDmFolder.data())) != NULL) {
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
-	  	if(fileName != ".." && fileName != "." 
+	  	if (fileName != ".." && fileName != "." 
 	  		&& fileName.find("point") != std::string::npos){
 	  		pointFileNames.push_back(fileName);
 	  	} else if (freeFileNames && fileName != ".." && fileName != "." 
@@ -83,7 +85,7 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	if ((dir = opendir (FLAGS_zerosFolder.data())) != NULL) {
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
-	  	if(fileName != ".." && fileName != "." ){
+	  	if (fileName != ".." && fileName != "." ){
 	  		zerosFileNames.push_back(fileName);
 	  	}
 	  }
@@ -94,31 +96,31 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	  exit(-1);
 	}
 
-	if(pointFileNames.size() != zerosFileNames.size()){
+	if (pointFileNames.size() != zerosFileNames.size()){
 		perror("Not the same number of scans as rotations!");
 		exit(-1);
 	}
 
 	sort(pointFileNames.begin(), pointFileNames.end());
 	sort(zerosFileNames.begin(), zerosFileNames.end());
-	if(freeFileNames)
+	if (freeFileNames)
 		sort(freeFileNames->begin(), freeFileNames->end());
 }
 
 
 void place::loadInScans(const std::string & scanName,
-	 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
-   std::vector<Eigen::Vector2i> * zeroZero) {
+	const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
+  std::vector<Eigen::Vector2i> & zeroZero) {
 
-	if(zeroZero) {
-		zeroZero->resize(NUM_ROTS);
-		std::ifstream binaryReader (zerosFile, std::ios::in | std::ios::binary);
-		for (int i = 0; i < NUM_ROTS; ++i) {
-			binaryReader.read(reinterpret_cast<char *>((*zeroZero)[i].data()),
-				sizeof(Eigen::Vector2i));
-		}
-		binaryReader.close();
+	
+	zeroZero.resize(NUM_ROTS);
+	std::ifstream binaryReader (zerosFile, std::ios::in | std::ios::binary);
+	for (int i = 0; i < NUM_ROTS; ++i) {
+		binaryReader.read(reinterpret_cast<char *>(zeroZero[i].data()),
+			sizeof(Eigen::Vector2i));
 	}
+	binaryReader.close();
+	
 	
 	
 	for(int i = 0; i < NUM_ROTS; ++i) {
@@ -127,14 +129,38 @@ void place::loadInScans(const std::string & scanName,
 
 		rotatedScans.push_back(cv::imread(fullScanName, 0));
 
-		if(!rotatedScans[i].data){
+		if (!rotatedScans[i].data){
 			std::cout << "Error reading scan" << std::endl;
 			exit(1);
 		}
 	}
 
 	
-	if(FLAGS_tinyPreviewIn || FLAGS_visulization) {
+	if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
+		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+		cv::imshow("Preview", rotatedScans[0]);
+		cv::waitKey(0);
+	}
+}
+
+
+void place::loadInScans(const std::string & scanName,
+	 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans) {
+
+	for(int i = 0; i < NUM_ROTS; ++i) {
+		std::string fullScanName = FLAGS_dmFolder + "R" + std::to_string(i) + "/"
+			+ scanName;
+
+		rotatedScans.push_back(cv::imread(fullScanName, 0));
+
+		if (!rotatedScans[i].data){
+			std::cout << "Error reading scan" << std::endl;
+			exit(1);
+		}
+	}
+
+	
+	if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
 		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 		cv::imshow("Preview", rotatedScans[0]);
 		cv::waitKey(0);
@@ -146,8 +172,8 @@ void place::loadInScansAndMasks(const std::string & scanName,
     const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
     std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero) {
 
-    place::loadInScans(scanName, zerosFile, rotatedScans, &zeroZero);
-    place::loadInScans(maskName, zerosFile, masks, NULL);
+    place::loadInScans(scanName, zerosFile, rotatedScans, zeroZero);
+    place::loadInScans(maskName, zerosFile, masks);
 }
 
 void place::trimScans(const std::vector<cv::Mat> & toTrim, 
@@ -162,7 +188,7 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 		for (int i = 0; i < scan.rows; ++i) {
 			const uchar * src = scan.ptr<uchar>(i);
 			for (int j = 0; j < scan.cols; ++j) {
-				if(src[j] != 255){
+				if (src[j] != 255){
 					minRow = std::min(i, minRow);
 					minCol = std::min(j, minCol);
 					maxRow = std::max(i, maxRow);
@@ -208,19 +234,33 @@ static void normalize(const std::vector<const place::posInfo *> & minima,
 	}
 }
 
+static int countNumToDeltas(const std::vector<const place::posInfo *> & minima) {
+	int num = 0;
+	double lastScore = 1.0;
+	const double initailScore = minima[0]->score;
+	for (auto & min : minima) {
+		if (min->score - lastScore < maxDelta 
+			&& min->score - initailScore < 0.2)
+			++num;
+		else
+			break;
+	}
+	return num;
+}
+
 void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 	const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero){
 	std::ofstream out (outName, std::ios::out);
 	std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
-
-	/*std::vector<place::posInfo> outVec;
-	normalize(minima, outVec);*/
+	
+	const int numToDeltas = countNumToDeltas(minima);
+	int num = minWrite > numToDeltas ? minWrite : numToDeltas;
+	num = num > minima.size() ? minima.size() : num;
 
 	out << "Score x y rotation" << std::endl;
-	const int num = minima.size() < 20 ? minima.size() : 20;
 	outB.write(reinterpret_cast<const char *>(&num), sizeof(num));
-	for(auto & min : minima){
-		place::posInfo minScore = *min;
+	for (int i = 0; i < num; ++i) {
+		place::posInfo minScore = *minima[i];
 		minScore.x += zeroZero[minScore.rotation][0];
 		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "
@@ -238,31 +278,34 @@ bool place::reshowPlacement(const std::string & scanName,
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
 
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
-	if(!in.is_open())
+	if (!in.is_open())
 		return false;
-	if(!FLAGS_reshow)
+	if (!FLAGS_reshow)
 		return true;
 
-	if(!FLAGS_quiteMode)
+	if (!FLAGS_quiteMode)
 		std::cout << placementName << std::endl;
 	
 	std::vector<cv::Mat> rotatedScans, toTrim;
   std::vector<Eigen::Vector2i> zeroZero;
-	place::loadInScans(scanName, zerosFile, toTrim, &zeroZero);
+	place::loadInScans(scanName, zerosFile, toTrim, zeroZero);
 	place::trimScans(toTrim, rotatedScans, zeroZero);
 
 	int num;
 	in.read(reinterpret_cast<char *>(&num), sizeof(num));
 	num = FLAGS_top > 0 && num > FLAGS_top ? FLAGS_top : num;
+	place::posInfo minScore;
+	in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
+	in.seekg(sizeof(num));
 
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
-
-	if(!FLAGS_quiteMode)
+	const double initailScore = minScore.score;
+	double lastScore = 1.0;
+	if (!FLAGS_quiteMode)
 		std::cout << "Showing minima: " << num << std::endl;
-	std::vector<place::posInfo> scores;
+
 	for (int i = 0; i < num; ++i) {
-		place::posInfo minScore;
 		in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
 
 		const cv::Mat & bestScan = rotatedScans[minScore.rotation];
@@ -274,16 +317,16 @@ bool place::reshowPlacement(const std::string & scanName,
 		fpColor.copyTo(output);
 		
 		for (int i = 0; i < bestScan.rows; ++i) {
-			if(i + yOffset < 0 || i + yOffset >= fpColor.rows)
+			if (i + yOffset < 0 || i + yOffset >= fpColor.rows)
 				continue;
 
 			const uchar * src = bestScan.ptr<uchar>(i);
 			uchar * dst = output.ptr<uchar>(i + yOffset);
 			for (int j = 0; j < bestScan.cols; ++j) {
-				if(j + xOffset < 0 || j + xOffset >= fpColor.cols)
+				if (j + xOffset < 0 || j + xOffset >= fpColor.cols)
 					continue;
 
-				if(src[j]!=255){
+				if (src[j]!=255){
 					dst[j*3 + xOffset*3] = 0;
 					dst[j*3 + xOffset*3 + 1] = 0;
 					dst[j*3 + xOffset*3 + 2] = 255 - src[j];
@@ -300,21 +343,27 @@ bool place::reshowPlacement(const std::string & scanName,
 			}
 		}
 
-		if(!FLAGS_quiteMode) {
+		if (!FLAGS_quiteMode) {
 			std::cout << &minScore << std::endl;
 			std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
 		}
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
+
+		if(minScore.score - initailScore > maxTotal) break;
+		if(minScore.score - lastScore > maxDelta) break;
+		lastScore = minScore.score;
 	}
 	return true;
 }
 
 void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
-	const std::vector<const place::posInfo *> & minima,
-  const std::vector<Eigen::Vector2i> & zeroZero) {
-	const int num = minima.size() < 20 ? minima.size() : 20;
-	if(!FLAGS_quiteMode) {
+	const std::vector<const place::posInfo *> & minima) {
+
+	const int numToDeltas = countNumToDeltas(minima);
+	int num = minWrite > numToDeltas ? minWrite : numToDeltas;
+	num = num > minima.size() ? minima.size() : num;
+	if (!FLAGS_quiteMode) {
 		std::cout << "Num minima: " << num << std::endl;
 		std::cout << "Press a key to begin displaying placement options" << std::endl;
 	}
@@ -322,7 +371,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
-	const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
+	const int cutOff = FLAGS_top > 0 ? FLAGS_top : num;
 
 	int currentCount = 0;
 	for(auto & min : minima){
@@ -337,9 +386,9 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 
 		for (int i = 0; i < currentScan.outerSize(); ++i) {
 			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
-				if(it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
+				if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
 					continue;
-				if(it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
+				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
 					continue;
 				
 				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
@@ -350,12 +399,12 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 		}
 
 		cv::imshow("Preview", output);
-		if(!FLAGS_quiteMode) {
+		if (!FLAGS_quiteMode) {
 			std::cout << min << std::endl << std::endl;
     }
 		cv::waitKey(0);
 		~output;
-		if(++currentCount == cutOff) break;
+		if (++currentCount == cutOff) break;
 	}
 }
 
@@ -363,7 +412,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 	const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
 	const std::vector<const place::posInfo *> & minima) {
 	const int num = minima.size() < 20 ? minima.size() : 20;
-	if(!FLAGS_quiteMode) {
+	if (!FLAGS_quiteMode) {
 		std::cout << "Num minima: " << num << std::endl;
 		std::cout << "Press a key to begin displaying placement options" << std::endl;
 	}
@@ -374,7 +423,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
     uchar * dst = tmpColor.ptr<uchar>(i);
     const uchar * src = fpImg.ptr<uchar>(i);
     for (int j = 0; j < tmpColor.cols; ++j) {
-      if(src[j]!=255) {
+      if (src[j]!=255) {
         dst[j*3] = 128;
         dst[j*3+1] = 128;
         dst[j*3+2] = 128;
@@ -399,9 +448,9 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 
 		for (int i = 0; i < currentScan.outerSize(); ++i) {
 			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
-				if(it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
+				if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
 					continue;
-				if(it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
+				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
 					continue;
 				
 				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
@@ -412,12 +461,12 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 		}
 
 		cv::imshow("Preview", output);
-		if(!FLAGS_quiteMode) {
+		if (!FLAGS_quiteMode) {
 			std::cout << min << std::endl << std::endl;
     }
 		cv::waitKey(0);
 		~output;
-		if(++currentCount == cutOff) break;
+		if (++currentCount == cutOff) break;
 	}
 }
 
@@ -453,7 +502,7 @@ void place::displayTruePlacement(const std::vector<Eigen::SparseMatrix<double> >
 	}
 
 	std::cout << "displaying true placement" << std::endl;
-	place::displayOutput(rSSparseTrimmed, tmp, zeroZero);
+	place::displayOutput(rSSparseTrimmed, tmp);
 }
 
 void place::sparseToImage(const Eigen::SparseMatrix<double> & toImage,
@@ -500,7 +549,7 @@ void place::scanToSparse(const cv::Mat & scan,
 	for (int i = 0; i < scan.rows; ++i) {
 		const uchar * src = scan.ptr<uchar>(i);
 		for (int j = 0; j < scan.cols; ++j) {
-			if(src[j] == 255)
+			if (src[j] == 255)
 				continue;
 			double confidence = 1.0 -(double)src[j]/255.0;
 			tripletList.push_back(Eigen::Triplet<double> (i,j,confidence));
@@ -518,7 +567,7 @@ Eigen::SparseMatrix<double> place::scanToSparse(const cv::Mat & scan) {
 	for (int i = 0; i < scan.rows; ++i) {
 		const uchar * src = scan.ptr<uchar>(i);
 		for (int j = 0; j < scan.cols; ++j) {
-			if(src[j] == 255)
+			if (src[j] == 255)
 				continue;
 			double confidence = 1.0 -(double)src[j]/255.0;
 			tripletList.push_back(Eigen::Triplet<double> (i,j,confidence));
@@ -544,7 +593,7 @@ void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix
 			for(int i = 0; i < out.rows; ++i) {
 				uchar * dst = out.ptr<uchar>(i);
 				for(int j = 0; j < out.cols; ++j) {
-					if(currentMask(i,j) != 0) {
+					if (currentMask(i,j) != 0) {
 						dst[3*j] = 0;
 						dst[3*j+1] = 0;
 						dst[3*j+2] = 0;
@@ -555,11 +604,11 @@ void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix
 			cv::Mat_<cv::Vec3b> _out = out;
 			for(int i = 0; i < currentScan.outerSize(); ++i) {
 				for(Eigen::SparseMatrix<double>::InnerIterator it (currentScan, i); it; ++it) {
-					if(it.value() > 0 && _out(it.row(), it.col())[0] == 0) {
+					if (it.value() > 0 && _out(it.row(), it.col())[0] == 0) {
 						_out(it.row(), it.col())[0] = 0;
 						_out(it.row(), it.col())[1] = 255;
 						_out(it.row(), it.col())[2] = 0;
-					} else if( it.value() > 0) {
+					} else if ( it.value() > 0) {
 						_out(it.row(), it.col())[0] = 0;
 						_out(it.row(), it.col())[1] = 0;
 						_out(it.row(), it.col())[2] = 255;
@@ -585,7 +634,7 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 			double V = 0.0;
 			for(int k = -1; k < 1; ++k) {
 				for(int l = -1; l < 1; ++l) {
-					if(i + k < 0 || i + k >=srcNS.cols() ||
+					if (i + k < 0 || i + k >=srcNS.cols() ||
 						j+l < 0 || j + l >=srcNS.rows())
 						continue;
 					else
@@ -593,7 +642,7 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 				}
 			}
 			
-			if(V != 0)
+			if (V != 0)
 				tripletList.push_back(Eigen::Triplet<double> (j, i, V));
 		}
 	}

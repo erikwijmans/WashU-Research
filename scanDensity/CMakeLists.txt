@@ -6,7 +6,8 @@ find_package( OpenCV REQUIRED )
 find_package(gflags REQUIRED)
 file( GLOB scan_SRC
     "scanDensity*.cpp"
-    "3DInfo.cpp")
+    "3DInfo.cpp"
+    "driver.cpp")
 add_executable( scanDensity ${scan_SRC})
 target_link_libraries( scanDensity ${OpenCV_LIBS} gflags)
 

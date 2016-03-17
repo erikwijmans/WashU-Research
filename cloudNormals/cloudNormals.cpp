@@ -3,6 +3,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/features/normal_3d_omp.h>
+#include <pcl/filters/filter.h>
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -137,14 +138,16 @@ void calculateNormals(const string & inFile, const string & outFile){
 	// Compute the features
 	ne.compute (*cloud_normals);
 
+	std::vector<int> index;
+	pcl::removeNaNNormalsFromPointCloud(*cloud_normals, *cloud_normals, index);
+
 	ofstream binaryFile (outFile, ios::out | ios::binary);
 	size_t size = cloud_normals->points.size();
 	binaryFile.write(reinterpret_cast<const char *> 
 		(& size), sizeof(size_t));
 
 
-	for (int i = 0; i < cloud_normals->points.size(); ++i)
-	{
+	for (int i = 0; i < cloud_normals->points.size(); ++i) {
 		Vector3f normals;
 		normals[0] = cloud_normals->points[i].normal_x;
 		normals[1] = cloud_normals->points[i].normal_y;
@@ -183,8 +186,8 @@ void createBoundingBox(float * pointMin, float * pointMax,
 	sigmaY = sqrt(sigmaY);
 	sigmaZ = sqrt(sigmaZ);
 
-	double dX = 1.1*7*sigmaX;
-	double dY = 1.1*7*sigmaY;
+	double dX = 1.1*9*sigmaX;
+	double dY = 1.1*9*sigmaY;
 	double dZ = 1.1*5*sigmaZ;
 
 	pointMin[0] = averageX - dX/2;
