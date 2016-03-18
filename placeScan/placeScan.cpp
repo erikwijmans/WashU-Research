@@ -42,6 +42,8 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  place::removeMinimumConnectedComponents(inFP);
+  
   const int newRows = inFP.rows*1.1, newCols = inFP.cols*1.1;
   const int dY = (newRows - inFP.rows)/2, dX = (newCols - inFP.cols)/2;
   floorPlan = cv::Mat(newRows, newCols, CV_8UC1, cv::Scalar::all(255));
@@ -313,10 +315,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   * needed to make pryamiding work.  Each method will take of making sure
   * the container passed to it for it's output is cleared */
   for (int k = FLAGS_numLevels; k >= 0; --k) {
-    /*Eigen::Vector3i tmp (780, 2701, 1);
-    tmp[0] /= pow(2,k);
-    tmp[1] /= pow(2,k); */
-
+    
     findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k],
       erodedFpPyramid[k], erodedSparsePyramidTrimmed[k],
       eMaskPyramidTrimmedNS[k], numPixelsUnderMask[k], fpMasks[k], 
@@ -333,6 +332,10 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
 
     /*if(k == 0) {
+      Eigen::Vector3i tmp (780, 2701, 1);
+      tmp[0] /= pow(2,k);
+      tmp[1] /= pow(2,k); 
+
       std::vector<const place::posInfo *> trueMin;
       bool found = false;
       for (auto & min : minima) {
@@ -743,8 +746,8 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
           if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
           fpScanSetDiff += it.value();
 
-      const double score = (2.2*scanFPsetDiff/numPixelsUnderMask[scanIndex] +
-        fpScanSetDiff/(numFPPixelsUM))/3.2;
+      const double score = (1.5*scanFPsetDiff/numPixelsUnderMask[scanIndex] +
+        fpScanSetDiff/(numFPPixelsUM))/2.5;
 
       posInfo tmp;
       tmp.x = point[0];

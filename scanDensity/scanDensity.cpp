@@ -3,9 +3,11 @@
 #include "scanDensity_scanDensity.h"
 #include "scanDensity_3DInfo.h"
 #include <omp.h>
+#include <locale> 
 
 
 #include <sstream>
+#include <map>
 
 
 /*#include <pcl/point_cloud.h>
@@ -31,9 +33,11 @@ DEFINE_string(rotFolder, "densityMaps/rotations/",
 	"Path to folder containing the dominate direction rotations");
 DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
 	"Path to location where program will search for the folders it needs");
-DEFINE_double(scale, 73.5, "scale used to size the density maps");
+DEFINE_double(scale, -1, "Scale used to size the density maps.  If -1, it will be looked up");
 DEFINE_int32(startIndex, 0, "Number to start with");
 DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
+
+static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
 
 /*int main(int argc, char *argv[]) {
@@ -173,6 +177,14 @@ DensityMaps::DensityMaps(int argc, char * argv[]) {
 	  exit(EXIT_FAILURE);
 	}
 	sort(rotationsFiles.begin(), rotationsFiles.end());
+
+	std::string buildName = rotationsFiles[0].substr(0, 3);
+	std::locale loc;
+	for (int i = 0; i < buildName.length(); ++i) {
+		buildName[i] = std::tolower(buildName[i], loc);
+	}
+	if(FLAGS_scale == -1)
+		FLAGS_scale = buildingToScale.find(buildName)->second;
 }
 
 void DensityMaps::run() {
@@ -191,6 +203,7 @@ void DensityMaps::run() {
 }
 
 void DensityMaps::run(int startIndex, int numScans) {
+
 	for(int i = startIndex; i < startIndex + numScans; ++i) {
 		const std::string binaryFilePath = FLAGS_inFolder + binaryNames[i];
 		const std::string rotationFile = FLAGS_rotFolder + rotationsFiles[i];

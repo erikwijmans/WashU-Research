@@ -7,6 +7,7 @@
 #include <fstream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <list>
 
 
 DEFINE_bool(visulization, false, 
@@ -631,20 +632,98 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 
 	for(int i = 0; i < srcNS.cols(); ++i) {
 		for(int j = 0; j < srcNS.rows(); ++j) {
-			double V = 0.0;
+			double value = 0.0;
 			for(int k = -1; k < 1; ++k) {
 				for(int l = -1; l < 1; ++l) {
 					if (i + k < 0 || i + k >=srcNS.cols() ||
 						j+l < 0 || j + l >=srcNS.rows())
 						continue;
 					else
-						V = std::max(V, srcNS(j + l, i + k));
+						value = std::max(value, srcNS(j + l, i + k));
 				}
 			}
 			
-			if (V != 0)
-				tripletList.push_back(Eigen::Triplet<double> (j, i, V));
+			if (value != 0)
+				tripletList.push_back(Eigen::Triplet<double> (j, i, value));
 		}
 	}
 	dst.setFromTriplets(tripletList.begin(), tripletList.end());
+}
+
+static void labelNeighbours(const cv::Mat & image, const int currentLabel,
+	Eigen::RowMatrixXi & labeledImage, std::list <std::pair<int, int> > & toLabel) {
+
+	if(toLabel.empty()) return;
+
+	auto currentPixel = toLabel.front();
+	toLabel.pop_front();
+	const int yOffset = currentPixel.first;
+	const int xOffset = currentPixel.second;
+	for (int j = -1; j <= 1; ++j) {
+		for (int i = -1; i <= 1; ++i) {
+			if (j + yOffset < 0 || j + yOffset >= labeledImage.rows())
+				continue;
+			if (i + xOffset < 0 || i + xOffset >= labeledImage.cols())
+				continue;
+			if (image.at<uchar>(j + yOffset, i + xOffset) != 255
+				&& labeledImage(j + yOffset, i + xOffset) == 0) {
+				labeledImage(j + yOffset, i + xOffset) = currentLabel;
+				toLabel.emplace_front(j + yOffset, i + xOffset);
+			}
+		}
+	}
+	labelNeighbours(image, currentLabel, labeledImage, toLabel);
+}
+
+void place::removeMinimumConnectedComponents(cv::Mat & image) {
+	std::list<std::pair<int, int> > toLabel;
+	Eigen::RowMatrixXi labeledImage = Eigen::RowMatrixXi::Zero(image.rows, image.cols);
+	int currentLabel = 1;
+	for (int j = 0; j < image.rows; ++j) {
+		const uchar * src = image.ptr<uchar>(j);
+		for (int i = 0; i < image.cols; ++i) {
+			if(src[i] != 255 && labeledImage(j,i) == 0) {
+				labeledImage(j,i) = currentLabel;
+				toLabel.emplace_front(j,i);
+				
+				labelNeighbours(image, currentLabel, labeledImage, toLabel);
+				
+				++currentLabel;
+			}
+		}
+	}
+
+	Eigen::VectorXi countPerLabel = Eigen::VectorXi::Zero(currentLabel + 1);
+	const int * labeledImagePtr = labeledImage.data();
+	for (int i = 1; i < labeledImage.size(); ++i)
+			++countPerLabel[*(labeledImagePtr + i)];
+	
+
+
+	double average = 0.0, sigma = 0.0;
+	const int * countPerLabelPtr = countPerLabel.data();
+	for (int i = 1; i < countPerLabel.size(); ++i)
+		average += *(countPerLabelPtr + i);
+	
+	average /= countPerLabel.size() - 1;
+
+	for (int i = 1; i < countPerLabel.size(); ++i) {
+		const int value = *(countPerLabelPtr + i);
+		sigma += (value - average)*(value - average);
+	}
+	sigma /= countPerLabel.size() - 2;
+	sigma = sqrt(sigma);
+
+	double threshHold = average;
+	for (int j = 0; j < image.rows; ++j) {
+		uchar * src = image.ptr<uchar>(j);
+		for (int i = 0; i < image.cols; ++i) {
+			if(src[i] != 255) {
+				const int label = labeledImage(j,i);
+				const int count = countPerLabel[label];
+				if(count < threshHold)
+					src[i] = 255;
+			}
+		}
+	}
 }

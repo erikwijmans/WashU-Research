@@ -47,6 +47,7 @@ extern std::vector<Eigen::Vector3i> truePlacement;
 
 namespace Eigen {
 	typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
+	typedef Matrix< int, Dynamic, Dynamic, RowMajor > RowMatrixXi;
 }
 
 namespace place {
@@ -113,6 +114,8 @@ namespace place {
 	void displayOutput(const Eigen::SparseMatrix<double> & fp,
 		const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
 		const std::vector<const place::posInfo *> & minima);
+
+	void removeMinimumConnectedComponents(cv::Mat & image);
 
 } //namespace place
 

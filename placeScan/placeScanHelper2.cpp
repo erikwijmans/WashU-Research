@@ -20,7 +20,7 @@
 #include "gurobi_c++.h"
 
 const int minScans = 2;
-const int maxScans = 20;
+const int maxScans = 30;
 
 static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
   os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")" << std::endl;
@@ -722,7 +722,7 @@ void place::displayBest(const std::vector<const place::node *> & bestNodes,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
  
-  std::cout << "Displaying TRW solution" << std::endl;
+  std::cout << "Displaying solution" << std::endl;
  
   for (auto & n : bestNodes) {
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
@@ -800,10 +800,10 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
           Af(l + aRect.Y1, k + aRect.X1))
           ++freeSpaceCross/* += Bf(l + bRect.Y1, k + bRect.X1) + Af(l + aRect.Y1, k + aRect.X1)*/;
 
-        /*if (Bf(l + bRect.Y1, k + bRect.X1))
+        if (Bf(l + bRect.Y1, k + bRect.X1))
           ++averageFreeSpace;
         if (Af(l + aRect.Y1, k + aRect.X1))
-          ++averageFreeSpace;*/
+          ++averageFreeSpace;
 
         if (Ap(l + aRect.Y1, k + aRect.X1))
           ++totalPointA;
@@ -813,7 +813,7 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
       }
     }
   }
-  // averageFreeSpace /= 2.0;
+  averageFreeSpace /= 2.0;
   totalPointA /= 2.0;
   totalPointB /= 2.0;
   double averagePoint = (totalPointA + totalPointB)/2.0;
@@ -826,7 +826,7 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   /*double weight = 2.0/(averagePoint/pointAgreement + averageFreeSpace/freeSpaceCross) -
      (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA)/2.0;*/
 
-  double weight = pointAgreement/averagePoint
+  double weight = (9.0*pointAgreement/averagePoint + freeSpaceCross/averageFreeSpace)/10.0 
     - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA);
 
   a.pA = pointAgreement/averagePoint;
@@ -899,6 +899,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     for (int j = 0; j < numberOfLabels[i]; ++j) {
       f(j) = nodes[j + offset].w;
     }
+    // f(shape[0] - 1) = 0;
     Model::FunctionIdentifier fid = gm.addFunction(f);
     const size_t factors [] = {i};
     gm.addFactor(fid, factors, factors + 1);
@@ -921,6 +922,14 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
           f(a,b) = currentMat(b,a).w;
         }
       }
+      /* for (int a = 0; a < shape[1]; ++a) {
+        f(shape[0] - 1, a) = 0;
+      }
+      for (int a = 0; a < shape[0]; ++a) {
+        f(a, shape[1] - 1) = 0;
+      } */
+
+
       Model::FunctionIdentifier fid = gm.addFunction(f);
       const size_t factors [] = {i,j};
       gm.addFactor(fid, factors, factors + 2);
@@ -934,7 +943,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   typedef opengm::TRWSi_Parameter<Model> Parameter;
   typedef opengm::TRWSi<Model, opengm::Maximizer> Solver;
   
-  Parameter parameter (100);
+  Parameter parameter (10000);
   Solver solver (gm, parameter);
   Solver::VerboseVisitorType verboseVisitor;
   solver.infer(verboseVisitor);
@@ -1039,6 +1048,7 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
     }
     numberOfLabels.push_back(i);
   }
+
   const int numVars = numberOfLabels.size();
   const int numOpts = nodes.size();
   try {
@@ -1088,7 +1098,7 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
         coeff[a] = 1.0;
 
       constr.addTerms(coeff, varList + offset, numberOfLabels[i]);
-      model.addConstr(constr, GRB_EQUAL, 1.0);
+      model.addConstr(constr, GRB_LESS_EQUAL, 1.0);
       offset += numberOfLabels[i];
       delete [] coeff;
     }
@@ -1126,6 +1136,7 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
         offset += numberOfLabels[k++];
     }
     std::cout << std::endl;
+    std::cout << "Labeling found for " << bestNodes.size() << " out of " << numVars << " options" << std::endl;
   } catch(GRBException e) {
     std::cout << "Error code = " << e.getErrorCode() << std::endl;
     std::cout << e.getMessage() << std::endl;
@@ -1202,6 +1213,7 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
   const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
     highOrder) {
+
   std::vector<int> numberOfLabels;
   {
     int i = 0;
@@ -1291,7 +1303,7 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   for (auto & it : highOrder) {
     it.second = std::max(0.0,(((it.second - average)/(sigma) + 1.0)/2.0));
     const double significance = (it.first.size() - aveTerms)/sigTerms;
-    if(significance < 0.5)
+    if(significance < 10000)
       highOrder.erase(it.first);
   }
 }
@@ -1345,7 +1357,61 @@ void place::displayHighOrder(const std::map<std::vector<int>, double> highOrder,
 
 void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix, 
   std::vector<place::node> & nodes) {
-  double average = 0.0;
+
+  std::vector<int> numberOfLabels;
+  {
+    int i = 0;
+    const place::node * prevNode = &nodes[0];
+    for (auto & n : nodes) {
+      if (n.color == prevNode->color) {
+        prevNode = &n;
+        ++i;
+      } else {
+        numberOfLabels.push_back(i);
+        i = 1;
+        prevNode = &n;
+      }
+    }
+    numberOfLabels.push_back(i);
+  }
+  const int numVars = numberOfLabels.size();
+  for (int a = 0, rowOffset = 0; a < numVars; ++a) {
+    double average = 0.0;
+    int count = 0;
+    for (int j = 0; j < numberOfLabels[a]; ++j) {
+      for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
+        if(adjacencyMatrix(j + rowOffset, i).w !=0) {
+          average += adjacencyMatrix(j + rowOffset, i).w;
+          ++count;
+        }
+      }
+    }
+    average /= count;
+
+    double sigma = 0;
+    for (int j = 0; j < numberOfLabels[a]; ++j) {
+      for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
+        const double weight = adjacencyMatrix(j + rowOffset, i).w;
+        if(weight != 0) {
+          sigma += (weight - average)*(weight - average);
+        }
+      }
+    }
+    sigma /= count - 1;
+    sigma = sqrt(sigma);
+
+    for (int j = 0; j < numberOfLabels[a]; ++j) {
+      for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
+        const double weight = adjacencyMatrix(j + rowOffset, i).w;
+        if(weight != 0) {
+          adjacencyMatrix(j + rowOffset, i).w = (weight - average)/sigma;
+        }
+      }
+    }
+    rowOffset += numberOfLabels[a];
+  }
+
+ /* double average = 0.0;
   int count = 0;
   place::edgeWeight * dataPtr = adjacencyMatrix.data();
   for (int i = 0; i < adjacencyMatrix.size(); ++i) {
@@ -1370,7 +1436,7 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     if ((dataPtr + i)->w != 0.0)
       (dataPtr + i)->w = 
         ((dataPtr+i)->w - average)/sigma;
-  }
+  } */
 }
 
 place::cube::cube() {

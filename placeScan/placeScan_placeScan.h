@@ -6,6 +6,7 @@
 
 
 
+
 namespace place {
 
 	typedef struct {
