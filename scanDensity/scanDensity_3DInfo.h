@@ -19,6 +19,13 @@ namespace voxel {
     double vox, s;
   } metaData;
 
+  class CloudAnalyzer3D {
+    private:
+      /* data */
+    public:
+      CloudAnalyzer3D();
+  };
+
   void analyzeScan3D(const std::string & fileName,
   const std::string & rotationFile);
 

@@ -36,63 +36,70 @@ DECLARE_int32(numScans);
 class DensityMaps {
 	private:
 		std::vector<std::string> binaryNames, rotationsFiles;
+		std::vector<Eigen::Vector3f> points;
+		std::vector<Eigen::Matrix3d> R;
+		std::string rotationFile, fileName, scanNumber, buildName;
+		int current;
 	public:
 		/* Constructs argv and argc, then called the constructor with them */
 		DensityMaps(const std::string & commandLine);
 		DensityMaps(int argc, char * argv[]);
-		/*Runs both 2D and 3D based on whether their flags have been set
-			uses flags to determine how much to run. This exists
-			to work as a main method if this class was a program to be
-			run from the command line */
-		void run();
 		/*Runs 2D and 3D based on flags in the range specified */
-		void run(int startIndex, int numScans);
-		/*Runs all in 2D, -pe and -fe still apply */
-		void run2D();
-		void run2D(int startIndex, int numScans);
-		/*Runs all in 3D */
-		void run3D();
-		void run3D(int startIndex, int numScans);
-		/* resetFlags CANNOT change the dataPath or and folderFlags
-			and folders will not be reparsed */
 		void resetFlags(const std::string & commandLine);
 		void resetFlags(int argc, char * argv[]);
-		void setScale(double newScale) {FLAGS_scale = newScale;};
-		double getScale() {return FLAGS_scale;};
+		void run(bool keepCenter);
+		bool hasNext();
+		void getNext();
+		void get2DPointNames(std::vector<std::string> & names);
+		void get3DPointNames(std::vector<std::string> & names);
+		void get2DFreeNames(std::vector<std::string> & names);
+		void get3DFreeNames(std::vector<std::string> & names);
+		std::string getZerosName();
+		std::string getMetaDataName();
+		const std::vector<Eigen::Vector3f> * getPoints() {
+			return &points; };
+		const std::vector<Eigen::Matrix3d> * getR() {
+			return &R; };
+		void setScale(double newScale) { FLAGS_scale = newScale; };
+		double getScale() { return FLAGS_scale; };
 };
 
 
-typedef struct {
-	float * p;
-	int size;
-	int stride;
-} pointsInfo;
+class BoundingBox {
+	private:
+		Eigen::Vector3f average, sigma, range;
+		const std::vector<Eigen::Vector3f> * points;
+	public:
+		BoundingBox(const std::vector<Eigen::Vector3f> * points);
+		void run();
+		void setRange(Eigen::Vector3f & range);
+		void getBoundingBox(Eigen::Vector3f & min, Eigen::Vector3f & max) const;
+};
 
-void examinePointEvidence(const std::vector<Eigen::Vector3f> & points,
-	const std::vector<Eigen::Matrix3d> & R,
-	const float* pointMin, const float * pointMax, 
-	const std::string & outputFolder, const std::string & scanNumber,
-	const std::string & buildName,
-	std::ofstream & zZOut);
-void createBoundingBox(float *, float *, const std::vector<Eigen::Vector3f> &);
-void examineFreeSpaceEvidence(const std::vector<Eigen::Vector3f> &,
-	const std::vector<Eigen::Matrix3d> & R,
-	const float*, const float *,
-   const std::string &, const std::string &, const std::string &);
-void showSlices(const Eigen::MatrixXi & numTimesSeen,
-    const int numZ, const int numY, const int numX, const std::string &);
-void collapseFreeSpaceEvidence(const std::vector<Eigen::MatrixXi> & numTimesSeen,
-	const std::vector<Eigen::Matrix3d> & R, const Eigen::Vector3d & zeroZero, 
-	const int numZ, const int numY, const int numX,
-	const std::string & scanNumber, const std::string & buildName);
-void displayCollapsed(const Eigen::MatrixXd & numTimesSeen,
-	const std::vector<Eigen::Matrix3d> & R, const Eigen::Vector3d & zeroZero, 
-	const std::string & scanNumber, const std::string & buildName);
-void displayPointEvenidence(const Eigen::MatrixXf & numTimesSeen,
-	const std::vector<Eigen::Matrix3d> & R, const Eigen::Vector3d & zeroZero, 
-	const std::string & scanNumber, const std::string & buildName,
-	const int bias, std::ofstream & zZOut);
-
-void analyzeScan(const std::string & fileName, const std::string & outputFolder, const std::string & rotationFile);
+class CloudAnalyzer2D {
+	private:
+		const BoundingBox * bBox;
+		const std::vector<Eigen::Vector3f> * points;
+		const std::vector<Eigen::Matrix3d> * R;
+		std::vector<Eigen::MatrixXi> pointsPerVoxel;
+		std::vector<cv::Mat> pointEvidence, freeSpaceEvidence;
+		Eigen::Vector3f pointMin, pointMax;
+		Eigen::Vector3d zeroZero;
+		Eigen::Vector2i imageZeroZero;
+		const int numZ = 100;
+		int numY, numX;
+		float zScale, scale;
+	public:
+		CloudAnalyzer2D(const std::vector<Eigen::Vector3f> * points,
+			const BoundingBox * bBox, 
+			const std::vector<Eigen::Matrix3d> * R);
+		void run(float scale);
+		void examinePointEvidence();
+		void examineFreeSpaceEvidence();
+		const std::vector<cv::Mat> & getPointEvidence();
+		const std::vector<cv::Mat> & getFreeSpaceEvidence();
+		Eigen::Vector2i getImageZeroZero();
+		float getScale();
+};
 
 #endif // SCAN_DENSITY_SCAN_DENSITY_H
