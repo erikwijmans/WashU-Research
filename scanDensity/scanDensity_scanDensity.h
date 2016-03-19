@@ -70,9 +70,9 @@ class BoundingBox {
 		Eigen::Vector3f average, sigma, range;
 		const std::vector<Eigen::Vector3f> * points;
 	public:
-		BoundingBox(const std::vector<Eigen::Vector3f> * points);
+		BoundingBox(const std::vector<Eigen::Vector3f> * points, Eigen::Vector3f range);
 		void run();
-		void setRange(Eigen::Vector3f & range);
+		void setRange(Eigen::Vector3f range);
 		void getBoundingBox(Eigen::Vector3f & min, Eigen::Vector3f & max) const;
 };
 

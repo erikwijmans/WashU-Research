@@ -10,12 +10,12 @@ int main(int argc, char *argv[]) {
 
 	DensityMaps maps (argc, argv);
 	
-  BoundingBox bBox(maps.getPoints());
+  BoundingBox bBox(maps.getPoints(), Eigen::Vector3f (9.0, 9.0, 6.0));
   CloudAnalyzer2D analyzer2D (maps.getPoints(), &bBox, maps.getR());
   while(maps.hasNext()) {
     maps.run(false);
     bBox.run();
-
+    bBox.setRange(Eigen::Vector3f (9.0, 9.0, 6.0));
     analyzer2D.run(maps.getScale());
     analyzer2D.examinePointEvidence();
     analyzer2D.examineFreeSpaceEvidence();

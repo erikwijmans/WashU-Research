@@ -233,9 +233,10 @@ std::string DensityMaps::getZerosName() {
 	return FLAGS_zerosFolder + buildName + "zeros" + scanNumber + ".dat";
 }
 
-BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points) {
+BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
+	Eigen::Vector3f range) {
 	this->points = points;
-	this->range = Eigen::Vector3f::Zero();
+	this->range = range;
 }
 
 void BoundingBox::run() {
@@ -256,7 +257,7 @@ void BoundingBox::run() {
 		sigma[i] = sqrt(sigma[i]);
 }
 
-void BoundingBox::setRange(Eigen::Vector3f & range) {
+void BoundingBox::setRange(Eigen::Vector3f range) {
 	this->range = range;
 }
 
@@ -276,10 +277,11 @@ CloudAnalyzer2D::CloudAnalyzer2D(const std::vector<Eigen::Vector3f> * points,
 	this->bBox = bBox;
 	this->points = points;
 	this->R = R;
-	bBox->getBoundingBox(pointMin, pointMax);
 }
 
 void CloudAnalyzer2D::run(float scale) {
+	bBox->getBoundingBox(pointMin, pointMax);
+
 	zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	numX = scale * (pointMax[0] - pointMin[0]);
@@ -391,10 +393,10 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
 	std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
 
-	for (int k = 0; k < numZ; ++k) {
-		for (int i = 0; i < numX; ++i) {
-			for (int j = 0; j < numY; ++j) {
-				if(pointsPerVoxel[k](j,i)==0)
+	for(int i = 0; i < numX; ++i) {
+		for (int j = 0; j < numY; ++j) {
+			for (int k = 0; k < numZ; ++k) {
+				if(pointsPerVoxel[j](k,i) == 0)
 					continue;
 
 				float ray[3];
@@ -420,7 +422,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 					if(voxelHit[2] < 0 || voxelHit[2] >= numZ)
 						continue;
 					numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1])
-						+= pointsPerVoxel[k](j,i);
+						+= pointsPerVoxel[j](k,i);
 				}
 			}
 		}
