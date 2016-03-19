@@ -1,6 +1,8 @@
 #ifndef SCAN_DENSITY_SCAN_DENSITY_H
 #define SCAN_DENSITY_SCAN_DENSITY_H
 
+#define NUM_ROTS 4
+
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/StdVector>
 #include <opencv2/core.hpp>
@@ -33,31 +35,36 @@ DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
 
 
-class DensityMaps {
+class DensityMapsManager {
 	private:
 		std::vector<std::string> binaryNames, rotationsFiles;
-		std::vector<Eigen::Vector3f> points;
+		std::vector<Eigen::Vector3f> pointsWithCenter;
+		std::vector<Eigen::Vector3f> pointsNoCenter;
 		std::vector<Eigen::Matrix3d> R;
 		std::string rotationFile, fileName, scanNumber, buildName;
 		int current;
 	public:
 		/* Constructs argv and argc, then called the constructor with them */
-		DensityMaps(const std::string & commandLine);
-		DensityMaps(int argc, char * argv[]);
+		DensityMapsManager(const std::string & commandLine);
+		DensityMapsManager(int argc, char * argv[]);
 		/*Runs 2D and 3D based on flags in the range specified */
 		void resetFlags(const std::string & commandLine);
 		void resetFlags(int argc, char * argv[]);
-		void run(bool keepCenter);
+		void run();
 		bool hasNext();
-		void getNext();
+		bool exists2D();
+		bool exists3D();
+		void setNext();
 		void get2DPointNames(std::vector<std::string> & names);
 		void get3DPointNames(std::vector<std::string> & names);
 		void get2DFreeNames(std::vector<std::string> & names);
 		void get3DFreeNames(std::vector<std::string> & names);
 		std::string getZerosName();
 		std::string getMetaDataName();
-		const std::vector<Eigen::Vector3f> * getPoints() {
-			return &points; };
+		const std::vector<Eigen::Vector3f> * getPointsWithCenter() {
+			return &pointsWithCenter; };
+		const std::vector<Eigen::Vector3f> * getPointsNoCenter() {
+			return &pointsNoCenter; };	
 		const std::vector<Eigen::Matrix3d> * getR() {
 			return &R; };
 		void setScale(double newScale) { FLAGS_scale = newScale; };
@@ -91,9 +98,9 @@ class CloudAnalyzer2D {
 		float zScale, scale;
 	public:
 		CloudAnalyzer2D(const std::vector<Eigen::Vector3f> * points,
-			const BoundingBox * bBox, 
-			const std::vector<Eigen::Matrix3d> * R);
-		void run(float scale);
+			const std::vector<Eigen::Matrix3d> * R,
+			const BoundingBox * bBox);
+		void initalize(double scale);
 		void examinePointEvidence();
 		void examineFreeSpaceEvidence();
 		const std::vector<cv::Mat> & getPointEvidence();

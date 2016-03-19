@@ -1,7 +1,7 @@
 /*Scanner units are proabaly in meters */
 
 #include "scanDensity_scanDensity.h"
-#include "scanDensity_3DInfo.h"
+
 #include <omp.h>
 #include <locale> 
 
@@ -41,7 +41,7 @@ static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 9
 
 
 
-DensityMaps::DensityMaps(const std::string & commandLine) {
+DensityMapsManager::DensityMapsManager(const std::string & commandLine) {
 	std::vector<std::string> v;
 	std::istringstream is (commandLine);
 	std::string tmp;
@@ -52,15 +52,15 @@ DensityMaps::DensityMaps(const std::string & commandLine) {
 		argv[i] = &v[i][0];
 	}
 	argv[v.size()] = NULL;
-	DensityMaps(v.size(), argv);
+	DensityMapsManager(v.size(), argv);
 }
 
-DensityMaps::DensityMaps(int argc, char * argv[]) {
+DensityMapsManager::DensityMapsManager(int argc, char * argv[]) {
 	this->resetFlags(argc, argv);
 }
 
 
-void DensityMaps::resetFlags(const std::string & commandLine) {
+void DensityMapsManager::resetFlags(const std::string & commandLine) {
 	std::vector<std::string> v;
 	std::istringstream is (commandLine);
 	std::string tmp;
@@ -74,7 +74,7 @@ void DensityMaps::resetFlags(const std::string & commandLine) {
 	resetFlags(v.size(), argv);
 }
 
-void DensityMaps::resetFlags(int argc, char * argv[]) {
+void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 		FLAGS_inFolder = FLAGS_dataPath + FLAGS_inFolder;
 		FLAGS_outFolder = FLAGS_dataPath + FLAGS_outFolder;
@@ -139,7 +139,7 @@ void DensityMaps::resetFlags(int argc, char * argv[]) {
 		this->current = 0;
 }
 
-void DensityMaps::run(bool keepCenter) {
+void DensityMapsManager::run() {
 	rotationFile = FLAGS_rotFolder + rotationsFiles[current]; 
 	fileName = FLAGS_inFolder + binaryNames[current];
 
@@ -147,21 +147,6 @@ void DensityMaps::run(bool keepCenter) {
 	buildName = fileName.substr(fileName.rfind("/") + 1, 3);
 
 	std::cout << scanNumber << std::endl;
-
-	if(FLAGS_pe && !FLAGS_redo) {
-		const std::string imageName = FLAGS_outFolder + "R" + std::to_string(0) + "/"
-		 + buildName + "_point_" + scanNumber + ".png";
-		cv::Mat img = cv::imread(imageName);
-		if(img.data)
-			return;
-	}
-	if(FLAGS_fe && !FLAGS_redo) {
-		const std::string imageName = FLAGS_outFolder + "R" + std::to_string(0) + "/"
-			+ buildName + "_freeSpace_" + scanNumber + ".png";
-		cv::Mat img = cv::imread(imageName);
-		if(img.data)
-			return;
-	}
 
 	std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
 	R.assign(NUM_ROTS, Eigen::Matrix3d());
@@ -176,61 +161,126 @@ void DensityMaps::run(bool keepCenter) {
   int columns, rows;
  	binaryReader.read(reinterpret_cast<char *> (& columns), sizeof(int));
  	binaryReader.read(reinterpret_cast<char *> (& rows), sizeof(int));
- 	points.clear();
-  points.reserve(columns*rows);
+ 	pointsWithCenter.clear();
+  pointsWithCenter.reserve(columns*rows);
+  pointsNoCenter.clear();
+  pointsNoCenter.reserve(columns*rows);
+
   for (int k = 0; k < columns * rows; ++k) {
     Eigen::Vector3f point;
 		binaryReader.read(reinterpret_cast<char *> (point.data()), sizeof(point));
 
 		point[1] *= -1.0;
 
-		if(!keepCenter && point[0]*point[0] + point[1]*point[1] < 0.8)
+		if(!(point[0] || point[1] || point[2]))
 			continue;
-		else if(point[0] || point[1] || point[2])
-		  points.push_back(point);
-		
+
+		pointsWithCenter.push_back(point);
+
+		if(point[0]*point[0] + point[1]*point[1] > 0.8)
+			pointsNoCenter.push_back(pointsWithCenter.back());
 	}
 	binaryReader.close();
 }
 
-bool DensityMaps::hasNext() {
+bool DensityMapsManager::hasNext() {
 	return current < binaryNames.size();
 }
 
-void DensityMaps::getNext() {
+void DensityMapsManager::setNext() {
 	++current;
 }
 
-void DensityMaps::get2DPointNames(std::vector<std::string> & names) {
+void DensityMapsManager::get2DPointNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_outFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_point_" + scanNumber + ".png");
 	}
 }
 
-void DensityMaps::get3DPointNames(std::vector<std::string> & names) {
+void DensityMapsManager::get3DPointNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_point_" + scanNumber + ".png");
 	}
 }
 
-void DensityMaps::get2DFreeNames(std::vector<std::string> & names) {
+void DensityMapsManager::get2DFreeNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_outFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".png");
 	}
 }
 
-void DensityMaps::get3DFreeNames(std::vector<std::string> & names) {
+void DensityMapsManager::get3DFreeNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".png");
 	}
 }
 
-std::string DensityMaps::getZerosName() {
+std::string DensityMapsManager::getZerosName() {
 	return FLAGS_zerosFolder + buildName + "zeros" + scanNumber + ".dat";
+}
+
+std::string DensityMapsManager::getMetaDataName() {
+	return FLAGS_voxelFolder + "metaData/" + buildName + "_scan_"
+		+ scanNumber + ".dat";
+}
+
+static bool fexists(const std::string & name) {
+	std::ifstream in (name, std::ios::in);
+	return in.is_open();
+}
+
+bool DensityMapsManager::exists2D() {
+	std::vector<std::string> names;
+	if (!FLAGS_pe) {
+		get2DFreeNames(names);
+		bool exists = true;
+		for (auto & n : names)
+			exists = exists && fexists(n);
+		return exists;
+	}
+	if (!FLAGS_fe) {
+		get2DPointNames(names);
+		bool exists = true;
+		for (auto & n : names)
+			exists = exists && fexists(n);
+		return exists;
+	}
+
+	get2DPointNames(names);
+	get2DFreeNames(names);
+	bool exists = true;
+	for (auto & n : names)
+		exists = exists && fexists(n);
+	return exists;
+}
+
+bool DensityMapsManager::exists3D() {
+	std::vector<std::string> names;
+	if (!FLAGS_pe) {
+		get3DFreeNames(names);
+		bool exists = true;
+		for (auto & n : names)
+			exists = exists && fexists(n);
+		return exists;
+	}
+	if (!FLAGS_fe) {
+		get3DPointNames(names);
+		bool exists = true;
+		for (auto & n : names)
+			exists = exists && fexists(n);
+		return exists;
+	}
+
+	get3DPointNames(names);
+	get3DFreeNames(names);
+	bool exists = true;
+	for (auto & n : names)
+		exists = exists && fexists(n);
+	return exists;
 }
 
 BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
@@ -272,14 +322,14 @@ void BoundingBox::getBoundingBox(Eigen::Vector3f & min, Eigen::Vector3f & max) c
 
 
 CloudAnalyzer2D::CloudAnalyzer2D(const std::vector<Eigen::Vector3f> * points,
-	const BoundingBox * bBox,
-	const std::vector<Eigen::Matrix3d> * R) {
+	const std::vector<Eigen::Matrix3d> * R,
+	const BoundingBox * bBox) {
 	this->bBox = bBox;
 	this->points = points;
 	this->R = R;
 }
 
-void CloudAnalyzer2D::run(float scale) {
+void CloudAnalyzer2D::initalize(double scale) {
 	bBox->getBoundingBox(pointMin, pointMax);
 
 	zScale = (float)numZ/(pointMax[2] - pointMin[2]);
@@ -310,6 +360,7 @@ void CloudAnalyzer2D::run(float scale) {
 }
 
 void CloudAnalyzer2D::examinePointEvidence() {
+	pointEvidence.clear();
 	Eigen::MatrixXf total = Eigen::MatrixXf::Zero (numY, numX);
 	for(int i = 0; i < numX; ++i)
 		for (int j = 0; j < numY; ++j)
@@ -388,7 +439,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 }
 
 void CloudAnalyzer2D::examineFreeSpaceEvidence() {
-
+	freeSpaceEvidence.clear();
 	Eigen::Vector3f cameraCenter = -1.0*pointMin;
 
 	std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));

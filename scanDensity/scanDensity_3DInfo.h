@@ -5,8 +5,6 @@
 
 #define NUM_ROTS 4
 
-extern double voxelsPerMeter;
-
 namespace Eigen {
   typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 }
@@ -21,41 +19,24 @@ namespace voxel {
 
   class CloudAnalyzer3D {
     private:
-      /* data */
+      const std::vector<Eigen::Vector3f> * points;
+      const std::vector<Eigen::Matrix3d> * R;
+      const BoundingBox * bBox;
+      std::vector<Eigen::MatrixXi> pointsPerVoxel, numTimesSeen;
+      Eigen::Vector3f pointMin, pointMax;
+      double voxelsPerMeter, pixelsPerMeter;
+      Eigen::Vector3d zeroZeroD;
+      Eigen::Vector3i zeroZero;
     public:
-      CloudAnalyzer3D();
+      CloudAnalyzer3D(const std::vector<Eigen::Vector3f> * points,
+        const std::vector<Eigen::Matrix3d> * R, const BoundingBox * bBox);
+      void run(double voxelsPerMeter, double pixelsPerMeter);
+      void saveVoxelGrids(const std::vector<std::string> & pointNames,
+        const std::vector<std::string> & freeNames,
+        const std::string & metaData);
   };
 
-  void analyzeScan3D(const std::string & fileName,
-  const std::string & rotationFile);
-
- void saveVoxelGrids(std::vector<Eigen::MatrixXi> & pointGrid,
-   std::vector<Eigen::MatrixXi> & freeSpace,
-   const std::vector<Eigen::Matrix3d> & R,
-   const Eigen::Vector3d & zeroZeroD,
-   const Eigen::Vector3i & zeroZero,
-   const std::string & scanNumber);
-
- void writeGrid(const std::vector<Eigen::MatrixXb> & toWrite, 
-  const std::string & outName, const size_t numNonZeros);
-
-
-  void createVoxelGrids(const std::vector<Eigen::Vector3f> & points,
-    const std::string & rotationFile, const std::string & scanNumber);
-
-  void pointBased(const std::vector<Eigen::Vector3f> & points,
-    const std::vector<Eigen::Matrix3d> & R,
-    float * pointMin, float * pointMax,
-    const std::string & scanNumber);
-
-  void freeSpace(const std::vector<Eigen::Vector3f> & points,
-    const float * pointMin, const float * pointMax,
-    const std::string & scanNumber, const int rotNumber);
-
-  void createBoundingBox(float * pointMin, float * pointMax,
-    const std::vector<Eigen::Vector3f> & points);
-
-} // 3D
+} // voxel
 
 
 
