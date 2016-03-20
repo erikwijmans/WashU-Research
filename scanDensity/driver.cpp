@@ -23,7 +23,6 @@ int main(int argc, char *argv[]) {
         loaded = true;
       }
 
-
       BoundingBox bBox2D(manager.getPointsNoCenter(), Eigen::Vector3f (9.0, 9.0, 6.0));
       bBox2D.run();
 

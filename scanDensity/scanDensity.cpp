@@ -82,7 +82,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
 		FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
 
-		if(!FLAGS_2D && !FLAGS_3D) 
+		if (!FLAGS_2D && !FLAGS_3D) 
 			FLAGS_2D = FLAGS_3D = true;
 		
 		DIR *dir;
@@ -91,7 +91,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		  /* Add all the files and directories to a std::vector */
 		  while ((ent = readdir (dir)) != NULL) {
 		  	std::string fileName = ent->d_name;
-		  	if(fileName != ".." && fileName != "."){
+		  	if (fileName != ".." && fileName != "."){
 		  		binaryNames.push_back(fileName);
 		  	}
 		  }
@@ -113,7 +113,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		  /* Add all the files and directories to a std::vector */
 		  while ((ent = readdir (dir)) != NULL) {
 		  	std::string fileName = ent->d_name;
-		  	if(fileName != ".." && fileName != "."){
+		  	if (fileName != ".." && fileName != "."){
 		  		rotationsFiles.push_back(fileName);
 		  	}
 		  }
@@ -125,7 +125,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		}
 		sort(rotationsFiles.begin(), rotationsFiles.end());
 
-		if(binaryNames.size() != rotationsFiles.size())
+		if (binaryNames.size() != rotationsFiles.size())
 			std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
 
 		std::string buildName = rotationsFiles[0].substr(0, 3);
@@ -133,7 +133,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		for (int i = 0; i < buildName.length(); ++i) {
 			buildName[i] = std::tolower(buildName[i], loc);
 		}
-		if(FLAGS_scale == -1)
+		if (FLAGS_scale == -1)
 			FLAGS_scale = buildingToScale.find(buildName)->second;
 
 		this->current = 0;
@@ -172,12 +172,12 @@ void DensityMapsManager::run() {
 
 		point[1] *= -1.0;
 
-		if(!(point[0] || point[1] || point[2]))
+		if (!(point[0] || point[1] || point[2]))
 			continue;
 
 		pointsWithCenter.push_back(point);
 
-		if(point[0]*point[0] + point[1]*point[1] > 0.8)
+		if (point[0]*point[0] + point[1]*point[1] > 0.8)
 			pointsNoCenter.push_back(pointsWithCenter.back());
 	}
 	binaryReader.close();
@@ -284,7 +284,13 @@ bool DensityMapsManager::exists3D() {
 }
 
 BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
-	Eigen::Vector3f range) {
+	Eigen::Vector3f && range) {
+	this->points = points;
+	this->range = range;
+}
+
+BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
+	Eigen::Vector3f & range) {
 	this->points = points;
 	this->range = range;
 }
@@ -297,21 +303,27 @@ void BoundingBox::run() {
 	}
 	average /= points->size();
 
-	for (auto & point : *points) {
-		for(int i = 0; i < 3; ++i) {
+	for (auto & point : *points)
+		for (int i = 0; i < 3; ++i)
 			sigma[i] += (point[i] - average[i])*(point[i] - average[i]);
-		}
-	}
+		
+	
 	sigma /= points->size() - 1;
-	for(int i = 0; i < 3; ++i)
+	for (int i = 0; i < 3; ++i)
 		sigma[i] = sqrt(sigma[i]);
 }
 
-void BoundingBox::setRange(Eigen::Vector3f range) {
+void BoundingBox::setRange(Eigen::Vector3f && range) {
 	this->range = range;
 }
 
-void BoundingBox::getBoundingBox(Eigen::Vector3f & min, Eigen::Vector3f & max) const {
+void BoundingBox::setRange(Eigen::Vector3f & range) {
+	this->range = range;
+}
+
+void BoundingBox::getBoundingBox(Eigen::Vector3f & min, 
+	Eigen::Vector3f & max) const {
+
 	Eigen::Vector3f delta;
 	for (int i = 0; i < delta.size(); ++i)
 	  delta[i] = 1.1*range[i]*sigma[i];
@@ -341,16 +353,16 @@ void CloudAnalyzer2D::initalize(double scale) {
 	pointsPerVoxel.assign(numY, Eigen::MatrixXi::Zero(numZ, numX));
 
 
-	for(auto & point : *points){
+	for (auto & point : *points){
 	 	const int x = scale*(point[0] - pointMin[0]);
 		const int y = scale*(point[1] - pointMin[1]);
 		const int z = zScale*(point[2] - pointMin[2]);
 		   
-		if(x < 0 || x >= numX)
+		if (x < 0 || x >= numX)
 			continue;
-		if(y < 0 || y >= numY)
+		if (y < 0 || y >= numY)
 			continue; 
-		if( z < 0 || z >= numZ)
+		if ( z < 0 || z >= numZ)
 			continue;
 
 	  ++pointsPerVoxel[y](z, x); 
@@ -362,10 +374,10 @@ void CloudAnalyzer2D::initalize(double scale) {
 void CloudAnalyzer2D::examinePointEvidence() {
 	pointEvidence.clear();
 	Eigen::MatrixXf total = Eigen::MatrixXf::Zero (numY, numX);
-	for(int i = 0; i < numX; ++i)
+	for (int i = 0; i < numX; ++i)
 		for (int j = 0; j < numY; ++j)
 			for (int k = 0; k < numZ; ++k)
-				if(pointsPerVoxel[j](k,i))
+				if (pointsPerVoxel[j](k,i))
 					++total(j,i);
 
 
@@ -375,8 +387,8 @@ void CloudAnalyzer2D::examinePointEvidence() {
 	float minV = 1e10;
 	float maxV = 0;
 	const float * dataPtr = total.data();
-	for(int i = 0; i < total.size(); ++i) {
-		if(*(dataPtr+ i)) {
+	for (int i = 0; i < total.size(); ++i) {
+		if (*(dataPtr+ i)) {
 			++count;
 			average+= *(dataPtr + i);
 			minV = std::min(minV, *(dataPtr+i));
@@ -411,7 +423,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
 	imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
 
-	for(int r = 0; r < NUM_ROTS; ++r) {
+	for (int r = 0; r < NUM_ROTS; ++r) {
 		cv::Mat heatMap  (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 		for (int j = 0; j < heatMap.rows; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j);
@@ -420,13 +432,13 @@ void CloudAnalyzer2D::examinePointEvidence() {
 				const Eigen::Vector3d src = R->at(r)*(pixel - newZZ) + zeroZero;
 				// const Eigen::Vector3d & src = pixel;
 
-				if(src[0] < 0 || src[0] >= total.cols())
+				if (src[0] < 0 || src[0] >= total.cols())
 					continue;
-				if(src[1] < 0 || src[1] >= total.rows())
+				if (src[1] < 0 || src[1] >= total.rows())
 					continue;
 
 				const double count = total(src[1], src[0]);
-				if(count > 0) {
+				if (count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
 						255.0 * (count - average - sigma) 
 						 	/ (3.0 * sigma));
@@ -444,10 +456,10 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
 	std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
 
-	for(int i = 0; i < numX; ++i) {
+	for (int i = 0; i < numX; ++i) {
 		for (int j = 0; j < numY; ++j) {
 			for (int k = 0; k < numZ; ++k) {
-				if(pointsPerVoxel[j](k,i) == 0)
+				if (pointsPerVoxel[j](k,i) == 0)
 					continue;
 
 				float ray[3];
@@ -466,11 +478,11 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
 					voxelHit[2] = floor(cameraCenter[2]*zScale + a*unitRay[2]);
 
-					if(voxelHit[0] < 0 || voxelHit[0] >= numX)
+					if (voxelHit[0] < 0 || voxelHit[0] >= numX)
 						continue;
-					if(voxelHit[1] < 0 || voxelHit[1] >= numY)
+					if (voxelHit[1] < 0 || voxelHit[1] >= numY)
 						continue;
-					if(voxelHit[2] < 0 || voxelHit[2] >= numZ)
+					if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
 						continue;
 					numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1])
 						+= pointsPerVoxel[j](k,i);
@@ -479,10 +491,10 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 		}
 	}
 	
-	for(int i = -0.836*FLAGS_scale; i < 0.836*FLAGS_scale; ++i)
-		for(int j = -sqrt(0.7*FLAGS_scale*FLAGS_scale - i*i); 
+	for (int i = -0.836*FLAGS_scale; i < 0.836*FLAGS_scale; ++i)
+		for (int j = -sqrt(0.7*FLAGS_scale*FLAGS_scale - i*i); 
 			j < sqrt(0.7*FLAGS_scale*FLAGS_scale - i*i); ++j)
-			for(int k = numZ/2; k < numZ; ++k)
+			for (int k = numZ/2; k < numZ; ++k)
 				++numTimesSeen[cameraCenter[0]*FLAGS_scale + i]
 					(k, cameraCenter[1]*FLAGS_scale + j);
 
@@ -493,7 +505,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 		for (int j = 0; j < numY; ++j) {
 			int count = 0;
 			for (int k = 0; k < numZ; ++k) {
-				if(numTimesSeen[i](k,j)) {
+				if (numTimesSeen[i](k,j)) {
 					count++;
 				}
 			}
@@ -506,18 +518,17 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	size_t count = 0;
 	const double * vPtr = collapsedCount.data();
 	
-	for(int i = 0; i < collapsedCount.size(); ++i) {
-		if(*(vPtr + i) != 0) {
+	for (int i = 0; i < collapsedCount.size(); ++i) {
+		if (*(vPtr + i) != 0) {
 			average += *(vPtr + i);
 			++count;
 		}
-		
 	}
 
 	average = average/count;
 
-	for(int i = 0; i < collapsedCount.size(); ++i){
-		if(*(vPtr + i)!=0)
+	for (int i = 0; i < collapsedCount.size(); ++i){
+		if (*(vPtr + i)!=0)
 			sigma += (*(vPtr + i)-average)*(*(vPtr + i)-average);
 	}
 	sigma = sigma/(count - 1);
@@ -532,7 +543,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	newZZ[0] += dX;
 	newZZ[1] += dY;
 
-	for(int r = 0; r < NUM_ROTS; ++r) {
+	for (int r = 0; r < NUM_ROTS; ++r) {
 		cv::Mat heatMap (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 		for (int j = 0; j < heatMap.rows; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j);
@@ -540,13 +551,13 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 				const Eigen::Vector3d pixel (i, j, 0);
 				const Eigen::Vector3d src = R->at(r)*(pixel - newZZ) + zeroZero;
 
-				if(src[0] < 0 || src[0] >= collapsedCount.cols())
+				if (src[0] < 0 || src[0] >= collapsedCount.cols())
 					continue;
-				if(src[1] < 0 || src[1] >= collapsedCount.rows())
+				if (src[1] < 0 || src[1] >= collapsedCount.rows())
 					continue;
 
 				const double count = collapsedCount(src[1], src[0]);
-				if(count > 0) {
+				if (count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
 						255.0 * ((count - average)/sigma + 1.0 ));
 					dst[i] = 255 - gray;

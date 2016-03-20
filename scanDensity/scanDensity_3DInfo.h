@@ -39,6 +39,4 @@ namespace voxel {
 } // voxel
 
 
-
-
 #endif // SCAN_DENSITY_3D_INFO_H
