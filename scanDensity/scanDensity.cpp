@@ -84,6 +84,9 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 
 		if (!FLAGS_2D && !FLAGS_3D) 
 			FLAGS_2D = FLAGS_3D = true;
+
+		if(!FLAGS_pe && !FLAGS_fe)
+			FLAGS_pe = FLAGS_fe = true;
 		
 		DIR *dir;
 		struct dirent *ent;
@@ -201,7 +204,7 @@ void DensityMapsManager::get2DPointNames(std::vector<std::string> & names) {
 void DensityMapsManager::get3DPointNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r)
-	  	+ "/" + buildName + "_point_" + scanNumber + ".png");
+	  	+ "/" + buildName + "_point_" + scanNumber + ".dat");
 	}
 }
 
@@ -215,7 +218,7 @@ void DensityMapsManager::get2DFreeNames(std::vector<std::string> & names) {
 void DensityMapsManager::get3DFreeNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r)
-	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".png");
+	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".dat");
 	}
 }
 
@@ -446,6 +449,11 @@ void CloudAnalyzer2D::examinePointEvidence() {
 				}
 			}
 		}
+		if (FLAGS_preview) {
+			cv::imshow("Preview", heatMap);
+			cv::waitKey(0);
+		}
+
 		pointEvidence.push_back(heatMap);
 	}
 }
@@ -564,6 +572,11 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 				}
 			}				
 		}
+		if (FLAGS_preview) {
+			cv::imshow("Preview", heatMap);
+			cv::waitKey(0);
+		}
+
 		freeSpaceEvidence.push_back(heatMap);
 	}
 }

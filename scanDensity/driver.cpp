@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     if (FLAGS_3D && (FLAGS_redo || !manager.exists3D())) {
       if(!loaded) manager.run();
 
-      BoundingBox bBox3D (manager.getPointsWithCenter(), Eigen::Vector3f (7.0, 7.0, 6.0));
+      BoundingBox bBox3D (manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
       bBox3D.run();
 
       voxel::CloudAnalyzer3D analyzer3D (manager.getPointsWithCenter(),

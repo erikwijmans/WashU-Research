@@ -35,7 +35,7 @@ DEFINE_string(zerosFolder, "densityMaps/zeros/",
 	"Path to folder where the pixel coordinates of (0,0) are. This will be appended to the dataPath.");
 DEFINE_string(voxelFolder, "voxelGrids/",
 	"Path to the folder where the voxelGrids are saved to. This will be appended to the dataPath.");
-DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
+DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/CSE/Floor4/",
 	"Path to where the program should search for the various folders it needs");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
@@ -653,7 +653,7 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 static void labelNeighbours(const cv::Mat & image, const int currentLabel,
 	Eigen::RowMatrixXi & labeledImage, std::list <std::pair<int, int> > & toLabel) {
 
-	if(toLabel.empty()) return;
+	if (toLabel.empty()) return;
 
 	auto currentPixel = toLabel.front();
 	toLabel.pop_front();
