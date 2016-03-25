@@ -48,11 +48,11 @@ multi::Labeler::Labeler() {
 	  std::sort(pointVoxelFileNames.begin(), pointVoxelFileNames.end());
 	  std::sort(freeVoxelFileNames.begin(), freeVoxelFileNames.end());
 	}
-	
+
+	const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
 	{
 		DIR *dir;
 		struct dirent *ent;
-		const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
 		if ((dir = opendir (metaDataFolder.data())) != NULL) {
 		  while ((ent = readdir (dir)) != NULL) {
 		    std::string fileName = ent->d_name;
@@ -71,8 +71,8 @@ multi::Labeler::Labeler() {
 
 	const int numScans = pointFileNames.size();
 
-	for (int i = 0; i < numScans; ++i) {
-	  const std::string metaName = metaDataFolder + metaDataFiles[i];
+	for (auto & name : metaDataFiles) {
+	  const std::string metaName = metaDataFolder + name;
 	  std::ifstream in (metaName, std::ios::in | std::ios::binary);
 	  place::metaData tmp;
 	  std::vector<place::metaData> tmpVec;
@@ -86,8 +86,10 @@ multi::Labeler::Labeler() {
 	zeroZeros.resize(numScans);
 	place::loadInScansGraph(pointFileNames, freeFileNames,
 	  zerosFileNames, scans, masks, zeroZeros);
+
+	loadInPanoramasAndRot();
 	
-	const int numToParse = 20;
+	const int numToParse = 2;
 	const int nodeStart = 0;
 	for (int i = nodeStart; i < std::min(numToParse + nodeStart,
 	  (int)pointFileNames.size()); ++i) {
@@ -95,52 +97,128 @@ multi::Labeler::Labeler() {
 	  place::loadInPlacementGraph(imageName, nodes, i);
 	}
 
-
 	const int numNodes = nodes.size();
+	std::cout << numNodes << std::endl;
 	adjacencyMatrix = Eigen::MatrixXE (numNodes, numNodes);
 
-	/*place::weightEdges(nodes, voxelInfo, 
-	  pointVoxelFileNames, freeVoxelFileNames, adjacencyMatrix);
+	{
+	  size_t i = 0;
+	  const place::node * prevNode = &nodes[0];
+	  for (auto & n : nodes) {
+	    if (n.color == prevNode->color) {
+	      prevNode = &n;
+	      ++i;
+	    } else {
+	      numberOfLabels.push_back(i);
+	      i = 1;
+	      prevNode = &n;
+	    }
+	  }
+	  numberOfLabels.push_back(i);
+	}
+}
 
-	const double endTime = omp_get_wtime();
-	std::cout << "Time: " << endTime - startTime << std::endl;
+multi::Labeler::~Labeler() {
 
+}
+
+
+void multi::Labeler::loadInPanoramasAndRot() {
+
+	DIR *dir;
+	struct dirent *ent;
+	const std::string panoFolderImages = FLAGS_panoFolder + "images/";
+	if ((dir = opendir (panoFolderImages.data())) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    std::string fileName = ent->d_name;
+	    if (fileName != ".." && fileName != ".")
+	    	panoramaFiles.push_back(fileName);
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(-1);
+	}
+	std::sort(panoramaFiles.begin(), panoramaFiles.end());
+
+	const std::string panoFolderZMaps = FLAGS_panoFolder + "zMaps/";
+	if ((dir = opendir (panoFolderZMaps.data())) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    std::string fileName = ent->d_name;
+	    if (fileName != ".." && fileName != ".")
+	    	zMapsFiles.push_back(fileName);
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(-1);
+	}
+	std::sort(zMapsFiles.begin(), zMapsFiles.end());
+
+	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    std::string fileName = ent->d_name;
+	    if (fileName != ".." && fileName != ".")
+	    	rotationsFiles.push_back(fileName);
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(-1);
+	}
+	std::sort(rotationsFiles.begin(), rotationsFiles.end());
+
+	for (auto & name : panoramaFiles) {
+		const std::string imgName = panoFolderImages + name;
+		panoramas.push_back(cv::imread(imgName));
+	}
+
+	for (auto & name : zMapsFiles) {
+		int rows, cols;
+		const std::string zMapName = panoFolderZMaps + name;
+		std::ifstream in (zMapName, std::ios::in | std::ios::binary);
+		in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+		in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+
+		zMaps.push_back(Eigen::MatrixXd (rows, cols));
+		in.read(reinterpret_cast<char *>(zMaps.back().data()), rows*cols*sizeof(double));
+		in.close();
+	}
+
+	for (auto & name : rotationsFiles) {
+		const std::string rotName = FLAGS_rotFolder + name;
+		std::ifstream in (rotName, std::ios::binary | std::ios::in);
+		std::vector<Eigen::Matrix3d> v (NUM_ROTS);
+		for (int i = 0; i < NUM_ROTS; ++i) {
+			in.read(reinterpret_cast<char *>(v[i].data()), sizeof(Eigen::Matrix3d));
+		}
+		in.close();
+		rotationMatricies.push_back(v);
+	}
+}
+
+void multi::Labeler::weightEdges() {
+	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames, 
+		freeVoxelFileNames, panoramas, rotationMatricies, adjacencyMatrix);
 	place::normalizeWeights(adjacencyMatrix, nodes);
-
-	place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
-
-	std::map<std::vector<int>, double> highOrder;
-	place::createHigherOrderTerms(scans, zeroZeros, nodes, highOrder);
-
-	// place::displayHighOrder(highOrder, nodes, scans, zeroZeros);
-
-	bestNodes.clear();
-	// place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
-	place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
-	while (true) {
-	  place::displayBest(bestNodes, scans, zeroZeros);
-	}*/
 }
 
-void Labeler::weightEdges() {
-	place::weightEdges(nodes, voxelInfo, 
-		pointVoxelFileNames, freeVoxelFileNames, adjacencyMatrix);
-	place::normalizeWeights(adjacencyMatrix, nodes);
-}
-
-void Labeler::solveTRW() {
+void multi::Labeler::solveTRW() {
 	place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
 }
 
-void Labeler::solveMIP() {
+void multi::Labeler::solveMIP() {
 	place::createHigherOrderTerms(scans, zeroZeros, nodes, highOrder);
 	place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
 }
 
-void Labeler::displaySolution() {
+void multi::Labeler::displaySolution() {
 	place::displayBest(bestNodes, scans, zeroZeros);
 }
 
-void Labeler::displayGraph() {
+void multi::Labeler::displayGraph() {
 	place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
 }

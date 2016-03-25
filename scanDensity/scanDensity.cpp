@@ -2,12 +2,14 @@
 
 #include "scanDensity_scanDensity.h"
 
+
 #include <omp.h>
 #include <locale> 
 
 
 #include <sstream>
 #include <map>
+#include <scan_typedefs.hpp>
 
 
 /*#include <pcl/point_cloud.h>
@@ -170,8 +172,9 @@ void DensityMapsManager::run() {
   pointsNoCenter.reserve(columns*rows);
 
   for (int k = 0; k < columns * rows; ++k) {
-    Eigen::Vector3f point;
-		binaryReader.read(reinterpret_cast<char *> (point.data()), sizeof(point));
+    scan::PointXYZRGB in;
+		binaryReader.read(reinterpret_cast<char *> (&in), sizeof(in));
+		auto & point = in.point;
 
 		point[1] *= -1.0;
 

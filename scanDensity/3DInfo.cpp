@@ -1,4 +1,5 @@
 #include "scanDensity_3DInfo.h"
+#include <FeatureVoxel.hpp>
 
 voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::vector<Eigen::Vector3f> * points,
   const std::vector<Eigen::Matrix3d> * R, const BoundingBox * bBox) {
@@ -233,8 +234,8 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
   newZZ[1] += dY;
 
   for(int r = 0; r < NUM_ROTS; ++r) {
-    const std::string outNamePoint = pointNames[r];
-    const std::string outNameFree = freeNames[r];
+    const std::string & outNamePoint = pointNames[r];
+    const std::string & outNameFree = freeNames[r];
 
     std::vector<Eigen::MatrixXb> voxelPoint (z, Eigen::MatrixXb::Zero(newRows,newCols));
     std::vector<Eigen::MatrixXb> voxelFree (z, Eigen::MatrixXb::Zero(newRows, newCols));

@@ -35,8 +35,10 @@ DEFINE_string(zerosFolder, "densityMaps/zeros/",
 	"Path to folder where the pixel coordinates of (0,0) are. This will be appended to the dataPath.");
 DEFINE_string(voxelFolder, "voxelGrids/",
 	"Path to the folder where the voxelGrids are saved to. This will be appended to the dataPath.");
-DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/CSE/Floor4/",
+DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
 	"Path to where the program should search for the various folders it needs");
+DEFINE_string(rotFolder, "densityMaps/rotations/", "Path from dataPath to rotation files");
+DEFINE_string(panoFolder, "panoramas/", "path from dataPath to panoramas");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(numScans, -1, 
 	"Number of scans to place, default or -1 will cause all scans in the folder to placed");
@@ -98,8 +100,8 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 	}
 
 	if (pointFileNames.size() != zerosFileNames.size()){
-		perror("Not the same number of scans as rotations!");
-		exit(-1);
+		perror("Not the same number of scans as zeros!");
+		exit(1);
 	}
 
 	sort(pointFileNames.begin(), pointFileNames.end());
@@ -108,12 +110,10 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
 		sort(freeFileNames->begin(), freeFileNames->end());
 }
 
-
 void place::loadInScans(const std::string & scanName,
 	const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans,
   std::vector<Eigen::Vector2i> & zeroZero) {
 
-	
 	zeroZero.resize(NUM_ROTS);
 	std::ifstream binaryReader (zerosFile, std::ios::in | std::ios::binary);
 	for (int i = 0; i < NUM_ROTS; ++i) {
@@ -122,9 +122,7 @@ void place::loadInScans(const std::string & scanName,
 	}
 	binaryReader.close();
 	
-	
-	
-	for(int i = 0; i < NUM_ROTS; ++i) {
+	for (int i = 0; i < NUM_ROTS; ++i) {
 		std::string fullScanName = FLAGS_dmFolder + "R" + std::to_string(i) + "/"
 			+ scanName;
 
@@ -144,11 +142,10 @@ void place::loadInScans(const std::string & scanName,
 	}
 }
 
-
 void place::loadInScans(const std::string & scanName,
 	 const std::string & zerosFile, std::vector<cv::Mat> & rotatedScans) {
 
-	for(int i = 0; i < NUM_ROTS; ++i) {
+	for (int i = 0; i < NUM_ROTS; ++i) {
 		std::string fullScanName = FLAGS_dmFolder + "R" + std::to_string(i) + "/"
 			+ scanName;
 
@@ -180,7 +177,7 @@ void place::loadInScansAndMasks(const std::string & scanName,
 void place::trimScans(const std::vector<cv::Mat> & toTrim, 
 	std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero) {
 	int k = 0;
-	for(auto & scan : toTrim){
+	for (auto & scan : toTrim){
 		int minRow = scan.rows;
 		int minCol = scan.cols;
 		int maxRow = 0;
@@ -189,7 +186,7 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 		for (int i = 0; i < scan.rows; ++i) {
 			const uchar * src = scan.ptr<uchar>(i);
 			for (int j = 0; j < scan.cols; ++j) {
-				if (src[j] != 255){
+				if (src[j] != 255) {
 					minRow = std::min(i, minRow);
 					minCol = std::min(j, minCol);
 					maxRow = std::max(i, maxRow);
@@ -202,8 +199,7 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 		for (int i = minRow; i < maxRow + 1; ++i) {
 			const uchar * src = scan.ptr<uchar>(i);
 			uchar * dst = trimmedScan.ptr<uchar>(i-minRow);
-			for (int j = minCol; j < maxCol + 1; ++j)
-			{
+			for (int j = minCol; j < maxCol + 1; ++j) {
 				dst[j-minCol] = src[j];
 			}
 		}
@@ -218,17 +214,17 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
 static void normalize(const std::vector<const place::posInfo *> & minima,
 	std::vector<place::posInfo> & out) {
 	double average = 0;
-	for(auto & m : minima)
+	for (auto & m : minima)
 		average += m->score;
 	average /= minima.size();
 
 	double sigma = 0;
-	for(auto & m : minima)
+	for (auto & m : minima)
 		sigma += (m->score - average)*(m->score - average);
 	sigma /= minima.size() - 1;
 	sigma = sqrt(sigma);
 
-	for(auto & m : minima) {
+	for (auto & m : minima) {
 		place::posInfo minScore = *m;
 		minScore.score = (minScore.score - average)/sigma;
 		out.push_back(minScore);
@@ -328,19 +324,21 @@ bool place::reshowPlacement(const std::string & scanName,
 					continue;
 
 				if (src[j]!=255){
-					dst[j*3 + xOffset*3] = 0;
-					dst[j*3 + xOffset*3 + 1] = 0;
-					dst[j*3 + xOffset*3 + 2] = 255 - src[j];
+					const int x = 3*(j + xOffset);
+					dst[x + 0] = 0;
+					dst[x + 1] = 0;
+					dst[x + 2] = 255 - src[j];
 				}
 			}
 		}
 
-		for(int i = -10; i < 10; ++i) {
+		for (int i = -10; i < 10; ++i) {
 			uchar * dst = output.ptr<uchar>(i + minScore.y);
-			for(int j = -10; j < 10; ++j) {
-				dst[j*3 + minScore.x*3 + 0] = 255;
-				dst[j*3 + minScore.x*3 + 1] = 0;
-				dst[j*3 + minScore.x*3 + 2] = 0;
+			for (int j = -10; j < 10; ++j) {
+				const int x = 3*(j + minScore.x);
+				dst[x + 0] = 255;
+				dst[x + 1] = 0;
+				dst[x + 2] = 0;
 			}
 		}
 
@@ -351,8 +349,8 @@ bool place::reshowPlacement(const std::string & scanName,
 		cv::imshow("Preview", output);
 		cv::waitKey(0);
 
-		if(minScore.score - initailScore > maxTotal) break;
-		if(minScore.score - lastScore > maxDelta) break;
+		if (minScore.score - initailScore > maxTotal) break;
+		if (minScore.score - lastScore > maxDelta) break;
 		lastScore = minScore.score;
 	}
 	return true;
@@ -375,7 +373,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	const int cutOff = FLAGS_top > 0 ? FLAGS_top : num;
 
 	int currentCount = 0;
-	for(auto & min : minima){
+	for (auto & min : minima){
 		const int xOffset = min->x;
 		const int yOffset = min->y;
 		const Eigen::SparseMatrix<double> & currentScan = 
@@ -386,7 +384,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 		cv::Mat_<cv::Vec3b> _output = output;
 
 		for (int i = 0; i < currentScan.outerSize(); ++i) {
-			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
+			for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
 				if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
 					continue;
 				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
@@ -438,7 +436,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 	const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
 
 	int currentCount = 0;
-	for(auto & min : minima){
+	for (auto & min : minima){
 		const int xOffset = min->x;
 		const int yOffset = min->y;
 		const Eigen::SparseMatrix<double> & currentScan = 
@@ -448,7 +446,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 		cv::Mat_<cv::Vec3b> _output = output;
 
 		for (int i = 0; i < currentScan.outerSize(); ++i) {
-			for(Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
+			for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it; ++it){
 				if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
 					continue;
 				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
@@ -486,7 +484,7 @@ void place::loadInTruePlacement(const std::string & scanName,
 	}
 
 	truePlacement.clear();
-	for(auto & s : tmp){
+	for (auto & s : tmp){
 		Eigen::Vector3i tmp2 (s.x - zeroZero[s.rotation][0], 
 			s.y - zeroZero[s.rotation][1], s.rotation);
 		truePlacement.push_back(tmp2);
@@ -585,15 +583,15 @@ Eigen::SparseMatrix<double> place::scanToSparse(const cv::Mat & scan) {
 void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed,
 	const std::vector<std::vector<Eigen::MatrixXb> > & eMaskPyramidTrimmedNS) {
 
-	for(int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
-		for(int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
+	for (int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
+		for (int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
 			const Eigen::SparseMatrix<double> & currentScan = rSSparsePyramidTrimmed[i][j];
 			const Eigen::MatrixXb & currentMask = eMaskPyramidTrimmedNS[i][j];
 			cv::Mat out (currentScan.rows(), currentScan.cols(), CV_8UC3, cv::Scalar::all(255));
 
-			for(int i = 0; i < out.rows; ++i) {
+			for (int i = 0; i < out.rows; ++i) {
 				uchar * dst = out.ptr<uchar>(i);
-				for(int j = 0; j < out.cols; ++j) {
+				for (int j = 0; j < out.cols; ++j) {
 					if (currentMask(i,j) != 0) {
 						dst[3*j] = 0;
 						dst[3*j+1] = 0;
@@ -603,8 +601,8 @@ void place::displayScanAndMask(const std::vector<std::vector<Eigen::SparseMatrix
 			}
 
 			cv::Mat_<cv::Vec3b> _out = out;
-			for(int i = 0; i < currentScan.outerSize(); ++i) {
-				for(Eigen::SparseMatrix<double>::InnerIterator it (currentScan, i); it; ++it) {
+			for (int i = 0; i < currentScan.outerSize(); ++i) {
+				for (Eigen::SparseMatrix<double>::InnerIterator it (currentScan, i); it; ++it) {
 					if (it.value() > 0 && _out(it.row(), it.col())[0] == 0) {
 						_out(it.row(), it.col())[0] = 0;
 						_out(it.row(), it.col())[1] = 255;
@@ -630,11 +628,11 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 	std::vector<Eigen::Triplet<double> > tripletList;
 	Eigen::MatrixXd srcNS = Eigen::MatrixXd(src);
 
-	for(int i = 0; i < srcNS.cols(); ++i) {
-		for(int j = 0; j < srcNS.rows(); ++j) {
+	for (int i = 0; i < srcNS.cols(); ++i) {
+		for (int j = 0; j < srcNS.rows(); ++j) {
 			double value = 0.0;
-			for(int k = -1; k < 1; ++k) {
-				for(int l = -1; l < 1; ++l) {
+			for (int k = -1; k < 1; ++k) {
+				for (int l = -1; l < 1; ++l) {
 					if (i + k < 0 || i + k >=srcNS.cols() ||
 						j+l < 0 || j + l >=srcNS.rows())
 						continue;
@@ -682,7 +680,7 @@ void place::removeMinimumConnectedComponents(cv::Mat & image) {
 	for (int j = 0; j < image.rows; ++j) {
 		const uchar * src = image.ptr<uchar>(j);
 		for (int i = 0; i < image.cols; ++i) {
-			if(src[i] != 255 && labeledImage(j,i) == 0) {
+			if (src[i] != 255 && labeledImage(j,i) == 0) {
 				labeledImage(j,i) = currentLabel;
 				toLabel.emplace_front(j,i);
 				
@@ -718,10 +716,10 @@ void place::removeMinimumConnectedComponents(cv::Mat & image) {
 	for (int j = 0; j < image.rows; ++j) {
 		uchar * src = image.ptr<uchar>(j);
 		for (int i = 0; i < image.cols; ++i) {
-			if(src[i] != 255) {
+			if (src[i] != 255) {
 				const int label = labeledImage(j,i);
 				const int count = countPerLabel[label];
-				if(count < threshHold)
+				if (count < threshHold)
 					src[i] = 255;
 			}
 		}

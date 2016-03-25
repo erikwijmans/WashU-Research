@@ -1,4 +1,5 @@
 #include "placeScan_placeScan.h"
+#include "placeScan_multiLabeling.h"
 
 #include <math.h>
 #include <time.h>
@@ -27,6 +28,8 @@ int main(int argc, char *argv[]) {
   FLAGS_preDone = FLAGS_dataPath + FLAGS_preDone;
   FLAGS_preDoneV2 = FLAGS_dataPath + FLAGS_preDoneV2;
   FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
+  FLAGS_panoFolder = FLAGS_dataPath + FLAGS_panoFolder;
+  FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
 
   if (!FLAGS_V1 && !FLAGS_V2) 
     FLAGS_V1 = FLAGS_V2 = true;
@@ -128,12 +131,10 @@ int main(int argc, char *argv[]) {
   }
 
   if (FLAGS_V2) {
-    Eigen::MatrixXE adjacencyMatrix;
-    std::vector<place::node> nodes;
-    std::vector<std::vector<Eigen::Vector2i> > zeroZeros;
-    std::vector<const place::node *> bestNodes;
-    place::createGraph(adjacencyMatrix, nodes, zeroZeros, bestNodes);
-    // place::savePlacementV2(bestNodes);
+    multi::Labeler labeler;
+    labeler.weightEdges();
+    labeler.solveTRW();
+    labeler.displaySolution();
   }
   
   /*if (FLAGS_previewOut){

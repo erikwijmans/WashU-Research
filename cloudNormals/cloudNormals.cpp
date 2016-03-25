@@ -28,8 +28,7 @@ DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/binaryFiles/"
 DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/cloudNormals/",
  "Path to Output");
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 	

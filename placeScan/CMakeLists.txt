@@ -6,7 +6,9 @@ project( placeScan )
 find_package( OpenCV REQUIRED )
 find_package( gflags REQUIRED )
 file( GLOB place_SRC
-   "place*.cpp" )
+   "place*.cpp" 
+   "multiLabeling.cpp"
+   "panoramaMatcher.cpp")
 include_directories(/opt/gurobi650/linux64/include/)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=gnu++14 -Ofast -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lgurobi_c++ -lgurobi65 -lm")

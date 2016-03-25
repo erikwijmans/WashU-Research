@@ -75,10 +75,12 @@ namespace place {
     std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
     std::vector<const place::node *> & bestNodes);
 
-  void weightEdges(const std::vector<place::node> & nodes, 
+  void weightEdges(const std::vector<place::node> & nodes,
     const std::vector<std::vector<place::metaData> > & voxelInfo,
     const std::vector<std::string> & pointVoxelFileNames,
     const std::vector<std::string> & freeVoxelFileNames,
+    const std::vector<cv::Mat> & panoramas,
+    const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
     Eigen::MatrixXE & adjacencyMatrix);
 
   void loadInPlacementGraph(const std::string & imageName, 
@@ -93,28 +95,18 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void findLongestPath(const Eigen::MatrixXE & adjacencyMatrix,
-    const std::vector<place::node> & nodes,
-    std::vector<place::node> & longestPath);
-
-  void pathFinder(const Eigen::MatrixXE & adjacencyMatrix,
-    const std::vector<place::node> & nodes,
-    int currentNode, bool * colorMap, int numColors, double currentLength,
-    std::vector<place::node> & longestPath);
-
 
   void displayBest(const std::vector<const place::node *> & bestNodes,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void findBestLabels(const Eigen::MatrixXE & adjacencyMatrix, 
-    const std::vector<place::node> & nodes, std::vector<place::node> & bestLabels);
 
   place::edgeWeight compare3D(const place::voxel & aPoint,
     const place::voxel & bPoint,
     const place::voxel & aFree,
     const place::voxel & bFree, 
-    const place::cube & aRect, const place::cube & bRect);
+    const place::cube & aRect, const place::cube & bRect,
+    std::vector<Eigen::Vector3d> & aOverlap,  std::vector<Eigen::Vector3d> & bOverlap);
 
   void loadInVoxel(const std::string & name, 
     place::voxel & dst);
@@ -134,7 +126,7 @@ namespace place {
   void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
 
   bool localGroup(const Eigen::MatrixXb & toCheck, const int yOffset, 
-  const int xOffset);
+    const int xOffset, const int range);
 
   void createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
