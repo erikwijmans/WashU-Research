@@ -246,50 +246,44 @@ bool DensityMapsManager::exists2D() {
 	std::vector<std::string> names;
 	if (!FLAGS_pe) {
 		get2DFreeNames(names);
-		bool exists = true;
 		for (auto & n : names)
-			exists = exists && fexists(n);
-		return exists;
+			if (!fexists(n)) return false;
+		return true;
 	}
 	if (!FLAGS_fe) {
 		get2DPointNames(names);
-		bool exists = true;
 		for (auto & n : names)
-			exists = exists && fexists(n);
-		return exists;
+			if (!fexists(n)) return false;
+		return true;
 	}
 
 	get2DPointNames(names);
 	get2DFreeNames(names);
-	bool exists = true;
 	for (auto & n : names)
-		exists = exists && fexists(n);
-	return exists;
+		if (!fexists(n)) return false;
+	return true;
 }
 
 bool DensityMapsManager::exists3D() {
 	std::vector<std::string> names;
 	if (!FLAGS_pe) {
 		get3DFreeNames(names);
-		bool exists = true;
 		for (auto & n : names)
-			exists = exists && fexists(n);
-		return exists;
+			if (!fexists(n)) return false;
+		return true;
 	}
 	if (!FLAGS_fe) {
 		get3DPointNames(names);
-		bool exists = true;
 		for (auto & n : names)
-			exists = exists && fexists(n);
-		return exists;
+			if (!fexists(n)) return false;
+		return true;
 	}
 
 	get3DPointNames(names);
 	get3DFreeNames(names);
-	bool exists = true;
 	for (auto & n : names)
-		exists = exists && fexists(n);
-	return exists;
+		if (!fexists(n)) return false;
+	return true;
 }
 
 BoundingBox::BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
