@@ -1,8 +1,9 @@
 #include "scanDensity_3DInfo.h"
-#include <FeatureVoxel.hpp>
+#include <FeatureVoxel.h>
 
-voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::vector<Eigen::Vector3f> * points,
-  const std::vector<Eigen::Matrix3d> * R, const BoundingBox * bBox) {
+voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
+  const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R, 
+  const std::shared_ptr<const BoundingBox> & bBox) {
   this->points = points;
   this->R = R;
   this->bBox = bBox;
@@ -310,7 +311,7 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     writeGrid(newPoint, outNamePoint, numNonZerosPoint);
     writeGrid(newFree, outNameFree, numNonZerosFreeSpace);
 
-    voxel::metaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, pixelsPerMeter};
+    place::metaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, pixelsPerMeter};
     meta.zZ[0] += dX;
     meta.zZ[1] += dY;
     meta.zZ[0] -= minCol;

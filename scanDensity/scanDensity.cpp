@@ -9,39 +9,9 @@
 
 #include <sstream>
 #include <map>
-#include <scan_typedefs.hpp>
 
-
-/*#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/ply_io.h>*/
-
-DEFINE_bool(pe, false, "Tells the program to only examine point evidence");
-DEFINE_bool(fe, false, "Tells the program to only examine free space evidence");
-DEFINE_bool(quiteMode, true, "Turns of all extrenous statements");
-DEFINE_bool(preview, false, "Turns on previews of the output");
-DEFINE_bool(redo, false, "Recreates the density map even if it already exists");
-DEFINE_bool(3D, false, "writes out 3D voxelGrids");
-DEFINE_bool(2D, false, "Creates 2D density maps");
-DEFINE_string(inFolder, "binaryFiles/",
-	"Path to binary files");
-DEFINE_string(outFolder, "densityMaps/",
-	"Path to output folder");
-DEFINE_string(zerosFolder, "densityMaps/zeros/",
-	"Path to folder where the pixel cordinates of (0,0) will be written to");
-DEFINE_string(voxelFolder, "voxelGrids/",
-	"Path to the folder where the voxelGrids are saved to.");
-DEFINE_string(rotFolder, "densityMaps/rotations/",
-	"Path to folder containing the dominate direction rotations");
-DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
-	"Path to location where program will search for the folders it needs");
-DEFINE_double(scale, -1, "Scale used to size the density maps.  If -1, it will be looked up");
-DEFINE_int32(startIndex, 0, "Number to start with");
-DEFINE_int32(numScans, -1, "Number to process, -1 or default implies all scans");
 
 static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
-
-
 
 DensityMapsManager::DensityMapsManager(const std::string & commandLine) {
 	std::vector<std::string> v;
@@ -59,6 +29,7 @@ DensityMapsManager::DensityMapsManager(const std::string & commandLine) {
 
 DensityMapsManager::DensityMapsManager(int argc, char * argv[]) {
 	this->resetFlags(argc, argv);
+	R = std::make_shared<std::vector<Eigen::Matrix3d> > ();
 }
 
 
@@ -78,11 +49,12 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
-		FLAGS_inFolder = FLAGS_dataPath + FLAGS_inFolder;
-		FLAGS_outFolder = FLAGS_dataPath + FLAGS_outFolder;
+		FLAGS_binaryFolder = FLAGS_dataPath + FLAGS_binaryFolder;
+		FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
 		FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
 		FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
 		FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
+		FLAGS_descriptorsFolder = FLAGS_dataPath + FLAGS_descriptorsFolder;
 
 		if (!FLAGS_2D && !FLAGS_3D) 
 			FLAGS_2D = FLAGS_3D = true;
@@ -92,7 +64,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		
 		DIR *dir;
 		struct dirent *ent;
-		if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
+		if ((dir = opendir (FLAGS_binaryFolder.data())) != NULL) {
 		  /* Add all the files and directories to a std::vector */
 		  while ((ent = readdir (dir)) != NULL) {
 		  	std::string fileName = ent->d_name;
@@ -130,6 +102,28 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		}
 		sort(rotationsFiles.begin(), rotationsFiles.end());
 
+		if ((dir = opendir (FLAGS_descriptorsFolder.data())) != NULL) {
+		  /* Add all the files and directories to a std::vector */
+		  while ((ent = readdir (dir)) != NULL) {
+		  	std::string fileName = ent->d_name;
+		  	if (fileName != ".." && fileName != "."){
+		  		featureNames.push_back(fileName);
+		  	}
+		  }
+		  closedir (dir);
+		}  else {
+		  /* could not open directory */
+		  perror ("");
+		  exit(EXIT_FAILURE);
+		}
+
+		sort(featureNames.begin(), featureNames.end(), 
+			[](const std::string & a, const std::string & b) {
+					int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+					int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+					return numA < numB;
+			});
+
 		if (binaryNames.size() != rotationsFiles.size())
 			std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
 
@@ -146,7 +140,8 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 
 void DensityMapsManager::run() {
 	rotationFile = FLAGS_rotFolder + rotationsFiles[current]; 
-	fileName = FLAGS_inFolder + binaryNames[current];
+	fileName = FLAGS_binaryFolder + binaryNames[current];
+	// featName = FLAGS_descriptorsFolder + featureNames[current];
 
 	scanNumber = fileName.substr(fileName.find(".") - 3, 3);
 	buildName = fileName.substr(fileName.rfind("/") + 1, 3);
@@ -154,9 +149,9 @@ void DensityMapsManager::run() {
 	std::cout << scanNumber << std::endl;
 
 	std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
-	R.assign(NUM_ROTS, Eigen::Matrix3d());
-	for (int i = 0; i < R.size(); ++i) {
-	  binaryReader.read(reinterpret_cast<char *>(R[i].data()),
+	R->assign(NUM_ROTS, Eigen::Matrix3d());
+	for (int i = 0; i < R->size(); ++i) {
+	  binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
 	    sizeof(Eigen::Matrix3d));
 	}
 	binaryReader.close();
@@ -166,27 +161,35 @@ void DensityMapsManager::run() {
   int columns, rows;
  	binaryReader.read(reinterpret_cast<char *> (& columns), sizeof(int));
  	binaryReader.read(reinterpret_cast<char *> (& rows), sizeof(int));
- 	pointsWithCenter.clear();
-  pointsWithCenter.reserve(columns*rows);
-  pointsNoCenter.clear();
-  pointsNoCenter.reserve(columns*rows);
+
+ 	pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
+  pointsWithCenter->reserve(columns*rows);
+  pointsNoCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
+  pointsNoCenter->reserve(columns*rows);
 
   for (int k = 0; k < columns * rows; ++k) {
-    scan::PointXYZRGB in;
-		binaryReader.read(reinterpret_cast<char *> (&in), sizeof(in));
-		auto & point = in.point;
+    scan::PointXYZRGB tmp;
+		tmp.loadFromFile(binaryReader);
+		auto & point = tmp.point;
 
 		point[1] *= -1.0;
 
 		if (!(point[0] || point[1] || point[2]))
 			continue;
 
-		pointsWithCenter.push_back(point);
+		pointsWithCenter->push_back(point);
 
 		if (point[0]*point[0] + point[1]*point[1] > 0.8)
-			pointsNoCenter.push_back(pointsWithCenter.back());
+			pointsNoCenter->push_back(point);
 	}
 	binaryReader.close();
+
+	/*binaryReader.open(featName, std::ios::in | std::ios::binary);
+	binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
+	featureVectors.resize(num);
+	for (auto& v : featureVectors)
+		v.loadFromFile(binaryReader);
+	binaryReader.close();*/
 }
 
 bool DensityMapsManager::hasNext() {
@@ -199,7 +202,7 @@ void DensityMapsManager::setNext() {
 
 void DensityMapsManager::get2DPointNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
-	  names.push_back(FLAGS_outFolder + "R" + std::to_string(r)
+	  names.push_back(FLAGS_dmFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_point_" + scanNumber + ".png");
 	}
 }
@@ -213,7 +216,7 @@ void DensityMapsManager::get3DPointNames(std::vector<std::string> & names) {
 
 void DensityMapsManager::get2DFreeNames(std::vector<std::string> & names) {
 	for (int r = 0; r < NUM_ROTS; ++r) {
-	  names.push_back(FLAGS_outFolder + "R" + std::to_string(r)
+	  names.push_back(FLAGS_dmFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".png");
 	}
 }
@@ -289,13 +292,13 @@ bool DensityMapsManager::exists3D() {
 	return exists;
 }
 
-BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
+BoundingBox::BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
 	Eigen::Vector3f && range) {
 	this->points = points;
 	this->range = range;
 }
 
-BoundingBox::BoundingBox(const std::vector<Eigen::Vector3f> * points,
+BoundingBox::BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
 	Eigen::Vector3f & range) {
 	this->points = points;
 	this->range = range;
@@ -339,9 +342,9 @@ void BoundingBox::getBoundingBox(Eigen::Vector3f & min,
 }
 
 
-CloudAnalyzer2D::CloudAnalyzer2D(const std::vector<Eigen::Vector3f> * points,
-	const std::vector<Eigen::Matrix3d> * R,
-	const BoundingBox * bBox) {
+CloudAnalyzer2D::CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
+	const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
+	const std::shared_ptr<const BoundingBox> & bBox) {
 	this->bBox = bBox;
 	this->points = points;
 	this->R = R;

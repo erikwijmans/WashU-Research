@@ -1,6 +1,7 @@
 #ifndef PLACESCAN_PLACE_SCAN_HELPER_HPP_
 #define PLACESCAN_PLACE_SCAN_HELPER_HPP_ 
 
+#include <scan_gflags.h>
 
 #include <string>
 
@@ -9,60 +10,15 @@
 #include <eigen3/Eigen/Sparse>
 #include <opencv2/core.hpp>
 #include <gflags/gflags.h>
-
-DECLARE_bool(visulization);
-DECLARE_bool(previewIn);
-DECLARE_bool(previewOut);
-DECLARE_bool(redo);
-DECLARE_bool(quiteMode);
-DECLARE_bool(tinyPreviewIn);
-DECLARE_bool(save);
-DECLARE_bool(debugMode);
-DECLARE_bool(reshow);
-DECLARE_bool(V1);
-DECLARE_bool(V2);
-DECLARE_string(floorPlan);
-DECLARE_string(dmFolder);
-DECLARE_string(rotFolder);
-DECLARE_string(preDone);
-DECLARE_string(preDoneV2);
-DECLARE_string(zerosFolder);
-DECLARE_string(voxelFolder);
-DECLARE_string(panoFolder);
-DECLARE_string(dataPath);
-DECLARE_int32(startIndex);
-DECLARE_int32(numScans);
-DECLARE_int32(numLevels);
-DECLARE_int32(metricNumber);
-DECLARE_int32(stopNumber);
-DECLARE_int32(top);
-
+#include <scan_typedefs.hpp>
 
 extern const double maxDelta, maxTotal;
 
 extern cv::Mat fpColor, floorPlan;
 extern std::vector<Eigen::Vector3i> truePlacement;
 
-#define NUM_ROTS 4
-
-namespace Eigen {
-	typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
-	typedef Matrix< int, Dynamic, Dynamic, RowMajor > RowMatrixXi;
-}
-
 namespace place {
 
-	typedef struct {
-		double score = 0;
-		double scanFP = 0;
-		double fpScan = 0;
-		int rotation = 0;
-		int fpPixels = 0;
-		int scanPixels = 0;
-		int x = 0;
-		int y = 0;
-	} posInfo;
-	
 	void parseFolders(std::vector<std::string> & pointFileNames, 
 		std::vector<std::string> & zerosFileNames,
 		std::vector<std::string> * freeFileNames);

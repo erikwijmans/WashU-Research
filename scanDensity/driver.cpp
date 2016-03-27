@@ -23,10 +23,10 @@ int main(int argc, char *argv[]) {
         loaded = true;
       }
 
-      BoundingBox bBox2D(manager.getPointsNoCenter(), Eigen::Vector3f (9.0, 9.0, 6.0));
-      bBox2D.run();
+      auto bBox2D = std::make_shared<BoundingBox>(manager.getPointsNoCenter(), Eigen::Vector3f (9.0, 9.0, 6.0));
+      bBox2D->run();
 
-      CloudAnalyzer2D analyzer2D (manager.getPointsNoCenter(), manager.getR(), &bBox2D);
+      CloudAnalyzer2D analyzer2D (manager.getPointsNoCenter(), manager.getR(), bBox2D);
       analyzer2D.initalize(manager.getScale());
 
       if (FLAGS_pe) {
@@ -48,11 +48,11 @@ int main(int argc, char *argv[]) {
     if (FLAGS_3D && (FLAGS_redo || !manager.exists3D())) {
       if(!loaded) manager.run();
 
-      BoundingBox bBox3D (manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
-      bBox3D.run();
+      auto bBox3D = std::make_shared<BoundingBox>(manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
+      bBox3D->run();
 
       voxel::CloudAnalyzer3D analyzer3D (manager.getPointsWithCenter(),
-        manager.getR(), &bBox3D);
+        manager.getR(), bBox3D);
       analyzer3D.run(voxelsPerMeter, manager.getScale());
 
       std::vector<std::string> pointNames, freeNames;

@@ -11,7 +11,7 @@
 #include <time.h>
 #include <omp.h>
 
-#include <gflags/gflags.h>
+#include <scan_gflags.h>
 
 using namespace std;
 using namespace Eigen;
@@ -23,23 +23,17 @@ void getMajorAngles(const Vector3d &, vector<Matrix3d> &);
 Matrix3d getRotationMatrix(const Vector3d &, const Vector3d &);
 void analyzeNormals(const string &, const string &);
 
-DEFINE_bool(redo, false, "Redo all the cloud_normals");
-DEFINE_bool(verbose, false, "Turns on all prints");
-DEFINE_int32(startIndex, 0, "Index to start at");
-DEFINE_string(outFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/densityMaps/rotations/", 
-	"Path to binary files");
-DEFINE_string(inFolder, "/home/erik/Projects/3DscanData/DUC/Floor1/cloudNormals/",
-	"Path to Output");
-
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+	FLAGS_normalsFolder = FLAGS_dataPath + FLAGS_normalsFolder;
+	FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
 
 	vector<string> normalsNames;
 
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir (FLAGS_inFolder.data())) != NULL) {
+	if ((dir = opendir (FLAGS_normalsFolder.data())) != NULL) {
 	  /* Add all the files and directories to a vector */
 		while ((ent = readdir (dir)) != NULL) {
 			string fileName = ent->d_name;
@@ -63,8 +57,8 @@ int main(int argc, char *argv[])
 
 	//#pragma omp parallel for schedule(dynamic) shared(normalsNames)
 	for(int i = FLAGS_startIndex; i < normalsNames.size() - FLAGS_startIndex; ++i) {
-		const string normalsFilePath = FLAGS_inFolder + normalsNames[i];
-		analyzeNormals(normalsFilePath, FLAGS_outFolder);
+		const string normalsFilePath = FLAGS_normalsFolder + normalsNames[i];
+		analyzeNormals(normalsFilePath, FLAGS_rotFolder);
 	}
 	
 
@@ -109,13 +103,13 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 		N[i*3 + 1] = normals[i][1];
 		N[i*3 + 2] = normals[i][2];
 	}
-	if(FLAGS_verbose)
+	if(!FLAGS_quiteMode)
 		cout << "N size: " << N.size() << endl; 
 
 	Vector3d d1, d2, d3;
 	satoshiRansacManhattan1(N, d1);
 	d1 /= d1.norm();
-	if(FLAGS_verbose) {
+	if (!FLAGS_quiteMode) {
 		cout << "D1: " << d1 << endl << endl;
 	}
 	VectorXd N2;
@@ -131,14 +125,14 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 			++index;
 		}
 	}
-	if(FLAGS_verbose)
+	if(!FLAGS_quiteMode)
 		cout << "N2 size: " << N2.size() << endl;
 
 	satoshiRansacManhattan2(N2, d1, d2, d3);
 	d2 /= d2.norm();
 	d3 /= d3.norm();
 
-	if(FLAGS_verbose) {
+	if(!FLAGS_quiteMode) {
 		cout << "D2: " << d2 << endl << endl;
 		cout << "D3: " << d3 << endl << endl;
 	}
@@ -189,9 +183,12 @@ void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M) {
 			ndata[1] = N[3*i+1];
 			ndata[2] = N[3*i+2];
 
-			if(acos(abs(nest.dot(ndata))) < 0.02) {
+			if (acos(abs(nest.dot(ndata))) < 0.02) {
 				++numInliers;
-				average += ndata;
+				if (nest.dot(ndata) < 0)
+					average -= ndata;
+				else
+					average += ndata;
 			}
 		}
 		
@@ -246,10 +243,16 @@ void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1,
 			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02) {
 				if(acos(abs(nest.dot(ndata))) < 0.02) {
 					++numInliers;
-					average += ndata;
+					if (nest.dot(ndata) < 0)
+						average -= ndata;
+					else
+						average += ndata;
 				} else {
 					++numInliers2;
-					average2 += ndata;
+					if (nest2.dot(ndata) < 0)
+						average2 -= ndata;
+					else 
+						average2 += ndata;
 				}
 			}		
 		}

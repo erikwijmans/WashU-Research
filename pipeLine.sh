@@ -7,18 +7,15 @@
 
 cd ~/Projects/3DscanData/DUC/Floor1/
 find -type d -links 2 -exec mkdir -p "$1{}" \;
-cd ~/Projects/c++/scanDensity
+cd ~/Projects/c++/preprocessor
 make
-./preprocessor -dataPath=$1
-cd ../cloudNormals
-make
-./cloudNormals -inFolder=$1binaryFiles/ -outFolder=$1cloudNormals/
+./preprocessor -dataPath=$1 -redo
 cd ../getRotations
 make
-./getRotations -inFolder=$1cloudNormals/ -outFolder=$1densityMaps/rotations/
+./getRotations -dataPath=$1 -redo
 cd ../scanDensity
 make
 ./scanDensity -dataPath=$1 -redo -2D
 cd ../placeScan
 make
-./placeScan -dataPath=$1 -redo
+./placeScan -dataPath=$1 -redo -V1

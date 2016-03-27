@@ -4,17 +4,10 @@
 #include "placeScan_placeScanHelper.h"
 #include "placeScan_placeScanHelper2.h"
 
-
+#include <scan_typedefs.hpp>
 
 
 namespace place {
-
-	typedef struct {
-		const posInfo *** maps;
-		double exclusionSize;
-		int rows, cols;
-	} exclusionMap;
-
 	void analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
 	  const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
 	  const std::vector<Eigen::MatrixXb> & fpMasks,

@@ -31,7 +31,7 @@ static Eigen::Vector2d pointCloudToPanorama(const Eigen::Vector3d & worldCoord,
 	return Eigen::Vector2d (x, y);
 }
 
-static Eigen::Vector2d pointCloudToPanorama(const EigenZZ::Vector3d & worldCoord) {
+static Eigen::Vector2d pointCloudToPanorama(const Eigen::Vector3d & worldCoord) {
 	Eigen::Vector3d local = worldCoord;
 	local[1] *= -1.0;
 	auto polar = cartesianToPolar(local);
@@ -54,8 +54,6 @@ double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
 
 	const Eigen::Matrix3d deltaRot = RB*RA.inverse();
 	const Eigen::Vector3d rotatedTranslation = RB*translation;
-
-	
 
 	const cv::Mat_<cv::Vec3b> _panoA = panoA;
 	const cv::Mat_<cv::Vec3b> _panoB = panoB;

@@ -3,51 +3,12 @@
 
 #include "placeScan_placeScanHelper.h"
 
+#include <scan_typedefs.hpp>
+
 extern const int minScans;
 
 
 namespace place {
-  typedef struct {
-    double pA = 0.0, feA = 0.0, feB = 0.0, fx = 0.0;
-    double w = 0.0;
-  } edgeWeight;
-
-  typedef struct {
-    double weight = 0.0;
-    std::vector<int> incident;
-  } hOrder;
-} // place
-
-
-namespace Eigen {
-  typedef Matrix<place::edgeWeight, Dynamic, Dynamic> MatrixXE;
-  typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
-} // Eigen
-  
-namespace place {
-  typedef struct {
-    std::vector<Eigen::MatrixXb> v;
-    size_t c;
-  } voxel;
-
-	typedef struct {
-		posInfo s;
-		int scanNum;
-	} moreInfo;
-
-	typedef struct {
-		posInfo s;
-    double w;
-		int color;
-	} node;
-
-  typedef struct {
-    int X1;
-    int Y1;
-    int X2;
-    int Y2;
-  } rect;
-
   class cube {
     public:
       int X1, Y1, Z1;
@@ -56,12 +17,6 @@ namespace place {
       ~cube();
       int volume();
   };
-
-   typedef struct {
-    Eigen::Vector3i zZ;
-    int x, y, z;
-    double vox, s;
-  } metaData;
 
 	void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);
 

@@ -14,12 +14,6 @@
 #include <opencv2/core/eigen.hpp>
 
 
-static constexpr float fpScale = 86.0*3.28084;  /*pixels per meter */
-/*Something like 75 is looking more likely however...Maybe the scanner
-isn't in meters?*/
-static constexpr double PI = 3.14159265;
-static int levelNum;
-
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   FLAGS_floorPlan = FLAGS_dataPath + FLAGS_floorPlan;
@@ -383,14 +377,16 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
 void place::findLocalMinima(const std::vector<place::posInfo> & scores,
   const float bias, place::exclusionMap & maps) {
   double averageScore = 0;
-  for (auto & info : scores) {
-    averageScore += info.score;
-  }
+  #pragma omp simd
+  for (int i = 0; i < scores.size(); ++i)
+    averageScore += scores[i].score;
   
   averageScore /= scores.size();
+
   double sigScores = 0;
-  for (auto & info : scores) {
-    sigScores += (info.score - averageScore)*(info.score - averageScore);
+  #pragma omp simd
+  for (int i = 0; i < scores.size(); ++i) {
+    sigScores += (scores[i].score - averageScore)*(scores[i].score - averageScore);
   }
   sigScores /= (scores.size() - 1);
   sigScores = sqrt(sigScores);
@@ -736,10 +732,11 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       currentFPE.prune(1.0);
 
       Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
-      for (int i = 0; i < diff.outerSize(); ++i)
+      for (int i = 0; i < diff.outerSize(); ++i) {
         for (Eigen::SparseMatrix<double>::InnerIterator it (diff, i); it; ++it)
           if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
             scanFPsetDiff += it.value();
+      }
 
       diff = currentFP - currentScanE;
       for (int i = 0; i < diff.outerSize(); ++i)
@@ -753,12 +750,12 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
       posInfo tmp;
       tmp.x = point[0];
       tmp.y = point[1];
+      tmp.rotation = scanIndex;
       tmp.score = score;
       tmp.scanFP = scanFPsetDiff;
       tmp.fpScan = fpScanSetDiff;
       tmp.scanPixels = numPixelsUnderMask[scanIndex];
       tmp.fpPixels = numFPPixelsUM;
-      tmp.rotation = scanIndex;
       privateScores.push_back(tmp);
     }
 

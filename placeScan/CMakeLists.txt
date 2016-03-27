@@ -12,5 +12,12 @@ file( GLOB place_SRC
 include_directories(/opt/gurobi650/linux64/include/)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=gnu++14 -Ofast -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lgurobi_c++ -lgurobi65 -lm")
-add_executable( placeScan ${place_SRC})
-target_link_libraries( placeScan ${OpenCV_LIBS} gflags ${Gurobi})
+
+set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
+include_directories(${globals_dir})
+file(GLOB scan_globals 
+	${globals_dir}/scan_gflags.cpp
+	${globals_dir}/FeatureVoxel.cpp)
+
+add_executable( placeScan ${place_SRC} ${scan_globals})
+target_link_libraries( placeScan ${OpenCV_LIBS} ${Gurobi} gflags)
