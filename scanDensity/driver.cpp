@@ -76,7 +76,7 @@ void saveImages(const std::vector<cv::Mat> & images,
 
 void saveZeroZero(const Eigen::Vector2i & zZ, const std::string & name) {
   std::ofstream out (name, std::ios::out | std::ios::binary);
-  for (int i = 0; i < NUM_ROTS; ++i) {
+  for (int i = 0; i < NUM_ROTS; ++i)
     out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
-  }
+  out.close();
 }

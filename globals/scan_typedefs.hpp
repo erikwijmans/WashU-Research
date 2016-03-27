@@ -1,6 +1,7 @@
 #ifndef SCAN_TYPEDEFS_HPP
 #define SCAN_TYPEDEFS_HPP
 
+#include <eigen3/Eigen/StdVector>
 #include <eigen3/Eigen/Eigen>
 #include <fstream>
 

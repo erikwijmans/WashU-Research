@@ -1,8 +1,6 @@
 #ifndef SCAN_DENSITY_SCAN_DENSITY_H
 #define SCAN_DENSITY_SCAN_DENSITY_H
 
-#define NUM_ROTS 4
-
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/StdVector>
 #include <opencv2/core.hpp>
@@ -12,7 +10,6 @@
 #include <iostream>
 #include <string>
 #include <dirent.h>
-#include <vector>
 #include <fstream>
 #include <math.h>
 #include <time.h>
