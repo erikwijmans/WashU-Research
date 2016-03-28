@@ -3,10 +3,11 @@
 
 voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
   const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R, 
-  const std::shared_ptr<const BoundingBox> & bBox) {
-  this->points = points;
-  this->R = R;
-  this->bBox = bBox;
+  const std::shared_ptr<const BoundingBox> & bBox) :
+  points {points},
+  R {R},
+  bBox {bBox}
+{
 }
 
 void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, 
@@ -92,6 +93,7 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter,
 
 
 static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelB) {
+
   Eigen::MatrixXd collapsed (voxelB[0].rows(), voxelB[0].cols());
 
   for(int i = 0; i < collapsed.cols(); ++i) {

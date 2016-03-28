@@ -13,23 +13,20 @@
 
 static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
-DensityMapsManager::DensityMapsManager(const std::string & commandLine) {
-	std::vector<std::string> v;
-	std::istringstream is (commandLine);
-	std::string tmp;
-	while(is >> tmp)
-		v.push_back(tmp);
-	char ** argv = new char * [v.size() + 1];
-	for (int i = 0; i < v.size(); ++i) {
-		argv[i] = &v[i][0];
-	}
-	argv[v.size()] = NULL;
-	DensityMapsManager(v.size(), argv);
+DensityMapsManager::DensityMapsManager (const std::string & commandLine): 
+	R {NULL},
+	pointsWithCenter {NULL},
+	pointsNoCenter {NULL}
+{
+	this->resetFlags(commandLine);
 }
 
-DensityMapsManager::DensityMapsManager(int argc, char * argv[]) {
+DensityMapsManager::DensityMapsManager(int argc, char * argv[]):
+	R {NULL},
+	pointsWithCenter {NULL},
+	pointsNoCenter {NULL}
+{
 	this->resetFlags(argc, argv);
-	R = std::make_shared<std::vector<Eigen::Matrix3d> > ();
 }
 
 
@@ -49,93 +46,93 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
-		FLAGS_binaryFolder = FLAGS_dataPath + FLAGS_binaryFolder;
-		FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
-		FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
-		FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
-		FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
-		FLAGS_descriptorsFolder = FLAGS_dataPath + FLAGS_descriptorsFolder;
+	FLAGS_binaryFolder = FLAGS_dataPath + FLAGS_binaryFolder;
+	FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
+	FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
+	FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
+	FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
+	FLAGS_descriptorsFolder = FLAGS_dataPath + FLAGS_descriptorsFolder;
 
-		if (!FLAGS_2D && !FLAGS_3D) 
-			FLAGS_2D = FLAGS_3D = true;
+	if (!FLAGS_2D && !FLAGS_3D) 
+		FLAGS_2D = FLAGS_3D = true;
 
-		if(!FLAGS_pe && !FLAGS_fe)
-			FLAGS_pe = FLAGS_fe = true;
-		
-		DIR *dir;
-		struct dirent *ent;
-		if ((dir = opendir (FLAGS_binaryFolder.data())) != NULL) {
-		  /* Add all the files and directories to a std::vector */
-		  while ((ent = readdir (dir)) != NULL) {
-		  	std::string fileName = ent->d_name;
-		  	if (fileName != ".." && fileName != "."){
-		  		binaryNames.push_back(fileName);
-		  	}
-		  }
-		  closedir (dir);
-		}  else {
-		  /* could not open directory */
-		  perror ("");
-		  exit(EXIT_FAILURE);
-		}
+	if(!FLAGS_pe && !FLAGS_fe)
+		FLAGS_pe = FLAGS_fe = true;
+	
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (FLAGS_binaryFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if (fileName != ".." && fileName != "."){
+	  		binaryNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(EXIT_FAILURE);
+	}
 
-		sort(binaryNames.begin(), binaryNames.end(), 
-			[](const std::string & a, const std::string & b) {
-					int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-					int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-					return numA < numB;
-			});
+	sort(binaryNames.begin(), binaryNames.end(), 
+		[](const std::string & a, const std::string & b) {
+				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+				return numA < numB;
+		});
 
-		if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
-		  /* Add all the files and directories to a std::vector */
-		  while ((ent = readdir (dir)) != NULL) {
-		  	std::string fileName = ent->d_name;
-		  	if (fileName != ".." && fileName != "."){
-		  		rotationsFiles.push_back(fileName);
-		  	}
-		  }
-		  closedir (dir);
-		}  else {
-		  /* could not open directory */
-		  perror ("");
-		  exit(EXIT_FAILURE);
-		}
-		sort(rotationsFiles.begin(), rotationsFiles.end());
+	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if (fileName != ".." && fileName != "."){
+	  		rotationsFiles.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(EXIT_FAILURE);
+	}
+	sort(rotationsFiles.begin(), rotationsFiles.end());
 
-		if ((dir = opendir (FLAGS_descriptorsFolder.data())) != NULL) {
-		  /* Add all the files and directories to a std::vector */
-		  while ((ent = readdir (dir)) != NULL) {
-		  	std::string fileName = ent->d_name;
-		  	if (fileName != ".." && fileName != "."){
-		  		featureNames.push_back(fileName);
-		  	}
-		  }
-		  closedir (dir);
-		}  else {
-		  /* could not open directory */
-		  perror ("");
-		  exit(EXIT_FAILURE);
-		}
+	if ((dir = opendir (FLAGS_descriptorsFolder.data())) != NULL) {
+	  /* Add all the files and directories to a std::vector */
+	  while ((ent = readdir (dir)) != NULL) {
+	  	std::string fileName = ent->d_name;
+	  	if (fileName != ".." && fileName != "."){
+	  		featureNames.push_back(fileName);
+	  	}
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(EXIT_FAILURE);
+	}
 
-		sort(featureNames.begin(), featureNames.end(), 
-			[](const std::string & a, const std::string & b) {
-					int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-					int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-					return numA < numB;
-			});
+	sort(featureNames.begin(), featureNames.end(), 
+		[](const std::string & a, const std::string & b) {
+				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+				return numA < numB;
+		});
 
-		if (binaryNames.size() != rotationsFiles.size())
-			std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
+	if (binaryNames.size() != rotationsFiles.size())
+		std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
 
-		std::string buildName = rotationsFiles[0].substr(0, 3);
-		std::locale loc;
-		for (int i = 0; i < buildName.length(); ++i) {
-			buildName[i] = std::tolower(buildName[i], loc);
-		}
-		if (FLAGS_scale == -1)
-			FLAGS_scale = buildingToScale.find(buildName)->second;
+	std::string buildName = rotationsFiles[0].substr(0, 3);
+	std::locale loc;
+	for (int i = 0; i < buildName.length(); ++i) {
+		buildName[i] = std::tolower(buildName[i], loc);
+	}
+	if (FLAGS_scale == -1)
+		FLAGS_scale = buildingToScale.find(buildName)->second;
 
-		this->current = 0;
+	this->current = 0;
 }
 
 void DensityMapsManager::run() {
@@ -149,7 +146,7 @@ void DensityMapsManager::run() {
 	std::cout << scanNumber << std::endl;
 
 	std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
-	R->assign(NUM_ROTS, Eigen::Matrix3d());
+	R = std::make_shared<std::vector<Eigen::Matrix3d> > (4);
 	for (int i = 0; i < R->size(); ++i) {
 	  binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
 	    sizeof(Eigen::Matrix3d));
@@ -287,15 +284,17 @@ bool DensityMapsManager::exists3D() {
 }
 
 BoundingBox::BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
-	Eigen::Vector3f && range) {
-	this->points = points;
-	this->range = range;
+	Eigen::Vector3f && range) :
+	points {points},
+	range {range}
+{
 }
 
 BoundingBox::BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
-	Eigen::Vector3f & range) {
-	this->points = points;
-	this->range = range;
+	Eigen::Vector3f & range) :
+	points {points},
+	range {range}
+{
 }
 
 void BoundingBox::run() {
@@ -338,10 +337,11 @@ void BoundingBox::getBoundingBox(Eigen::Vector3f & min,
 
 CloudAnalyzer2D::CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
 	const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
-	const std::shared_ptr<const BoundingBox> & bBox) {
-	this->bBox = bBox;
-	this->points = points;
-	this->R = R;
+	const std::shared_ptr<const BoundingBox> & bBox) :
+	points {points},
+	R {R},
+	bBox {bBox}
+{
 }
 
 void CloudAnalyzer2D::initalize(double scale) {

@@ -71,7 +71,6 @@ void saveImages(const std::vector<cv::Mat> & images,
   const std::vector<std::string> & names) {
   for (int i = 0; i < names.size(); ++i)
     cv::imwrite(names[i], images[i]);
-  
 }
 
 void saveZeroZero(const Eigen::Vector2i & zZ, const std::string & name) {
