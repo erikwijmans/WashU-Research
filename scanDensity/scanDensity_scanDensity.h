@@ -51,6 +51,9 @@ class DensityMapsManager {
 			return pointsNoCenter; };	
 		std::shared_ptr<const std::vector<Eigen::Matrix3d> > getR() {
 			return R; };
+		std::shared_ptr<const std::vector<SHOT1344WithXYZ> > getFeatureVectors() {
+			return featureVectors;
+		}
 		void setScale(double newScale) { FLAGS_scale = newScale; };
 		double getScale() { return FLAGS_scale; };
 };

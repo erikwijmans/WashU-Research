@@ -23,22 +23,9 @@
 const int minScans = 2;
 const int maxScans = 30;
 
-static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
-  os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")" << std::endl;
-  os << "      " << "(" << print.X2 << ", " << print.Y2 << ", " << print.Z2 <<  ")";
-  return os;
-}
-
-static std::ostream & operator<<(std::ostream & os, const place::edgeWeight & print) {
-  os << "edgeWeight: " << print.w << std::endl;
-  os << print.pA << "  " << print.feA << std::endl;
-  os << print.fx << "  " << print.feB;
-  return os;
-}
-
 #pragma omp declare reduction (summer: double : omp_out += omp_in)
 
-static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelB,
+static void displayVoxelGrid(auto & voxelB,
   const std::string & windowName) {
   Eigen::MatrixXd collapsed (voxelB[0].rows(), voxelB[0].cols());
 
@@ -78,9 +65,9 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelB,
   for (int i = 0; i < heatMap.rows; ++i) {
     uchar * dst = heatMap.ptr<uchar>(i);
     for (int j = 0; j < heatMap.cols; ++j) {
-      if (collapsed(i,j)){
+      if (collapsed(i, j)){
         const int gray = cv::saturate_cast<uchar>(
-          255.0 * (collapsed(i,j) - average) 
+          255.0 * (collapsed(i, j) - average) 
             / (1.0 * sigma));
         int red, green, blue;
         if (gray < 128) {
@@ -102,8 +89,7 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelB,
   cv::imshow(windowName, heatMap);
 }
 
-static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
-  const std::vector<Eigen::MatrixXb> & voxelB,
+static void displayVoxelGrid(const auto & voxelA, const auto & voxelB,
   const place::cube & aRect, const place::cube & bRect) {
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
@@ -111,16 +97,18 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
   const int Xcols = aRect.X2 - aRect.X1 + 1;
 
   
-  Eigen::MatrixXd collapsedA (Xrows, Xcols);
-  Eigen::MatrixXd collapsedB (Xrows, Xcols);
+  Eigen::MatrixXd collapsedA = Eigen::MatrixXd::Zero(Xrows, Xcols);
+  Eigen::MatrixXd collapsedB = Eigen::MatrixXd::Zero(Xrows, Xcols);
 
    
   for (int i = 0; i < Xcols; ++i) {
     for (int j = 0; j < Xrows; ++j) {
       double sumA = 0, sumB = 0;
+      Eigen::Vector3i APos = Eigen::Vector3i (i + aRect.X1, j + aRect.Y1, 0);
+      Eigen::Vector3i BPos = Eigen::Vector3i(i + bRect.X1, j + bRect.Y1, 0);
       for (int k = 0; k < z; ++k) {
-        sumA += voxelA[k + aRect.Z1](j + aRect.Y1, i + aRect.X1);
-        sumB += voxelB[k + bRect.Z1](j + bRect.Y1, i + bRect.X1);
+        sumA += voxelA[k + aRect.Z1](APos[1], APos[0]);
+        sumB += voxelB[k + bRect.Z1](BPos[1], BPos[0]);
       }
       collapsedA(j,i) = sumA;
       collapsedB(j,i) = sumB;
@@ -169,28 +157,33 @@ static void displayVoxelGrid(const std::vector<Eigen::MatrixXb> & voxelA,
   for (int i = 0; i < heatMap.rows; ++i) {
     uchar * dst = heatMap.ptr<uchar>(i);
     for (int j = 0; j < heatMap.cols; ++j) {
-      if (collapsedA(i,j) && collapsedB(i,j)) {
+     
+
+      double aVal = collapsedA(i, j);
+      double bVal = collapsedB(i, j);
+
+      if (aVal && bVal) {
         const int grayA = cv::saturate_cast<uchar>(
-          255.0 * (collapsedA(i,j) - averageA) 
+          255.0 * (aVal - averageA) 
             / (1.0 * sigmaA));
         const int grayB = cv::saturate_cast<uchar>(
-          255.0 * (collapsedB(i,j) - averageB) 
+          255.0 * (bVal - averageB) 
             / (1.0 * sigmaB));
         int red = 255, green = 0, blue = 255;
         dst[j*3] = blue;
         dst[j*3 +1] = green;
         dst[j*3 + 2] = red;
-      } else if (collapsedA(i,j)){
+      } else if (aVal){
         const int gray = cv::saturate_cast<uchar>(
-          255.0 * (collapsedA(i,j) - averageA) 
+          255.0 * (aVal - averageA) 
             / (1.0 * sigmaA));
         int red = 255, green = 0, blue = 0;
         dst[j*3] = blue;
         dst[j*3 +1] = green;
         dst[j*3 + 2] = red;
-      } else if (collapsedB(i,j)){
+      } else if (bVal){
         const int gray = cv::saturate_cast<uchar>(
-          255.0 * (collapsedB(i,j) - averageB) 
+          255.0 * (bVal - averageB) 
             / (1.0 * sigmaB));
         int red = 0, green = 0, blue =255;
         dst[j*3] = blue;
@@ -271,26 +264,28 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   const std::vector<std::vector<place::metaData> > & voxelInfo,
   const std::vector<std::string> & pointVoxelFileNames,
   const std::vector<std::string> & freeVoxelFileNames,
-  const std::vector<cv::Mat> & panoramas,
-  const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
   Eigen::MatrixXE & adjacencyMatrix) {
+
+  typedef struct {
+    int i, j;
+    place::cube crossWRTA, crossWRTB;
+  } later;
 
   if (!FLAGS_redo && place::reloadGraph(adjacencyMatrix))
     return;
 
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
+  std::vector<later> tracker;
 
-  // #pragma omp parallel
+  #pragma omp parallel
   {
-    int voxelAColor = 1e6, voxelARot = 5;
-    place::voxel aPoint, aFree;
     
-    #pragma omp for nowait schedule (dynamic)
+    std::vector<later> privateTracker;
+    #pragma omp for nowait schedule (static)
     for (int i = 0; i < cols ; ++i) {
       const place::node & nodeA = nodes[i];
-      int voxelBcolor = 1e6, voxelBRot = 5;
-      place::voxel bPoint, bFree;
+      
       for (int j = 0; j < rows; ++j) {
         const place::node & nodeB = nodes[j];
 
@@ -302,9 +297,9 @@ void place::weightEdges(const std::vector<place::node> & nodes,
           continue;
         }
 
-        const place::metaData & metaA = voxelInfo[nodeA.color][nodeA.s.rotation];
+        auto & metaA = voxelInfo[nodeA.color][nodeA.s.rotation];
+        auto & metaB = voxelInfo[nodeB.color][nodeB.s.rotation];
         
-        const place::metaData & metaB = voxelInfo[nodeB.color][nodeB.s.rotation];
 
         place::cube aBox, bBox;
         aBox.X1 = nodeA.s.x*(metaA.vox/ metaA.s) - metaA.zZ[0];
@@ -321,7 +316,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         bBox.Z1 = 0 - metaB.zZ[2];
         bBox.Z2 = bBox.Z1 + metaB.z - 1;
 
-
+    
 
         place::cube XSection;
         XSection.X1 = std::max(aBox.X1, bBox.X1);
@@ -331,7 +326,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         XSection.Z1 = std::max(aBox.Z1, bBox.Z1);
         XSection.Z2 = std::min(aBox.Z2, bBox.Z2);
 
-
         if (XSection.X1 > XSection.X2 || 
           XSection.Y1 > XSection.Y2 || 
           XSection.Z1 > XSection.Z2)
@@ -340,30 +334,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
                   XSection.volume() < 0.05*bBox.volume())
           continue;*/
         else {
-          if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
-            std::string name = FLAGS_voxelFolder + "R" 
-              + std::to_string(nodeA.s.rotation) + "/" + pointVoxelFileNames[nodeA.color];
-            place::loadInVoxel(name, aPoint);
-
-            name = FLAGS_voxelFolder + "R" 
-              + std::to_string(nodeA.s.rotation) + "/" + freeVoxelFileNames[nodeA.color];
-            place::loadInVoxel(name, aFree);
-            voxelAColor = nodeA.color;
-            voxelARot = nodeA.s.rotation;
-          }
-
-          if (nodeB.color != voxelBcolor || nodeB.s.rotation != voxelBRot) {
-            std::string name = FLAGS_voxelFolder + "R"
-              + std::to_string(nodeB.s.rotation) + "/" + pointVoxelFileNames[nodeB.color];
-            place::loadInVoxel(name, bPoint);
-            name = FLAGS_voxelFolder + "R" 
-              + std::to_string(nodeB.s.rotation) + "/" + freeVoxelFileNames[nodeB.color];
-            place::loadInVoxel(name, bFree);
-            voxelBcolor = nodeB.color;
-            voxelBRot = nodeB.s.rotation;
-          }
-
-
           place::cube crossWRTA, crossWRTB;
 
           crossWRTA.X1 = XSection.X1 - aBox.X1;
@@ -380,59 +350,100 @@ void place::weightEdges(const std::vector<place::node> & nodes,
           crossWRTB.Z1 = XSection.Z1 - bBox.Z1;
           crossWRTB.Z2 = XSection.Z2 - bBox.Z1;
 
-          std::vector<Eigen::Vector3d> aOverlap, bOverlap;
-
-          place::edgeWeight weight = place::compare3D(aPoint, bPoint, aFree, 
-            bFree, crossWRTA, crossWRTB, aOverlap, bOverlap);
-
-          auto & rotA = rotationMatricies[nodeA.color][nodeA.s.rotation];
-          auto & rotB = rotationMatricies[nodeB.color][nodeB.s.rotation];
-
-          pano::voxelToWorld(aOverlap, rotA, metaA.zZ, 1.0/metaA.vox);
-          pano::voxelToWorld(bOverlap, rotB, metaB.zZ, 1.0/metaB.vox);
-
-          Eigen::Vector3d aCenter (nodeA.s.x, nodeA.s.y, 0),
-            bCenter (nodeB.s.x, nodeB.s.y, 0);
-          aCenter /= metaA.s;
-          bCenter /= metaB.s;
-          Eigen::Vector3d aToB = aCenter - bCenter;
-          Eigen::Vector3d bToA = bCenter - aCenter;
-
-          auto & panoA = panoramas[nodeA.color];
-          auto & panoB = panoramas[nodeB.color];
-
-          const double panoScore = 
-            pano::compare(panoA, panoB, rotA, rotB, aOverlap, aToB);
-          weight.w += panoScore;
-
-          /*if((nodeA.color != 3 && nodeA.color != 11) || (nodeB.color != 3 && nodeB.color != 11))
-          continue;*/
-          if (true) {
-            std::cout << weight << std::endl;
-            cvNamedWindow("aPoint", CV_WINDOW_NORMAL);
-            displayVoxelGrid(aPoint.v, "aPoint");
-
-            cvNamedWindow("bPoint", CV_WINDOW_NORMAL);
-            displayVoxelGrid(bPoint.v, "bPoint");
-
-            cvNamedWindow("aFree", CV_WINDOW_NORMAL);
-            displayVoxelGrid(aFree.v, "aFree");
-
-            cvNamedWindow("bFree", CV_WINDOW_NORMAL);
-            displayVoxelGrid(bFree.v, "bFree");
-
-            displayVoxelGrid(aFree.v, bPoint.v, crossWRTA, crossWRTB);
-
-          }
-          
-          adjacencyMatrix(j, i) = weight; 
-
-          //adjacencyMatrix(j, i) = {0, 0, 0, 0, 0};
+          privateTracker.push_back({i, j, crossWRTA, crossWRTB});
         }
       }
     }
+
+    #pragma omp for schedule(static) ordered
+    for (int i = 0; i < omp_get_num_threads(); ++i) {
+      #pragma omp ordered
+      tracker.insert(tracker.end(), privateTracker.begin(), privateTracker.end());
+    }
   }
-  std::cout << std::endl;
+
+  std::sort(tracker.begin(), tracker.end(),
+    [&nodes](auto & a, auto & b) {
+      int aAColor = nodes[a.i].color;
+      int aARot = nodes[a.i].s.rotation;
+      int aBColor = nodes[a.j].color;
+      int aBRot = nodes[a.j].s.rotation;
+
+      int bAColor = nodes[b.i].color;
+      int bARot = nodes[b.i].s.rotation;
+      int bBColor = nodes[b.j].color;
+      int bBRot = nodes[b.j].s.rotation;
+
+      return aAColor < bAColor && aARot < bARot
+        && aBColor < bBColor && aBRot < bBRot;
+    });
+
+  int voxelAColor = -1, voxelARot = -1;
+  int voxelBcolor = -1, voxelBRot = -1;
+  voxel::FeatureVoxel<Eigen::Vector1344f> aPoint, bPoint;
+  place::voxelGrid aFree, bFree;
+
+  #pragma omp parallel for schedule(static) private(voxelAColor, voxelARot, voxelBcolor, voxelBRot, aPoint, bPoint, aFree, bFree)
+  for (int i = 0; i < tracker.size(); ++i) {
+    const later & current = tracker[i];
+    int i = current.i;
+    int j = current.j;
+    const place::node & nodeA = nodes[i];
+    const place::node & nodeB = nodes[j];
+
+    if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
+      std::string name = FLAGS_voxelFolder + "R" 
+        + std::to_string(nodeA.s.rotation) + "/" + pointVoxelFileNames[nodeA.color];
+      aPoint.loadFromFile(name);
+
+      name = FLAGS_voxelFolder + "R" 
+        + std::to_string(nodeA.s.rotation) + "/" + freeVoxelFileNames[nodeA.color];
+      place::loadInVoxel(name, aFree);
+      voxelAColor = nodeA.color;
+      voxelARot = nodeA.s.rotation;
+    }
+
+    if (nodeB.color != voxelBcolor || nodeB.s.rotation != voxelBRot) {
+      std::string name = FLAGS_voxelFolder + "R"
+        + std::to_string(nodeB.s.rotation) + "/" + pointVoxelFileNames[nodeB.color];
+      bPoint.loadFromFile(name);
+
+      name = FLAGS_voxelFolder + "R" 
+        + std::to_string(nodeB.s.rotation) + "/" + freeVoxelFileNames[nodeB.color];
+      place::loadInVoxel(name, bFree);
+      voxelBcolor = nodeB.color;
+      voxelBRot = nodeB.s.rotation;
+    }
+
+    place::edge weight = place::compare3D(aPoint, bPoint, aFree, 
+      bFree, current.crossWRTA, current.crossWRTB);
+
+    /*if((nodeA.color != 3 && nodeA.color != 11) || (nodeB.color != 3 && nodeB.color != 11))
+    continue;*/
+    if (false) {
+      std::cout << weight << std::endl;
+      cvNamedWindow("aPoint", CV_WINDOW_NORMAL);
+      displayVoxelGrid(aPoint.getGrid(), "aPoint");
+
+      cvNamedWindow("bPoint", CV_WINDOW_NORMAL);
+      displayVoxelGrid(bPoint.getGrid(), "bPoint");
+
+      cvNamedWindow("aFree", CV_WINDOW_NORMAL);
+      displayVoxelGrid(aFree.v, "aFree");
+
+      cvNamedWindow("bFree", CV_WINDOW_NORMAL);
+      displayVoxelGrid(bFree.v,  "bFree");
+
+      displayVoxelGrid(aPoint.getGrid(), bPoint.getGrid(),
+        current.crossWRTA, current.crossWRTB);
+    }
+    
+    adjacencyMatrix(j, i) = weight; 
+
+    //adjacencyMatrix(j, i) = {0, 0, 0, 0, 0};
+  }
+  
+
   if (FLAGS_save)
     place::saveGraph(adjacencyMatrix);
 }
@@ -468,7 +479,6 @@ void place::loadInPlacementGraph(const std::string & imageName,
     lastScore = tmp.score;
   }
   if(!final) final = numToLoad - 1;
-  final = 0;
   std::vector<place::node> nodestmp;
   for (auto & s : scoretmp)
     nodestmp.push_back({s, 0.0, num});
@@ -549,19 +559,14 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
 
-
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
-
 
   for (int i = 0; i < cols; ++i) {
     for (int j = 0; j < rows; ++j) {
 
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
-
-      if(nodeA.color != 3)
-        continue;
 
       if (nodeA.color == nodeB.color)
         continue;
@@ -570,7 +575,6 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
       if (adjacencyMatrix(j,i).w == 0)
         continue;
 
-      std::cout << i << std::endl;
       const Eigen::MatrixXb & aScan = scans[nodeA.color][nodeA.s.rotation];
       const Eigen::MatrixXb & bScan = scans[nodeB.color][nodeB.s.rotation];
 
@@ -663,16 +667,13 @@ void place::displayBest(const std::vector<const place::node *> & bestNodes,
     cv::imshow("Preview", output);
     cv::waitKey(0);
   }
-  
 }
 
-place::edgeWeight place::compare3D(const place::voxel & aPoint,
-  const place::voxel & bPoint,
-  const place::voxel & aFree,
-  const place::voxel & bFree, 
-  const place::cube & aRect, const place::cube & bRect,
-  std::vector<Eigen::Vector3d> & aOverlap,  std::vector<Eigen::Vector3d> & bOverlap) {
-
+place::edge place::compare3D(const voxel::FeatureVoxel<Eigen::Vector1344f> & aPoint,
+  const voxel::FeatureVoxel<Eigen::Vector1344f> & bPoint,
+  const place::voxelGrid & aFree,
+  const place::voxelGrid & bFree, 
+  const place::cube & aRect, const place::cube & bRect) {
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
   const int Xrows = aRect.Y2 - aRect.Y1 + 1;
@@ -681,57 +682,61 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   double pointAgreement = 0.0, freeSpaceAgreementA = 0.0, 
     freeSpaceAgreementB = 0.0, freeSpaceCross = 0.0;
 
-  double totalPointA = aPoint.c, totalPointB = bPoint.c,
+  double totalPointA = aPoint.getNumNonZeros(),
+    totalPointB = bPoint.getNumNonZeros(),
     averageFreeSpace = (aFree.c + bFree.c)/2.0;
-  int subSample = 0;
+  double shotWeight = 0;
+  int shotCount = 0;
   for (int k = 0; k < z; ++k) {
-    const Eigen::MatrixXb & Ap = aPoint.v[k + aRect.Z1];
-    const Eigen::MatrixXb & Bp = bPoint.v[k + bRect.Z1];
-    const Eigen::MatrixXb & Af = aFree.v[k + aRect.Z1];
-    const Eigen::MatrixXb & Bf = bFree.v[k + bRect.Z1];
+    auto & Ap = aPoint[k + aRect.Z1];
+    auto & Bp = bPoint[k + bRect.Z1];
+    auto & Af = aFree.v[k + aRect.Z1];
+    auto & Bf = bFree.v[k + bRect.Z1];
 
     if ((Ap.sum() == 0 && Af.sum() == 0) || (Bp.sum() == 0 && Bf.sum() == 0))
       continue;
 
     for (int i = 0; i < Xcols; ++i) {
       for (int j = 0; j < Xrows; ++j) {
-        if ((localGroup(Ap, j + aRect.Y1, i + aRect.X1, 2) && 
-          Bp(j + bRect.Y1, i + bRect.X1)) || (Ap(j + aRect.Y1, i + aRect.X1) && 
-          localGroup(Bp, j + bRect.Y1, i + bRect.X1, 2)))
-          ++pointAgreement /*+= Ap(j + aRect.Y1, i + aRect.X1) + Bp(j + bRect.Y1, i + bRect.X1)*/;
+        Eigen::Vector3i APos = Eigen::Vector3i (i + aRect.X1, j + aRect.Y1, 0);
+        Eigen::Vector3i BPos = Eigen::Vector3i(i + bRect.X1, j + bRect.Y1, 0);
 
-        if (Ap(j + aRect.Y1, i + aRect.X1) && 
-          Bf(j + bRect.Y1, i + bRect.X1))
-          ++freeSpaceAgreementA/* += Bf(j + bRect.Y1, i + bRect.X1)*/;
+        if ((localGroup(Ap, APos[1], APos[0], 2) && 
+          Bp(BPos[1], BPos[0])) || (Ap(APos[1], APos[0]) && 
+          localGroup(Bp, BPos[1], BPos[0], 2)))
+          ++pointAgreement /*+= Ap(APos[1], APos[0]) + Bp(BPos[1], BPos[0])*/;
 
-        if (Bp(j + bRect.Y1, i + bRect.X1) &&
-          Af(j + aRect.Y1, i + aRect.X1))
-            ++freeSpaceAgreementB /*+= Af(j + aRect.Y1, i + aRect.X1)*/;
+        if (Ap(APos[1], APos[0]) && 
+          Bf(BPos[1], BPos[0]))
+          ++freeSpaceAgreementA/* += Bf(BPos[1], BPos[0])*/;
 
-        if (Bf(j + bRect.Y1, i + bRect.X1) &&
-          Af(j + aRect.Y1, i + aRect.X1))
-          ++freeSpaceCross/* += Bf(j + bRect.Y1, i + bRect.X1) + Af(j + aRect.Y1, i + aRect.X1)*/;
+        if (Bp(BPos[1], BPos[0]) &&
+          Af(APos[1], APos[0]))
+            ++freeSpaceAgreementB /*+= Af(APos[1], APos[0])*/;
 
-        if (Bf(j + bRect.Y1, i + bRect.X1))
+        if (Bf(BPos[1], BPos[0]) &&
+          Af(APos[1], APos[0]))
+          ++freeSpaceCross/* += Bf(BPos[1], BPos[0]) + Af(APos[1], APos[0])*/;
+
+        if (Bf(BPos[1], BPos[0]))
           ++averageFreeSpace;
-        if (Af(j + aRect.Y1, i + aRect.X1))
+        if (Af(APos[1], APos[0]))
           ++averageFreeSpace;
 
-        if (Ap(j + aRect.Y1, i + aRect.X1))
+        if (Ap(APos[1], APos[0]))
           ++totalPointA;
 
-        if (Bp(j + bRect.Y1, i + bRect.X1))
+        if (Bp(BPos[1], BPos[0]))
           ++totalPointB;
 
-        if ((localGroup(Ap, j + aRect.Y1, i + aRect.X1, 0) && 
-          Bp(j + bRect.Y1, i + bRect.X1)) || (Ap(j + aRect.Y1, i + aRect.X1) && 
-          localGroup(Bp, j + bRect.Y1, i + bRect.X1, 0))) {
-          if ((subSample++)%10 == 0) {
-            aOverlap.push_back(
-              Eigen::Vector3d(i + aRect.X1, j + aRect.Y1, k + aRect.Z1));
-            bOverlap.push_back(
-              Eigen::Vector3d(i + bRect.X1, j + bRect.Y1, k + bRect.Z1));
-          } 
+        if (Bp(BPos[1], BPos[0]) && Ap(APos[1], APos[0])) {
+          auto AFeature = aPoint.getFeatureVector(Ap(APos[1], APos[0]));
+          auto BFeature = bPoint.getFeatureVector(Bp(BPos[1], BPos[0]));
+          if (AFeature && BFeature) {
+            Eigen::Vector1344f diff = *AFeature - *BFeature;
+            shotWeight += 1 - diff.norm();
+            ++shotCount;
+          }
         }
       }
     }
@@ -740,10 +745,9 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   totalPointA /= 2.0;
   totalPointB /= 2.0;
   double averagePoint = (totalPointA + totalPointB)/2.0;
-  place::edgeWeight a;
   if (averageFreeSpace == 0.0 || averagePoint == 0.0 || 
     totalPointA == 0.0 || totalPointB == 0.0) {
-    return a;
+    return place::edge();
   }
 
   /*double weight = 2.0/(averagePoint/pointAgreement + averageFreeSpace/freeSpaceCross) -
@@ -752,16 +756,14 @@ place::edgeWeight place::compare3D(const place::voxel & aPoint,
   double weight = pointAgreement/averagePoint
     - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA);
 
-  a.pA = pointAgreement/averagePoint;
-  a.feA = freeSpaceAgreementA/totalPointA;
-  a.feB = freeSpaceAgreementB/totalPointB;
-  a.fx = freeSpaceCross/averageFreeSpace;
-  a.w = weight;
-  return a;
+  shotWeight = shotCount > 0 ? shotWeight/shotCount : 0;
+  return place::edge (pointAgreement/averagePoint,
+    freeSpaceAgreementA/totalPointA, freeSpaceAgreementB/totalPointB,
+    freeSpaceCross/averageFreeSpace, weight, shotWeight);
 }
 
 void place::loadInVoxel(const std::string & name, 
-  place::voxel & dst) {
+  place::voxelGrid & dst) {
   int x,y,z;
   std::ifstream in (name, std::ios::in | std::ios::binary);
   in.read(reinterpret_cast<char *>(&z), sizeof(z));
@@ -842,7 +844,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
       Function f(shape, shape + 2);
       for (int a = 0; a < currentMat.cols(); ++a) {
         for (int b = 0; b < currentMat.rows(); ++b) {
-          f(a,b) = currentMat(b,a).w;
+          f(a,b) = currentMat(b,a).w + currentMat(b,a).shotW;
         }
       }
       /* for (int a = 0; a < shape[1]; ++a) {
@@ -952,7 +954,7 @@ static void stackTerms(const std::vector<int> & toStack,
 }
 
 void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix, 
-  const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
+  const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
   std::vector<const place::node *> & bestNodes) {
 
   std::vector<int> numberOfLabels;
@@ -1003,7 +1005,7 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
         if (adjacencyMatrix(j,i).w == 0.0)
           continue;
 
-        objective += adjacencyMatrix(j,i).w*varList[i]*varList[j];
+        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).shotW)*varList[i]*varList[j];
       }
       const place::posInfo & currentScore = nodes[i].s;
       double scanExplained =
@@ -1081,7 +1083,7 @@ bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
 
   adjacencyMatrix = Eigen::MatrixXE(rows, cols);
   in.read(reinterpret_cast<char *>(adjacencyMatrix.data()),
-    sizeof(place::edgeWeight)*adjacencyMatrix.size());
+    sizeof(place::edge)*adjacencyMatrix.size());
 
   in.close();
 
@@ -1102,12 +1104,12 @@ void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
   out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
 
   out.write(reinterpret_cast<const char *>(adjacencyMatrix.data()),
-    sizeof(place::edgeWeight)*adjacencyMatrix.size());
+    sizeof(place::edge)*adjacencyMatrix.size());
 
   out.close();
 }
 
-bool place::localGroup(const Eigen::MatrixXb & toCheck, const int yOffset, 
+bool place::localGroup(auto & toCheck, const int yOffset, 
   const int xOffset, const int range) {
   for (int i = -range; i <= range; ++i) {
     for (int j = -range; j <= range; ++j) {
@@ -1134,7 +1136,7 @@ static double harmonic(int stop, double r) {
 
 void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
-  const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
+  const std::vector<place::node> & nodes, std::unordered_map<std::vector<int>, double> &
     highOrder) {
 
   std::vector<int> numberOfLabels;
@@ -1231,7 +1233,7 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
   }
 }
 
-void place::displayHighOrder(const std::map<std::vector<int>, double> highOrder, 
+void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> highOrder, 
   const std::vector<place::node> & nodes, 
   const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
@@ -1298,37 +1300,54 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     numberOfLabels.push_back(i);
   }
   const int numVars = numberOfLabels.size();
+
   for (int a = 0, rowOffset = 0; a < numVars; ++a) {
-    double average = 0.0;
-    int count = 0;
-    for (int j = 0; j < numberOfLabels[a]; ++j) {
-      for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
-        if(adjacencyMatrix(j + rowOffset, i).w !=0) {
-          average += adjacencyMatrix(j + rowOffset, i).w;
-          ++count;
-        }
-      }
-    }
-    average /= count;
-
-    double sigma = 0;
+    double averageW = 0.0, averageS = 0.0;
+    int countW = 0, countS = 0;
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
-        if(weight != 0) {
-          sigma += (weight - average)*(weight - average);
+        const double shot = adjacencyMatrix(j + rowOffset, i).shotW;
+        if(weight !=0) {
+          averageW += weight;
+          ++countW;
+        }
+        if (shot != 0) {
+          averageS += shot;
+          ++countS;
         }
       }
     }
-    sigma /= count - 1;
-    sigma = sqrt(sigma);
+    averageW /= countW;
+    averageS /= countS;
 
+    double sigmaW = 0, sigmaS = 0;
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
-        if(weight != 0) {
-          adjacencyMatrix(j + rowOffset, i).w = (weight - average)/sigma;
-        }
+        const double shot = adjacencyMatrix(j + rowOffset, i).shotW;
+        if(weight != 0)
+          sigmaW += (weight - averageW)*(weight - averageW);
+          
+        if (shot != 0)
+          sigmaS += (shot - averageS)*(shot - averageS);
+      }
+    }
+    sigmaW /= countW - 1;
+    sigmaW = sqrt(sigmaW);
+
+    sigmaS /= countS - 1;
+    sigmaS = sqrt(sigmaS);
+
+    for (int j = 0; j < numberOfLabels[a]; ++j) {
+      for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
+        double & weight = adjacencyMatrix(j + rowOffset, i).w;
+        double & shot = adjacencyMatrix(j + rowOffset, i).shotW;
+        if (weight != 0)
+          weight = (weight - averageW)/sigmaW;
+        
+        if (shot != 0)
+          shot = (shot - averageS)/sigmaS;
       }
     }
     rowOffset += numberOfLabels[a];
@@ -1336,7 +1355,7 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
 
  /* double average = 0.0;
   int count = 0;
-  place::edgeWeight * dataPtr = adjacencyMatrix.data();
+  place::edge * dataPtr = adjacencyMatrix.data();
   for (int i = 0; i < adjacencyMatrix.size(); ++i) {
     if ((dataPtr + i)->w != 0.0) {
       average += (dataPtr + i)->w;
@@ -1362,21 +1381,6 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
   } */
 }
 
-place::cube::cube() {
-  this->X1 = this->X2 = this->Y1 
-    = this->Y2 = this->Z1 = this->Z2 = 0;
-}
-
-place::cube::~cube() {
-
-}
-
-int place::cube::volume() {
-  const int width = this->X2 - this->X1;
-  const int length = this->Y2 - this->Y1;
-  const int height = this->Z2 - this->Z1;
-  return width*length*height;
-}
 
 /*void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan) {
   std::vector<std::string> pointFileNames;

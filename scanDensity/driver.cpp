@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
       bBox3D->run();
 
       voxel::CloudAnalyzer3D analyzer3D (manager.getPointsWithCenter(),
-        manager.getR(), bBox3D);
+        manager.getR(), manager.getFeatureVectors(), bBox3D);
       analyzer3D.run(voxelsPerMeter, manager.getScale());
 
       std::vector<std::string> pointNames, freeNames;

@@ -4,20 +4,28 @@
 #include "placeScan_placeScanHelper.h"
 
 #include <scan_typedefs.hpp>
+#include <FeatureVoxel.hpp>
 
 extern const int minScans;
 
+#include <unordered_map>
+
+namespace std {
+  template <>
+  struct hash<std::vector<int> >
+  {
+    std::size_t operator()(const std::vector<int> & k) const {
+      size_t seed = 0;
+      for (auto v : k) {
+        seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      }
+      return seed;
+    }
+  };
+} // std
 
 namespace place {
-  class cube {
-    public:
-      int X1, Y1, Z1;
-      int X2, Y2, Z2;
-      cube();
-      ~cube();
-      int volume();
-  };
-
+  
 	void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);
 
 	void loadInPlacement(const std::string & scanName,
@@ -34,8 +42,6 @@ namespace place {
     const std::vector<std::vector<place::metaData> > & voxelInfo,
     const std::vector<std::string> & pointVoxelFileNames,
     const std::vector<std::string> & freeVoxelFileNames,
-    const std::vector<cv::Mat> & panoramas,
-    const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
     Eigen::MatrixXE & adjacencyMatrix);
 
   void loadInPlacementGraph(const std::string & imageName, 
@@ -50,21 +56,18 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-
   void displayBest(const std::vector<const place::node *> & bestNodes,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-
-  place::edgeWeight compare3D(const place::voxel & aPoint,
-    const place::voxel & bPoint,
-    const place::voxel & aFree,
-    const place::voxel & bFree, 
-    const place::cube & aRect, const place::cube & bRect,
-    std::vector<Eigen::Vector3d> & aOverlap,  std::vector<Eigen::Vector3d> & bOverlap);
+  place::edge compare3D(const voxel::FeatureVoxel<Eigen::Vector1344f> & aPoint,
+    const voxel::FeatureVoxel<Eigen::Vector1344f> & bPoint,
+    const place::voxelGrid & aFree,
+    const place::voxelGrid & bFree, 
+    const place::cube & aRect, const place::cube & bRect);
 
   void loadInVoxel(const std::string & name, 
-    place::voxel & dst);
+    place::voxelGrid & dst);
 
   void loadInScansGraph(const std::vector<std::string> & pointFileNames,
   const std::vector<std::string> & freeFileNames,
@@ -80,26 +83,25 @@ namespace place {
   bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix);
   void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
 
-  bool localGroup(const Eigen::MatrixXb & toCheck, const int yOffset, 
+  bool localGroup(auto & toCheck, const int yOffset, 
     const int xOffset, const int range);
 
   void createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
-    const std::vector<place::node> & nodes, std::map<std::vector<int>, double> &
+    const std::vector<place::node> & nodes, std::unordered_map<std::vector<int>, double> &
     highOrder);
 
-  void displayHighOrder(const std::map<std::vector<int>, double> highOrder, 
+  void displayHighOrder(const std::unordered_map<std::vector<int>, double> highOrder, 
     const std::vector<place::node> & nodes, 
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
   void MIPSolver(const Eigen::MatrixXE & adjacencyMatrix, 
-    const std::map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
+    const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
     std::vector<const place::node *> & bestNodes);
 
   void normalizeWeights(Eigen::MatrixXE & adjacencyMatrix, 
     std::vector<place::node> & nodes);
 }
-
 
 #endif

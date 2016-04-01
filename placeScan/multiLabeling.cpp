@@ -20,12 +20,12 @@
 #include "gurobi_c++.h"
 
 multi::Labeler::Labeler() {
-
+	
 	place::parseFolders(pointFileNames,
 	  zerosFileNames, &freeFileNames);
 
 	{
-	  std::string folder = FLAGS_voxelFolder + "R" + std::to_string(0) + "/";
+	  std::string folder = FLAGS_voxelFolder + "R0/";
 	  DIR *dir;
 	  struct dirent *ent;
 	  if ((dir = opendir (folder.data())) != NULL) {
@@ -77,8 +77,8 @@ multi::Labeler::Labeler() {
 	  place::metaData tmp;
 	  std::vector<place::metaData> tmpVec;
 	  for (int i = 0; i < NUM_ROTS; ++i) {
-	    in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-	    tmpVec.push_back(tmp);
+	  	in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
+	  	tmpVec.push_back(tmp);
 	  }
 	  voxelInfo.push_back(tmpVec);
 	}
@@ -86,10 +86,8 @@ multi::Labeler::Labeler() {
 	zeroZeros.resize(numScans);
 	place::loadInScansGraph(pointFileNames, freeFileNames,
 	  zerosFileNames, scans, masks, zeroZeros);
-
-	loadInPanoramasAndRot();
 	
-	const int numToParse = 2;
+	const int numToParse = 10;
 	const int nodeStart = 0;
 	for (int i = nodeStart; i < std::min(numToParse + nodeStart,
 	  (int)pointFileNames.size()); ++i) {
@@ -118,45 +116,10 @@ multi::Labeler::Labeler() {
 	}
 }
 
-multi::Labeler::~Labeler() {
-
-}
-
-
-void multi::Labeler::loadInPanoramasAndRot() {
+void multi::Labeler::loadInRot() {
 
 	DIR *dir;
 	struct dirent *ent;
-	const std::string panoFolderImages = FLAGS_panoFolder + "images/";
-	if ((dir = opendir (panoFolderImages.data())) != NULL) {
-	  while ((ent = readdir (dir)) != NULL) {
-	    std::string fileName = ent->d_name;
-	    if (fileName != ".." && fileName != ".")
-	    	panoramaFiles.push_back(fileName);
-	  }
-	  closedir (dir);
-	}  else {
-	  /* could not open directory */
-	  perror ("");
-	  exit(-1);
-	}
-	std::sort(panoramaFiles.begin(), panoramaFiles.end());
-
-	const std::string panoFolderZMaps = FLAGS_panoFolder + "zMaps/";
-	if ((dir = opendir (panoFolderZMaps.data())) != NULL) {
-	  while ((ent = readdir (dir)) != NULL) {
-	    std::string fileName = ent->d_name;
-	    if (fileName != ".." && fileName != ".")
-	    	zMapsFiles.push_back(fileName);
-	  }
-	  closedir (dir);
-	}  else {
-	  /* could not open directory */
-	  perror ("");
-	  exit(-1);
-	}
-	std::sort(zMapsFiles.begin(), zMapsFiles.end());
-
 	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
 	  while ((ent = readdir (dir)) != NULL) {
 	    std::string fileName = ent->d_name;
@@ -170,23 +133,6 @@ void multi::Labeler::loadInPanoramasAndRot() {
 	  exit(-1);
 	}
 	std::sort(rotationsFiles.begin(), rotationsFiles.end());
-
-	for (auto & name : panoramaFiles) {
-		const std::string imgName = panoFolderImages + name;
-		panoramas.push_back(cv::imread(imgName));
-	}
-
-	for (auto & name : zMapsFiles) {
-		int rows, cols;
-		const std::string zMapName = panoFolderZMaps + name;
-		std::ifstream in (zMapName, std::ios::in | std::ios::binary);
-		in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
-		in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
-
-		zMaps.push_back(Eigen::MatrixXd (rows, cols));
-		in.read(reinterpret_cast<char *>(zMaps.back().data()), rows*cols*sizeof(double));
-		in.close();
-	}
 
 	for (auto & name : rotationsFiles) {
 		const std::string rotName = FLAGS_rotFolder + name;
@@ -202,7 +148,7 @@ void multi::Labeler::loadInPanoramasAndRot() {
 
 void multi::Labeler::weightEdges() {
 	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames, 
-		freeVoxelFileNames, panoramas, rotationMatricies, adjacencyMatrix);
+		freeVoxelFileNames, adjacencyMatrix);
 	place::normalizeWeights(adjacencyMatrix, nodes);
 }
 

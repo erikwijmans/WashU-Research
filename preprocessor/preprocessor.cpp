@@ -31,6 +31,8 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 
 
+DEFINE_bool(ptx, false, "tells the preprocessor to read a ptx file and convert it to binary.  Otherwise, a binary file will be read");
+
 typedef pcl::PointXYZRGB PointType;
 typedef pcl::Normal NormalType;
 typedef pcl::ReferenceFrame RFType;
@@ -58,7 +60,6 @@ void getDescriptors(const pcl::PointCloud<PointType>::Ptr & cloud,
 	pcl::PointCloud<DescriptorType>::Ptr & cloud_descriptors,
 	pcl::PointCloud<PointType>::Ptr & filtered_cloud);
 void saveDescriptors(const pcl::PointCloud<PointType>::Ptr & cloud,
-	const std::vector<int> & indices,
 	const pcl::PointCloud<DescriptorType>::Ptr & cloud_descriptors,
 	const std::string & outName);
 
@@ -73,9 +74,16 @@ int main(int argc, char *argv[]) {
 
 	std::vector<std::string> csvFileNames;
 
+	std::string inFolder;
+	if (FLAGS_ptx)
+		inFolder = FLAGS_PTXFolder;
+	else
+		inFolder = FLAGS_binaryFolder;
+	
+
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir (FLAGS_PTXFolder.data())) != NULL) {
+	if ((dir = opendir (inFolder.data())) != NULL) {
 	  /* Add all the files and directories to a vector */
 		while ((ent = readdir (dir)) != NULL) {
 			std::string fileName = ent->d_name;
@@ -98,7 +106,10 @@ int main(int argc, char *argv[]) {
 		}
 	);
 
-	for (int i = 0; i < csvFileNames.size(); ++i) {
+	if (FLAGS_numScans == -1 )
+    FLAGS_numScans = csvFileNames.size() - FLAGS_startIndex;
+
+	for (int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
 		const std::string csvFileName = FLAGS_PTXFolder + csvFileNames[i];
 		const std::string binaryFileName = FLAGS_binaryFolder + 
 		csvFileNames[i].substr(0,csvFileNames[i].find(".")) + ".dat";
@@ -117,8 +128,8 @@ int main(int argc, char *argv[]) {
 		getNormals(cloud, cloud_normals, indices);
 
 		const std::string normalsName = FLAGS_normalsFolder + outFileName;
-		if (FLAGS_save)
-			saveNormals(cloud_normals, normalsName);
+		
+		saveNormals(cloud_normals, normalsName);
 
 		std::cout << "Getting descriptors" << std::endl;
 		pcl::PointCloud<DescriptorType>::Ptr cloud_descriptors (new pcl::PointCloud<DescriptorType>);
@@ -126,18 +137,9 @@ int main(int argc, char *argv[]) {
 		getDescriptors(cloud, indices, cloud_normals, cloud_descriptors, filtered_cloud);
 
 		const std::string descriptorsName = FLAGS_descriptorsFolder + outFileName;
-		if (FLAGS_save)
-			saveDescriptors(filtered_cloud, indices, cloud_descriptors, descriptorsName);
-
-		/* const std::string buildName = csvFileNames[i].substr(0, 3);
-		const std::string scanNumber = csvFileNames[i].substr(
-			csvFileNames[i].find(".") - 3, 3);
-		const std::string outName = buildName + "_panorama_" 
-			+ scanNumber + ".png";
-		if(FLAGS_redo)
-			createPanorama(pointCloud, outName); */
+		
+		saveDescriptors(filtered_cloud, cloud_descriptors, descriptorsName);
 	}
-
 	return 0;
 }
 
@@ -386,31 +388,44 @@ void getDescriptors(const pcl::PointCloud<PointType>::Ptr & cloud,
 	shot_est.setSearchSurface (NaN_removed_cloud);
 	shot_est.compute (*cloud_descriptors);
 
-	auto shot_indices = shot_est.getIndices();
-	indices = *shot_indices;
 	std::cout << cloud_descriptors->size() << " descriptors found" << std::endl;
-	std::cout << indices.size() << std::endl;
+}
+
+static double norm1344 (float * vec) {
+	double norm = 0;
+	#pragma omp simd
+	for (int i = 0; i < 1344; ++i) {
+		norm += vec[i]*vec[i];
+	}
+	return sqrt(norm);
 }
 
 void saveDescriptors(const pcl::PointCloud<PointType>::Ptr & cloud,
-	const std::vector<int> & indices,
 	const pcl::PointCloud<DescriptorType>::Ptr & cloud_descriptors,
 	const std::string & outName) {
 
+	std::vector<int> finiteIndicies;
+	for (int i = 0; i < cloud_descriptors->size(); ++i)
+		if (pcl_isfinite (cloud_descriptors->at(i).descriptor[0]) && 
+			norm1344(cloud_descriptors->at(i).descriptor))
+			finiteIndicies.push_back(i);
+	
+	std::cout << finiteIndicies.size() << " well formed descriptors found" << std::endl;
+
 	std::ofstream out (outName, std::ios::out | std::ios::binary);
-	int num = cloud_descriptors->size();
+	int num = finiteIndicies.size();
 	out.write(reinterpret_cast<const char *>(&num), sizeof(num));
 	for (int i = 0; i < num; ++i) {
-		int index = indices[i];
+		int index = finiteIndicies[i];
 		SHOT1344WithXYZ SHOTout;
 		SHOTout.position = Eigen::Vector3d 
-			(cloud->points[index].x, cloud->points[index].y, cloud->points[index].z);
-		
-		for (int i = 0; i < SHOTout.descriptor.size(); ++i) {
-			SHOTout.descriptor[i] = cloud_descriptors->points[i].descriptor[i];
+			(cloud->at(index).x, cloud->at(index).y, cloud->at(index).z);
+		for (int k = 0; k < SHOTout.descriptor->size(); ++k) {
+			(*SHOTout.descriptor)[k] = cloud_descriptors->at(index).descriptor[k];
 		}
 		SHOTout.writeToFile(out);
 	}
+	out.close();
 }
 
 void boundingBox(const std::vector<scan::PointXYZRGB> & points,

@@ -2,21 +2,18 @@
 
 #include "scanDensity_scanDensity.h"
 
-
-#include <omp.h>
 #include <locale> 
-
 
 #include <sstream>
 #include <map>
-
 
 static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
 DensityMapsManager::DensityMapsManager (const std::string & commandLine): 
 	R {NULL},
 	pointsWithCenter {NULL},
-	pointsNoCenter {NULL}
+	pointsNoCenter {NULL},
+	featureVectors {NULL}
 {
 	this->resetFlags(commandLine);
 }
@@ -24,7 +21,8 @@ DensityMapsManager::DensityMapsManager (const std::string & commandLine):
 DensityMapsManager::DensityMapsManager(int argc, char * argv[]):
 	R {NULL},
 	pointsWithCenter {NULL},
-	pointsNoCenter {NULL}
+	pointsNoCenter {NULL},
+	featureVectors {NULL}
 {
 	this->resetFlags(argc, argv);
 }
@@ -77,10 +75,10 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	}
 
 	sort(binaryNames.begin(), binaryNames.end(), 
-		[](const std::string & a, const std::string & b) {
-				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-				return numA < numB;
+		[](auto & a, auto & b) {
+			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+			return numA < numB;
 		});
 
 	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
@@ -115,14 +113,21 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	}
 
 	sort(featureNames.begin(), featureNames.end(), 
-		[](const std::string & a, const std::string & b) {
-				int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-				int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-				return numA < numB;
+		[](auto & a, auto & b) {
+			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
+			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
+			return numA < numB;
 		});
 
-	if (binaryNames.size() != rotationsFiles.size())
-		std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
+		if (binaryNames.size() != rotationsFiles.size()) {
+			std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
+			exit(1);
+		}
+		if (rotationsFiles.size() != featureNames.size()) {
+			std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
+			exit(1);
+		}
+
 
 	std::string buildName = rotationsFiles[0].substr(0, 3);
 	std::locale loc;
@@ -132,13 +137,15 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	if (FLAGS_scale == -1)
 		FLAGS_scale = buildingToScale.find(buildName)->second;
 
-	this->current = 0;
+	if (FLAGS_numScans == -1)
+		FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
+	this->current = FLAGS_startIndex;
 }
 
 void DensityMapsManager::run() {
 	rotationFile = FLAGS_rotFolder + rotationsFiles[current]; 
 	fileName = FLAGS_binaryFolder + binaryNames[current];
-	// featName = FLAGS_descriptorsFolder + featureNames[current];
+	featName = FLAGS_descriptorsFolder + featureNames[current];
 
 	scanNumber = fileName.substr(fileName.find(".") - 3, 3);
 	buildName = fileName.substr(fileName.rfind("/") + 1, 3);
@@ -181,16 +188,18 @@ void DensityMapsManager::run() {
 	}
 	binaryReader.close();
 
-	/*binaryReader.open(featName, std::ios::in | std::ios::binary);
+	binaryReader.open(featName, std::ios::in | std::ios::binary);
+	int num;
 	binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
-	featureVectors.resize(num);
-	for (auto& v : featureVectors)
+	featureVectors = std::make_shared<std::vector<SHOT1344WithXYZ> > (num);
+	for (auto & v : *featureVectors)
 		v.loadFromFile(binaryReader);
-	binaryReader.close();*/
+	
+	binaryReader.close();
 }
 
 bool DensityMapsManager::hasNext() {
-	return current < binaryNames.size();
+	return current < FLAGS_numScans + FLAGS_startIndex;
 }
 
 void DensityMapsManager::setNext() {
@@ -219,14 +228,14 @@ void DensityMapsManager::get2DFreeNames(std::vector<std::string> & names) {
 }
 
 void DensityMapsManager::get3DFreeNames(std::vector<std::string> & names) {
-	for (int r = 0; r < NUM_ROTS; ++r) {
+  for (int r = 0; r < NUM_ROTS; ++r) {
 	  names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r)
 	  	+ "/" + buildName + "_freeSpace_" + scanNumber + ".dat");
 	}
 }
 
 std::string DensityMapsManager::getZerosName() {
-	return FLAGS_zerosFolder + buildName + "zeros" + scanNumber + ".dat";
+	return FLAGS_zerosFolder + buildName + "_zeros_" + scanNumber + ".dat";
 }
 
 std::string DensityMapsManager::getMetaDataName() {

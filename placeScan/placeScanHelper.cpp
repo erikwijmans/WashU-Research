@@ -15,13 +15,6 @@ const double maxDelta = 0.10, maxTotal = 0.15;
 
 static const int minWrite = 20;
 
-std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
-	os << print->score <<"      " << print->x << "      " 
-		<<print->y << "      " << print->rotation << std::endl;
-	os << print->scanFP << "      " << print->fpScan << std::endl;
-	os << print->scanPixels << "    " << print->fpPixels;
-	return os;
-}
 
 void place::parseFolders(std::vector<std::string> & pointFileNames, 
 	std::vector<std::string> & zerosFileNames,

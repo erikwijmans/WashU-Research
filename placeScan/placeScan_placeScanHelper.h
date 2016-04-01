@@ -75,7 +75,5 @@ namespace place {
 
 } //namespace place
 
-std::ostream & operator<<(std::ostream & os, const place::posInfo * print);
-
 
 #endif

@@ -15,18 +15,15 @@ namespace multi {
 			std::vector<const place::node *> bestNodes;
 			std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
 			std::vector<std::string > pointVoxelFileNames, freeVoxelFileNames;
-			std::vector<std::string> metaDataFiles, panoramaFiles, rotationsFiles, zMapsFiles;
+			std::vector<std::string> metaDataFiles,rotationsFiles;
 			std::vector<std::vector<place::metaData> > voxelInfo;
 			std::vector<std::vector<Eigen::MatrixXb> > scans, masks;
-			std::map<std::vector<int>, double> highOrder;
-			std::vector<cv::Mat> panoramas;
+			std::unordered_map<std::vector<int>, double> highOrder;
 			std::vector<std::vector<Eigen::Matrix3d> > rotationMatricies;
-			std::vector<Eigen::MatrixXd> zMaps;
 			std::vector<size_t> numberOfLabels;
-			void loadInPanoramasAndRot();
+			void loadInRot();
 		public:
 			Labeler();
-			~Labeler();
 			void weightEdges();
 			void solveTRW();
 			void solveMIP();
