@@ -60,8 +60,8 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans, 
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  place::edge compare3D(const voxel::FeatureVoxel<Eigen::Vector1344f> & aPoint,
-    const voxel::FeatureVoxel<Eigen::Vector1344f> & bPoint,
+  place::edge compare3D(const voxel::SparseFeatureVoxel<float> & aPoint,
+    const voxel::SparseFeatureVoxel<float> & bPoint,
     const place::voxelGrid & aFree,
     const place::voxelGrid & bFree, 
     const place::cube & aRect, const place::cube & bRect);

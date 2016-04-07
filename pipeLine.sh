@@ -9,7 +9,7 @@ cd ~/Projects/3DscanData/DUC/Floor1/
 find -type d -links 2 -exec mkdir -p "$1{}" \;
 cd ~/Projects/c++/preprocessor
 make
-./preprocessor -dataPath=$1
+./preprocessor -dataPath=$1 -ptx
 cd ../getRotations
 make
 ./getRotations -dataPath=$1

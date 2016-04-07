@@ -4,6 +4,7 @@
 #include "scanDensity_scanDensity.h"
 
 #include <unordered_map>
+#include <FeatureVoxel.hpp>
 
 namespace std {
   template <>
@@ -23,21 +24,22 @@ namespace voxel {
 
   class CloudAnalyzer3D {
     private:
-      std::shared_ptr<const std::vector<Eigen::Vector3f> > points;
-      std::shared_ptr<const std::vector<Eigen::Matrix3d> > R;
-      std::shared_ptr<const BoundingBox> bBox;
-      std::shared_ptr<const std::vector<SHOT1344WithXYZ> > featureVectors;
-      std::unordered_map<Eigen::Vector3i, std::shared_ptr<Eigen::Vector1344f> > xyzToSHOT1334;
+      DensityMapsManager::PointsPtr points;
+      DensityMapsManager::MatPtr R;
+      BoundingBox::ConstPtr bBox;
+      std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > featureVectors;
+      std::unordered_map<Eigen::Vector3i, FeatureVoxel<float>::DescripPtr> xyzToSHOT1334;
       std::vector<Eigen::MatrixXi> pointsPerVoxel, numTimesSeen;
       Eigen::Vector3f pointMin, pointMax;
       double voxelsPerMeter, pixelsPerMeter;
       Eigen::Vector3d zeroZeroD;
       Eigen::Vector3i zeroZero;
     public:
-      CloudAnalyzer3D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
-        const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
-        const std::shared_ptr<const std::vector<SHOT1344WithXYZ> > & featureVectors,
-        const std::shared_ptr<const BoundingBox> & bBox);
+      typedef std::shared_ptr<voxel::CloudAnalyzer3D> Ptr;
+      CloudAnalyzer3D(const DensityMapsManager::PointsPtr & points,
+        const DensityMapsManager::MatPtr & R,
+        const std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > & featureVectors,
+        const BoundingBox::ConstPtr & bBox);
       void run(double voxelsPerMeter, double pixelsPerMeter);
       void saveVoxelGrids(const std::vector<std::string> & pointNames,
         const std::vector<std::string> & freeNames,
@@ -45,6 +47,5 @@ namespace voxel {
   };
 
 } // voxel
-
 
 #endif // SCAN_DENSITY_3D_INFO_H

@@ -22,7 +22,16 @@ static Eigen::Vector3d polarToCartesian(const Eigen::Vector3d & coords) {
 
 static Eigen::Vector2d pointCloudToPanorama(const Eigen::Vector3d & worldCoord,
 	double & r) {
-	Eigen::Vector3d local = worldCoord;
+	auto polar = cartesianToPolar(worldCoord);
+	double x = (polar[1]/PI + 1.0)*panoResolution;
+	double y = polar[2]/PI*panoResolution;
+	r = polar[0];
+	return Eigen::Vector2d (x, y);
+}
+
+static Eigen::Vector2d voxelSpaceToPanorama(const Eigen::Vector3d & voxelCoord,
+	double & r) {
+	Eigen::Vector3d local = voxelCoord;
 	local[1] *= -1.0;
 	auto polar = cartesianToPolar(local);
 	double x = (polar[1]/PI + 1.0)*panoResolution;
@@ -32,7 +41,14 @@ static Eigen::Vector2d pointCloudToPanorama(const Eigen::Vector3d & worldCoord,
 }
 
 static Eigen::Vector2d pointCloudToPanorama(const Eigen::Vector3d & worldCoord) {
-	Eigen::Vector3d local = worldCoord;
+	auto polar = cartesianToPolar(worldCoord);
+	double x = (polar[1]/PI + 1.0)*panoResolution;
+	double y = polar[2]/PI*panoResolution;
+	return Eigen::Vector2d (x, y);
+}
+
+static Eigen::Vector2d voxelSpaceToPanorama(const Eigen::Vector3d & voxelCoord) {
+	Eigen::Vector3d local = voxelCoord;
 	local[1] *= -1.0;
 	auto polar = cartesianToPolar(local);
 	double x = (polar[1]/PI + 1.0)*panoResolution;
@@ -45,6 +61,15 @@ static Eigen::Vector3d panoramaToPointCloud(const Eigen::Vector2d & panoCoord,
 	double theta = (panoCoord[0]/panoResolution - 1.0)*PI;
 	double phi = panoCoord[1]*PI/panoResolution;
 	return polarToCartesian(Eigen::Vector3d (r, theta, phi));
+}
+
+static Eigen::Vector3d panoramaToVoxelSpace(const Eigen::Vector2d panoCoord,
+	const double r) {
+	double theta = (panoCoord[0]/panoResolution - 1.0)*PI;
+	double phi = panoCoord[1]*PI/panoResolution;
+	auto voxel =  polarToCartesian(Eigen::Vector3d (r, theta, phi));
+	voxel[1] *= -1.0;
+	return voxel;
 }
 
 double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
@@ -73,16 +98,15 @@ double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
 
 		for (int j = 0; j < NCCSize; ++j) {
 			for (int i = 0; i < NCCSize; ++i) {
-				auto aWorld = panoramaToPointCloud(NCCSquareA[j][i], r);
-				auto bWorld = deltaRot*aWorld + rotatedTranslation;
-				NCCSquareB[j][i] = pointCloudToPanorama(bWorld);
+				auto aVoxelSpace = panoramaToVoxelSpace(NCCSquareA[j][i], r);
+				auto bVoxelSpace = deltaRot*aVoxelSpace + rotatedTranslation;
+				NCCSquareB[j][i] = voxelSpaceToPanorama(bVoxelSpace);
 			}
-		} 
+		}
 
 		cv::Mat_<cv::Vec3b> _aPatch (NCCSize, NCCSize, cv::Vec3b (0, 0, 0));
 		cv::Mat_<cv::Vec3b> _bPatch (NCCSize, NCCSize, cv::Vec3b (0, 0, 0));
 		double skip = false;
-
 
 		cv::Mat outA (panoA.rows, panoA.cols, CV_8UC3);
 		cv::Mat_<cv::Vec3b> _outA = outA;
@@ -119,7 +143,6 @@ double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
 					skip = true;
 			}
 		}
-
 
 		if (skip)
 			continue;
@@ -165,9 +188,6 @@ double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
 	score /= count;
 	std::cout << score << std::endl;
 
-	
-
-
 	return score;
 }
 
@@ -177,5 +197,6 @@ void pano::voxelToWorld(std::vector<Eigen::Vector3d> & points,
 
 	for (auto & p : points) {
 		p = R*(p - zeroZero.cast<double>())*metersPerVoxel;
+		p[1] *= -1.0;
 	}
 }

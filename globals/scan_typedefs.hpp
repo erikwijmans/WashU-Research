@@ -3,12 +3,13 @@
 
 #include <eigen3/Eigen/StdVector>
 #include <eigen3/Eigen/Eigen>
+#include <eigen3/Eigen/Sparse>
 #include <fstream>
 #include <memory>
 
 #define NUM_ROTS 4
 
-const int panoResolution = 500;
+const int panoResolution = 4267;
 const double PI = 3.14159265358979323846;
 
 static inline Eigen::Vector3i alignedToSource(const auto & aligned,
@@ -55,9 +56,9 @@ typedef struct SHOT1344WithXYZ {
 	std::shared_ptr<Eigen::Vector1344f> descriptor;
 	Eigen::Vector3d position;
 
-	SHOT1344WithXYZ() {
-		descriptor = std::make_shared<Eigen::Vector1344f>();
-	}
+	SHOT1344WithXYZ() : descriptor {std::make_shared<Eigen::Vector1344f> ()}
+	{
+	};
 
 	void writeToFile(std::ofstream & out) {
 		out.write(reinterpret_cast<const char *>(descriptor->data()), 
@@ -73,11 +74,163 @@ typedef struct SHOT1344WithXYZ {
 
 } SHOT1344WithXYZ;
 
+template<typename MatrixType>
+void saveMatrixAsSparse(const MatrixType & mat, std::ofstream & out) {
+	typedef typename MatrixType::Scalar Scalar;
+	int numNonZeros = 0, rows = mat.rows(), cols = mat.cols();
+	const Scalar * dataPtr = mat.data();
+	for (int i = 0; i < mat.size(); ++i)
+		if (*(dataPtr + i)) ++numNonZeros;
+
+	out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+	out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+	out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+
+	for (int i = 0; i < mat.size(); ++i) {
+		if (*(dataPtr + i)) {
+			out.write(reinterpret_cast<const char *>(&i),sizeof(i));
+			out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(Scalar));
+		}
+	}
+}
+
+
+template<typename MatrixType>
+void loadMatrixFromSparse(MatrixType & mat, std::ifstream & in) {
+	typedef typename MatrixType::Scalar Scalar;
+	int numNonZeros, rows, cols;
+
+	in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
+	in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+	in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+
+	mat = MatrixType::Zero(rows, cols);
+	Scalar * dataPtr = mat.data();
+
+	for (int i = 0; i < numNonZeros; ++i) {
+		int index;
+		in.read(reinterpret_cast<char *>(&index), sizeof(index));
+		in.read(reinterpret_cast<char *>(dataPtr + index), sizeof(Scalar));
+	}
+}
+
+template<typename SparseMatrixType>
+void saveSparseMatrix(SparseMatrixType & mat, std::ofstream & out) {
+	typedef typename SparseMatrixType::Scalar Scalar;
+
+	int rows = mat.rows(), cols = mat.cols(), numNonZeros = mat.nonZeros();
+	out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+	out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+	out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+
+	for (int i = 0; mat.outerSize(); ++i) {
+		for (typename SparseMatrixType::InnerIterator it (mat, i); it; ++it) {
+			int index = it.col()*rows + it.row();
+			Scalar value = it.value();
+			out.write(reinterpret_cast<const char *>(&index),sizeof(index));
+			out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
+		}
+	}
+}
+
+template<typename SparseMatrixType>
+void loadSparseMatrix(SparseMatrixType & mat, std::ifstream & in) {
+	typedef typename SparseMatrixType::Scalar Scalar;
+	typedef Eigen::Triplet<Scalar> TripType;
+
+	int rows, cols, numNonZeros;
+	in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
+	in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+	in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+	mat.resize(rows, cols);
+	mat.reserve(numNonZeros);
+	std::vector<TripType> tripletList;
+	tripletList.reserve(numNonZeros);
+
+	for (int i = 0; i < numNonZeros; ++i) {
+		int index;
+		Scalar value;
+		in.read(reinterpret_cast<char *>(&index), sizeof(index));
+		in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
+		int col = floor(index/rows);
+		int row = index % rows;
+		tripletList.push_back(TripType (row, col, value));
+	}
+	mat.setFromTriplets(tripletList.begin(), tripletList.end());
+	mat.prune(1);
+}
+
+template<typename SparseVectorType>
+void saveSpareVector(const SparseVectorType & vec, std::ofstream & out) {
+	typedef typename SparseVectorType::Scalar Scalar;
+	int nonZeros = vec.nonZeros(), size = vec.size();
+	out.write(reinterpret_cast<const char *>(&nonZeros), sizeof(nonZeros));
+	out.write(reinterpret_cast<const char *>(&size), sizeof(size));
+	for (int i = 0; i < vec.outerSize(); ++i) {
+		for (typename SparseVectorType::InnerIterator it (vec, i); it; ++it) {
+			Scalar value = it.value();
+			short row = it.row();
+			out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
+			out.write(reinterpret_cast<const char *>(&row), sizeof(row));
+		}
+	}
+}
+
+template<typename SparseVectorType>
+void loadSparseVetor(SparseVectorType & vec, std::ifstream & in) {
+	typedef typename SparseVectorType::Scalar Scalar;
+	int nonZeros, size;
+	in.read(reinterpret_cast<char *>(&nonZeros), sizeof(nonZeros));
+	in.read(reinterpret_cast<char *>(&size), sizeof(size));
+	vec.resize(size);
+	vec.reserve(nonZeros);
+	for (int i = 0; i < nonZeros; ++i) {
+		Scalar value;
+		short row;
+		in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
+		in.read(reinterpret_cast<char *>(&row), sizeof(row));
+		vec.coeffRef(row) = value;
+	}
+}
+
+typedef struct SPARSE1344WithXYZ {
+	typedef Eigen::SparseVector<float> VecType;
+	std::shared_ptr<VecType> descriptor;
+	Eigen::Vector3d position;
+
+	SPARSE1344WithXYZ() : descriptor {std::make_shared<VecType> (1344)}
+	{
+	};
+
+	void writeToFile(std::ofstream & out) {
+		saveSpareVector(*descriptor, out);
+		out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
+	}
+
+	void loadFromFile(std::ifstream & in) {
+		loadSparseVetor(*descriptor, in);
+		in.read(reinterpret_cast<char *>(position.data()), sizeof(position));
+	}
+
+} SPARSE1344WithXYZ;
+
 namespace scan {
 	typedef struct {
 		Eigen::Vector3f point;
-		double intensity;
+		float intensity;
 		unsigned char rgb [3];
+
+		void writeToFile(std::ofstream & out) {
+			out.write(reinterpret_cast<const char *>(point.data()), sizeof(point));
+			out.write(reinterpret_cast<const char *>(&intensity), sizeof(intensity));
+			out.write(reinterpret_cast<const char *>(rgb), 3*sizeof(char));
+		}
+		void loadFromFile(std::ifstream & in) {
+			in.read(reinterpret_cast<char *>(point.data()), sizeof(point));
+			in.read(reinterpret_cast<char *>(&intensity), sizeof(intensity));
+			in.read(reinterpret_cast<char *>(rgb), 3*sizeof(char));
+		}
+
 	} PointXYZRGBA;
 	
 	typedef struct {
@@ -115,7 +268,30 @@ namespace place {
 
 	typedef struct {
     std::vector<Eigen::MatrixXb> v;
+    Eigen::Vector3i zZ;
     size_t c;
+
+    void writeToFile(std::ofstream & out) {
+    	int numZ = v.size();
+    	out.write(reinterpret_cast<const char *>(&numZ), sizeof(numZ));
+    	for (int k = 0; k < numZ; ++k) {
+    		saveMatrixAsSparse(v[k], out);
+    	}
+    	out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
+    	out.write(reinterpret_cast<const char *>(&c), sizeof(c));
+    };
+
+    void loadFromFile(std::ifstream & in) {
+    	int numZ;
+    	in.read(reinterpret_cast<char *>(&numZ), sizeof(numZ));
+    	v.resize(numZ);
+    	for (int k = 0; k < numZ; ++k) {
+    		loadMatrixFromSparse(v[k], in);
+    	}
+    	in.read(reinterpret_cast<char *>(zZ.data()), sizeof(zZ));
+    	in.read(reinterpret_cast<char *>(&c), sizeof(c));
+
+    }
   } voxelGrid;
 
 	typedef struct {
@@ -140,6 +316,23 @@ namespace place {
     Eigen::Vector3i zZ;
     int x, y, z;
     double vox, s;
+    void writeToFile(std::ofstream & out) {
+    	out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
+    	out.write(reinterpret_cast<const char *>(&x), sizeof(x));
+    	out.write(reinterpret_cast<const char *>(&y), sizeof(y));
+    	out.write(reinterpret_cast<const char *>(&z), sizeof(z));
+    	out.write(reinterpret_cast<const char *>(&vox), sizeof(vox));
+    	out.write(reinterpret_cast<const char *>(&s), sizeof(s));
+    };
+
+    void loadFromFile(std::ifstream & in) {
+    	in.read(reinterpret_cast<char *>(zZ.data()), sizeof(zZ));
+    	in.read(reinterpret_cast<char *>(&x), sizeof(x));
+    	in.read(reinterpret_cast<char *>(&y), sizeof(y));
+    	in.read(reinterpret_cast<char *>(&z), sizeof(z));
+    	in.read(reinterpret_cast<char *>(&vox), sizeof(vox));
+    	in.read(reinterpret_cast<char *>(&s), sizeof(s));
+    };
   } metaData;
 
   class cube {

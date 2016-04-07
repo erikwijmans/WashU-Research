@@ -7,17 +7,19 @@
 #include <dirent.h>
 #include <vector>
 #include <fstream>
+#include <random>
 #include <math.h>
 #include <time.h>
 #include <omp.h>
 
 #include <scan_gflags.h>
+#include <scan_typedefs.hpp>
 
 using namespace std;
 using namespace Eigen;
 
-void satoshiRansacManhattan1(const VectorXd &, Vector3d &);
-void satoshiRansacManhattan2(const VectorXd &, const Vector3d &, 
+void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &, Vector3d &);
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &, const Vector3d &, 
 	Vector3d &, Vector3d &);
 void getMajorAngles(const Vector3d &, vector<Matrix3d> &);
 Matrix3d getRotationMatrix(const Vector3d &, const Vector3d &);
@@ -55,14 +57,11 @@ int main(int argc, char *argv[]) {
 			return numA < numB;
 		});
 
-	//#pragma omp parallel for schedule(dynamic) shared(normalsNames)
 	for(int i = FLAGS_startIndex; i < normalsNames.size() - FLAGS_startIndex; ++i) {
 		const string normalsFilePath = FLAGS_normalsFolder + normalsNames[i];
 		analyzeNormals(normalsFilePath, FLAGS_rotFolder);
 	}
 	
-
-
 	return 0;
 }
 
@@ -84,8 +83,8 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	ifstream normalsFile (normalsFileName, ios::in | ios::binary);
 	size_t count = 0;
 	normalsFile.read(reinterpret_cast<char *> (&count), sizeof(size_t));
-	for (int i = 0; i < count; ++i)
-	{
+	normals.reserve(count);
+	for (int i = 0; i < count; ++i) {
 		Vector3f point;
 		normalsFile.read(reinterpret_cast<char *> (point.data()), sizeof(Vector3f));
 		Vector3d tmp;
@@ -96,42 +95,24 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	}
 	normalsFile.close();
 
-	VectorXd N (normals.size()*3);
-	for (int i = 0; i < normals.size(); ++i)
-	{
-		N[i*3] = normals[i][0];
-		N[i*3 + 1] = normals[i][1];
-		N[i*3 + 2] = normals[i][2];
-	}
 	if(!FLAGS_quiteMode)
-		cout << "N size: " << N.size() << endl; 
+		cout << "N size: " << normals.size() << endl; 
 
 	Vector3d d1, d2, d3;
-	satoshiRansacManhattan1(N, d1);
-	d1 /= d1.norm();
+	satoshiRansacManhattan1(normals, d1);
 	if (!FLAGS_quiteMode) {
 		cout << "D1: " << d1 << endl << endl;
 	}
-	VectorXd N2;
-	int index = 0;
-	for (auto & normal : normals)
-	{
-		if(abs(normal.dot(d1)) < 0.02)
-		{	
-			N2.resize(index*3 + 3);
-			N2[index*3] = normal[0];
-			N2[index*3 + 1] = normal[1];
-			N2[index*3 + 2] = normal[2];
-			++index;
-		}
-	}
+	std::vector<Eigen::Vector3d> N2;
+	for (auto & n : normals) 
+		if(asin(n.cross(d1).norm()) > PI/2.0 - 0.02)	
+			N2.push_back(n);
+
 	if(!FLAGS_quiteMode)
 		cout << "N2 size: " << N2.size() << endl;
 
 	satoshiRansacManhattan2(N2, d1, d2, d3);
-	d2 /= d2.norm();
-	d3 /= d3.norm();
-
+	
 	if(!FLAGS_quiteMode) {
 		cout << "D2: " << d2 << endl << endl;
 		cout << "D3: " << d3 << endl << endl;
@@ -146,141 +127,132 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	else
 		getMajorAngles(d3, R);
 
-	ofstream binaryWriter (rotOut, ios::out | ios::binary);
-	for(int i = 0; i < R.size(); ++i) {
-		binaryWriter.write(reinterpret_cast<const char *> (R[i].data()),
-			sizeof(Matrix3d));
+	if (FLAGS_save) {
+		ofstream binaryWriter (rotOut, ios::out | ios::binary);
+		for(int i = 0; i < R.size(); ++i) {
+			binaryWriter.write(reinterpret_cast<const char *> (R[i].data()),
+				sizeof(Matrix3d));
+		}
+		binaryWriter.close();
 	}
-	binaryWriter.close();
 }
 
 
-void satoshiRansacManhattan1(const VectorXd & N, Vector3d & M) {
-
-	int m = static_cast<int>(N.size()/3.0);
+void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Vector3d & M) {
+	const int m = N.size();
+	static std::random_device seed;
+	std::uniform_int_distribution<int> dist(0, m - 1);
+	std::mt19937_64 gen(seed());
 	
-	double maxInliers = 0;
-	double K = 1.0e5;
-	int k=0;
+	volatile double maxInliers = 0, K = 1e5;
+	volatile int k = 0;
 
-	int randomIndex;
-	Vector3d nest;
-	Vector3d ndata;
+	#pragma omp parallel shared(k, K, maxInliers, N, M)
+	{
+		while (k < K) {
+			// random sampling
+			int randomIndex = dist(gen);
+			// compute the model parameters
+			const Eigen::Vector3d & nest = N[randomIndex];
 
-	while(k < K) {
-		// random sampling
-		randomIndex = rand()%m;
-		// compute the model parameters
-		nest[0] = N[3*randomIndex+0];
-		nest[1] = N[3*randomIndex+1];
-		nest[2] = N[3*randomIndex+2];			
-
-		// counting inliers and outliers
-		double numInliers = 0;
-		Vector3d average = Vector3d::Zero();
-		for(int i=0;i<m;i++) {
-			ndata[0] = N[3*i+0];
-			ndata[1] = N[3*i+1];
-			ndata[2] = N[3*i+2];
-
-			if (acos(abs(nest.dot(ndata))) < 0.02) {
-				++numInliers;
-				if (nest.dot(ndata) < 0)
-					average -= ndata;
-				else
-					average += ndata;
-			}
-		}
-		
-		
-		if(numInliers > maxInliers) {
-			maxInliers = numInliers;
-			
-			M = average/average.norm();
-			
-			double w = (numInliers-3)/m;
-			double p = max(0.001,pow(w,3));
-			K = log(1-0.999)/log(1-p);	
-		}
-		if(k > 10000) k = 10*k;
-		++k;
-	}
-	
-}
-
-void satoshiRansacManhattan2(const VectorXd & N, const Vector3d & n1, 
-	Vector3d & M1, Vector3d & M2) {
-	
-	int m = static_cast<int>(N.size()/3);
-	
-	double maxInliers = 0;
-	double K = 1.0e5;
-	int k=0;
-
-	int randomIndex;
-	Vector3d nest;
-	Vector3d nest2;
-	Vector3d ndata;		
-
-	while(k < K) {
-		// random sampling
-		randomIndex = rand()%m;
-		// compute the model parameters
-		nest[0] = N[3*randomIndex+0];
-		nest[1] = N[3*randomIndex+1];
-		nest[2] = N[3*randomIndex+2];	
-
-		nest2 = nest.cross(n1);
-
-		// counting inliers and outliers
-		double numInliers = 0, numInliers2 = 0;
-		Vector3d average = Vector3d::Zero(), average2 = Vector3d::Zero();
-		for(int i=0;i<m;i++) {
-			ndata[0] = N[3*i+0];
-			ndata[1] = N[3*i+1];
-			ndata[2] = N[3*i+2];
-
-			if(min(acos(abs(nest.dot(ndata))),acos(abs(nest2.dot(ndata)))) < 0.02) {
-				if(acos(abs(nest.dot(ndata))) < 0.02) {
+			// counting inliers and outliers
+			double numInliers = 0;
+			Eigen::Vector3d average = Vector3d::Zero();
+			for(auto & n : N) {
+				if (acos(abs(nest.dot(n))) < 0.02) {
 					++numInliers;
-					if (nest.dot(ndata) < 0)
-						average -= ndata;
+					if (nest.dot(n) < 0)
+						average -= n;
 					else
-						average += ndata;
-				} else {
-					++numInliers2;
-					if (nest2.dot(ndata) < 0)
-						average2 -= ndata;
-					else 
-						average2 += ndata;
+						average += n;
 				}
-			}		
-		}
-
-		if((numInliers + numInliers2) > maxInliers) {
-			maxInliers = numInliers + numInliers2;
-			
-			if(numInliers > numInliers2) {
-				average /= average.norm();
-				M1 = average;
-				M2 = average.cross(n1);
-			} else {
-				average2 /= average2.norm();
-				M1 = average2.cross(n1);
-				M2 = average2;
 			}
 			
-			
-			double w = (maxInliers-3)/m;
-			double p = max(0.001,pow(w,3));
-			K = log(1-0.999)/log(1-p);	
+			#pragma omp crtical
+			{
+				if(numInliers > maxInliers) {
+					maxInliers = numInliers;
+					
+					M = average/average.norm();
+					
+					double w = (numInliers-3)/m;
+					double p = max(0.001,pow(w,3));
+					K = log(1-0.999)/log(1-p);	
+				}
+				if(k > 10000) k = 10*k;
+				++k;
+			}
 		}
-			
-		if(k > 10000) k = 10*K;
-		++k;
-		
 	}
+}
+
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vector3d & n1, 
+	Vector3d & M1, Vector3d & M2) {
+	const int m = N.size();
+	static std::random_device seed;
+	std::uniform_int_distribution<int> dist(0, m - 1);
+	std::mt19937_64 gen(seed());
 	
+	volatile double maxInliers = 0, K = 1.0e5;
+	volatile int k = 0;
+
+	#pragma omp parallel shared (k, K, maxInliers, N, n1, M1, M2)
+	{
+		while (k < K) {
+			// random sampling
+			int randomIndex = dist(gen);
+			// compute the model parameters
+			const Eigen::Vector3d & nest = N[randomIndex];
+
+			const Eigen::Vector3d nest2 = nest.cross(n1);
+
+			// counting inliers and outliers
+			double numInliers = 0, numInliers2 = 0;
+			Eigen::Vector3d average = Vector3d::Zero(), 
+				average2 = Vector3d::Zero();
+			for(auto & n : N) {
+				if(min(acos(abs(nest.dot(n))),acos(abs(nest2.dot(n)))) < 0.02) {
+					if(acos(abs(nest.dot(n))) < 0.02) {
+						++numInliers;
+						if (nest.dot(n) < 0)
+							average -= n;
+						else
+							average += n;
+					} else {
+						++numInliers2;
+						if (nest2.dot(n) < 0)
+							average2 -= n;
+						else 
+							average2 += n;
+					}
+				}		
+			}
+
+			#pragma omp crtical
+			{
+				if((numInliers + numInliers2) > maxInliers) {
+					maxInliers = numInliers + numInliers2;
+					
+					if(numInliers > numInliers2) {
+						average /= average.norm();
+						M1 = average;
+						M2 = average.cross(n1);
+					} else {
+						average2 /= average2.norm();
+						M1 = average2.cross(n1);
+						M2 = average2;
+					}
+					
+					double w = (maxInliers-3)/m;
+					double p = max(0.001,pow(w,3));
+					K = log(1-0.999)/log(1-p);	
+				}
+					
+				if(k > 10000) k = 10*K;
+				++k;
+			}
+		}
+	}
 }
 
 void getMajorAngles(const Vector3d & M, vector<Matrix3d> & R) {

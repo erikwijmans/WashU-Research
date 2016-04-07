@@ -41,7 +41,8 @@ int main(int argc, char *argv[]) {
         analyzer2D.examineFreeSpaceEvidence();
         std::vector<std::string> names;
         manager.get2DFreeNames(names);
-        saveImages(analyzer2D.getFreeSpaceEvidence(), names);
+        if (FLAGS_save)
+          saveImages(analyzer2D.getFreeSpaceEvidence(), names);
       }
     }
     
@@ -50,6 +51,8 @@ int main(int argc, char *argv[]) {
 
       auto bBox3D = std::make_shared<BoundingBox>(manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
       bBox3D->run();
+      Eigen::Vector3f pointMin, pointMax;
+      bBox3D->getBoundingBox(pointMin, pointMax);
 
       voxel::CloudAnalyzer3D analyzer3D (manager.getPointsWithCenter(),
         manager.getR(), manager.getFeatureVectors(), bBox3D);
@@ -59,8 +62,9 @@ int main(int argc, char *argv[]) {
       manager.get3DPointNames(pointNames);
       manager.get3DFreeNames(freeNames);
 
-      analyzer3D.saveVoxelGrids(pointNames, freeNames,
-        manager.getMetaDataName());
+      if (FLAGS_save)
+        analyzer3D.saveVoxelGrids(pointNames, freeNames,
+          manager.getMetaDataName());
     }
 
     manager.setNext();

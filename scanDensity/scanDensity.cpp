@@ -6,6 +6,7 @@
 
 #include <sstream>
 #include <map>
+#include <HashVoxel.hpp>
 
 static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
@@ -119,23 +120,28 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 			return numA < numB;
 		});
 
-		if (binaryNames.size() != rotationsFiles.size()) {
-			std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
-			exit(1);
-		}
-		if (rotationsFiles.size() != featureNames.size()) {
-			std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
-			exit(1);
-		}
-
+	if (binaryNames.size() != rotationsFiles.size()) {
+		std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
+		exit(1);
+	}
+	if (rotationsFiles.size() != featureNames.size()) {
+		std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
+		exit(1);
+	}
 
 	std::string buildName = rotationsFiles[0].substr(0, 3);
 	std::locale loc;
 	for (int i = 0; i < buildName.length(); ++i) {
 		buildName[i] = std::tolower(buildName[i], loc);
 	}
-	if (FLAGS_scale == -1)
+	if (FLAGS_scale == -1) {
+		auto it = buildingToScale.find(buildName);
+		if (it == buildingToScale.end()) {
+			std::cout << "Could not find a scale assocaited with " << buildName << std::endl;
+			exit(1); 
+		}
 		FLAGS_scale = buildingToScale.find(buildName)->second;
+	}
 
 	if (FLAGS_numScans == -1)
 		FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
@@ -172,13 +178,13 @@ void DensityMapsManager::run() {
   pointsNoCenter->reserve(columns*rows);
 
   for (int k = 0; k < columns * rows; ++k) {
-    scan::PointXYZRGB tmp;
+    scan::PointXYZRGBA tmp;
 		tmp.loadFromFile(binaryReader);
 		auto & point = tmp.point;
 
 		point[1] *= -1.0;
 
-		if (!(point[0] || point[1] || point[2]))
+		if (!(point[0] || point[1] || point[2]) || tmp.intensity < 0.2)
 			continue;
 
 		pointsWithCenter->push_back(point);
@@ -191,7 +197,7 @@ void DensityMapsManager::run() {
 	binaryReader.open(featName, std::ios::in | std::ios::binary);
 	int num;
 	binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
-	featureVectors = std::make_shared<std::vector<SHOT1344WithXYZ> > (num);
+	featureVectors = std::make_shared<std::vector<SPARSE1344WithXYZ> > (num);
 	for (auto & v : *featureVectors)
 		v.loadFromFile(binaryReader);
 	
@@ -317,7 +323,6 @@ void BoundingBox::run() {
 	for (auto & point : *points)
 		for (int i = 0; i < 3; ++i)
 			sigma[i] += (point[i] - average[i])*(point[i] - average[i]);
-		
 	
 	sigma /= points->size() - 1;
 	for (int i = 0; i < 3; ++i)
@@ -351,6 +356,7 @@ CloudAnalyzer2D::CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::
 	R {R},
 	bBox {bBox}
 {
+	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 }
 
 void CloudAnalyzer2D::initalize(double scale) {
@@ -364,7 +370,6 @@ void CloudAnalyzer2D::initalize(double scale) {
 
 	pointsPerVoxel.assign(numY, Eigen::MatrixXi::Zero(numZ, numX));
 
-
 	for (auto & point : *points){
 	 	const int x = scale*(point[0] - pointMin[0]);
 		const int y = scale*(point[1] - pointMin[1]);
@@ -377,9 +382,9 @@ void CloudAnalyzer2D::initalize(double scale) {
 		if ( z < 0 || z >= numZ)
 			continue;
 
-	  ++pointsPerVoxel[y](z, x); 
+	  ++pointsPerVoxel[y](z, x);
 	}
-
+	
 	zeroZero = Eigen::Vector3d(-pointMin[0]*FLAGS_scale, -pointMin[1]*FLAGS_scale, 0);
 }
 
@@ -418,14 +423,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 	sigma = sigma/(count-1);
 	sigma = sqrt(sigma);
 
-
-	if (!FLAGS_quiteMode) {
-		std::cout << "Average     Sigma" << std::endl << average << "     " << sigma << std::endl;
-		std::cout << "Max     Min" << std::endl << maxV << "      " << minV << std::endl;
-	}
-
-
-	int newRows = std::max(total.rows(), total.cols());
+	int newRows = sqrt(2)*std::max(total.rows(), total.cols());
 	int newCols = newRows;
 	int dX = (newCols - total.cols())/2.0;
 	int dY = (newRows - total.rows())/2.0;
@@ -435,7 +433,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
 	imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
 
-	for (int r = 0; r < NUM_ROTS; ++r) {
+	for (int r = 0; r < R->size(); ++r) {
 		cv::Mat heatMap  (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 		for (int j = 0; j < heatMap.rows; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j);
@@ -508,13 +506,6 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 		}
 	}
 	
-	for (int i = -0.836*FLAGS_scale; i < 0.836*FLAGS_scale; ++i)
-		for (int j = -sqrt(0.7*FLAGS_scale*FLAGS_scale - i*i); 
-			j < sqrt(0.7*FLAGS_scale*FLAGS_scale - i*i); ++j)
-			for (int k = numZ/2; k < numZ; ++k)
-				++numTimesSeen[cameraCenter[0]*FLAGS_scale + i]
-					(k, cameraCenter[1]*FLAGS_scale + j);
-
 
 	Eigen::MatrixXd collapsedCount (numY, numX);
 
@@ -551,8 +542,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	sigma = sigma/(count - 1);
 	sigma = sqrt(sigma);
 
-
-	int newRows = std::max(collapsedCount.rows(), collapsedCount.cols());
+	int newRows = sqrt(2)*std::max(collapsedCount.rows(), collapsedCount.cols());
 	int newCols = newRows;
 	int dX = (newCols - collapsedCount.cols())/2.0;
 	int dY = (newRows - collapsedCount.rows())/2.0;
@@ -560,7 +550,9 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	newZZ[0] += dX;
 	newZZ[1] += dY;
 
-	for (int r = 0; r < NUM_ROTS; ++r) {
+	imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
+
+	for (int r = 0; r < R->size(); ++r) {
 		cv::Mat heatMap (newRows, newCols, CV_8UC1, cv::Scalar::all(255));
 		for (int j = 0; j < heatMap.rows; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j);
@@ -581,6 +573,15 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 				}
 			}				
 		}
+		const double radius = 0.6;
+		for (int j = -sqrt(radius)*FLAGS_scale; j < sqrt(radius)*FLAGS_scale; ++j) {
+			uchar * dst = heatMap.ptr<uchar>(j + imageZeroZero[1]);
+			for (int i = -sqrt(radius*FLAGS_scale*FLAGS_scale - j*j); 
+				i < sqrt(radius*FLAGS_scale*FLAGS_scale - j*j); ++i) {
+				dst[i + imageZeroZero[0]] = 0;
+			}
+		}
+
 		if (FLAGS_preview) {
 			cv::imshow("Preview", heatMap);
 			cv::waitKey(0);
@@ -589,7 +590,6 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 		freeSpaceEvidence.push_back(heatMap);
 	}
 }
-
 
 const std::vector<cv::Mat> & CloudAnalyzer2D::getPointEvidence() {
 	return pointEvidence;

@@ -31,6 +31,7 @@ DECLARE_string(panoFolder);
 DECLARE_string(PTXFolder);
 DECLARE_string(normalsFolder);
 DECLARE_string(descriptorsFolder);
+DECLARE_string(SIFTFolder);
 DECLARE_string(dataPath);
 DECLARE_int32(startIndex);
 DECLARE_int32(numScans);
@@ -39,5 +40,7 @@ DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 DECLARE_int32(top);
 DECLARE_double(scale);
+
+void preappendDataPath();
 
 #endif // SCAN_GFLAGS_H

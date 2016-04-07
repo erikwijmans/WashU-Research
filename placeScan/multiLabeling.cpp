@@ -71,23 +71,22 @@ multi::Labeler::Labeler() {
 
 	const int numScans = pointFileNames.size();
 
-	for (auto & name : metaDataFiles) {
-	  const std::string metaName = metaDataFolder + name;
+	voxelInfo.assign(metaDataFiles.size(), std::vector<place::metaData> (NUM_ROTS));
+	for (int i = 0; i < metaDataFiles.size(); ++i) {
+	  const std::string metaName = metaDataFolder + metaDataFiles[i];
 	  std::ifstream in (metaName, std::ios::in | std::ios::binary);
-	  place::metaData tmp;
-	  std::vector<place::metaData> tmpVec;
-	  for (int i = 0; i < NUM_ROTS; ++i) {
-	  	in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-	  	tmpVec.push_back(tmp);
+	  
+	  for (int j = 0; j < NUM_ROTS; ++j) {
+	  	voxelInfo[i][j].loadFromFile(in);
 	  }
-	  voxelInfo.push_back(tmpVec);
+	  in.close();
 	}
 
 	zeroZeros.resize(numScans);
 	place::loadInScansGraph(pointFileNames, freeFileNames,
 	  zerosFileNames, scans, masks, zeroZeros);
 	
-	const int numToParse = 10;
+	const int numToParse = numScans;
 	const int nodeStart = 0;
 	for (int i = nodeStart; i < std::min(numToParse + nodeStart,
 	  (int)pointFileNames.size()); ++i) {
@@ -96,7 +95,6 @@ multi::Labeler::Labeler() {
 	}
 
 	const int numNodes = nodes.size();
-	std::cout << numNodes << std::endl;
 	adjacencyMatrix = Eigen::MatrixXE (numNodes, numNodes);
 
 	{
@@ -147,9 +145,12 @@ void multi::Labeler::loadInRot() {
 }
 
 void multi::Labeler::weightEdges() {
+	const double startTime = omp_get_wtime();
 	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames, 
 		freeVoxelFileNames, adjacencyMatrix);
 	place::normalizeWeights(adjacencyMatrix, nodes);
+	const double endTime = omp_get_wtime();
+	std::cout << "Time: " << endTime - startTime << std::endl;
 }
 
 void multi::Labeler::solveTRW() {

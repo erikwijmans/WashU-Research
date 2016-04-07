@@ -35,6 +35,7 @@ DEFINE_string(panoFolder, "panoramas/", "path from dataPath to panoramas");
 DEFINE_string(PTXFolder, "PTXFiles/", "Path to PTXFiles");
 DEFINE_string(normalsFolder, "cloudNormals/", "name of normalsFolder");
 DEFINE_string(descriptorsFolder, "descriptors/", "name of descriptorsFolder");
+DEFINE_string(SIFTFolder, "SIFT/", "name of SIFT folder");
 DEFINE_string(binaryFolder, "binaryFiles/",
 	"Path to binary files");
 DEFINE_string(dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1/",
@@ -46,3 +47,19 @@ DEFINE_int32(numLevels, 5, "Number of levels in the pyramid");
 DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for placement");
 DEFINE_int32(top, -1, "Only shows the top x placements, -1=ALL");
 DEFINE_double(scale, -1, "Scale used to size the density maps.  If -1, it will be looked up");
+
+void preappendDataPath() {
+	FLAGS_floorPlan = FLAGS_dataPath + FLAGS_floorPlan;
+	FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
+	FLAGS_preDone = FLAGS_dataPath + FLAGS_preDone;
+	FLAGS_preDoneV2 = FLAGS_dataPath + FLAGS_preDoneV2;
+	FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
+	FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
+	FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
+	FLAGS_panoFolder = FLAGS_dataPath + FLAGS_panoFolder;
+	FLAGS_PTXFolder = FLAGS_dataPath + FLAGS_PTXFolder;
+	FLAGS_normalsFolder = FLAGS_dataPath + FLAGS_normalsFolder;
+	FLAGS_descriptorsFolder = FLAGS_dataPath + FLAGS_descriptorsFolder;
+	FLAGS_SIFTFolder = FLAGS_dataPath + FLAGS_SIFTFolder;
+	FLAGS_binaryFolder = FLAGS_dataPath + FLAGS_binaryFolder;
+}

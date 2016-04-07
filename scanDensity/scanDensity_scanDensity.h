@@ -19,15 +19,9 @@
 #include <scan_typedefs.hpp>
 
 class DensityMapsManager {
-	private:
-		std::vector<std::string> binaryNames, rotationsFiles, featureNames;
-		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsWithCenter;
-		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsNoCenter;
-		std::shared_ptr<std::vector<Eigen::Matrix3d> > R;
-		std::shared_ptr<std::vector<SHOT1344WithXYZ> > featureVectors;
-		std::string rotationFile, fileName, scanNumber, buildName, featName;
-		int current;
 	public:
+		typedef std::shared_ptr<const std::vector<Eigen::Vector3f> > PointsPtr;
+		typedef std::shared_ptr<const std::vector<Eigen::Matrix3d> > MatPtr;
 		/* Constructs argv and argc, then called the constructor with them */
 		DensityMapsManager(const std::string & commandLine);
 		DensityMapsManager(int argc, char * argv[]);
@@ -45,28 +39,39 @@ class DensityMapsManager {
 		void get3DFreeNames(std::vector<std::string> & names);
 		std::string getZerosName();
 		std::string getMetaDataName();
-		std::shared_ptr<const std::vector<Eigen::Vector3f> > getPointsWithCenter() {
+		PointsPtr getPointsWithCenter() {
 			return pointsWithCenter; };
-		std::shared_ptr<const std::vector<Eigen::Vector3f> > getPointsNoCenter() {
+		PointsPtr getPointsNoCenter() {
 			return pointsNoCenter; };	
-		std::shared_ptr<const std::vector<Eigen::Matrix3d> > getR() {
+		MatPtr getR() {
 			return R; };
-		std::shared_ptr<const std::vector<SHOT1344WithXYZ> > getFeatureVectors() {
+		std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > getFeatureVectors() {
 			return featureVectors;
 		}
 		void setScale(double newScale) { FLAGS_scale = newScale; };
 		double getScale() { return FLAGS_scale; };
+
+	private:
+		std::vector<std::string> binaryNames, rotationsFiles, featureNames;
+		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsWithCenter;
+		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsNoCenter;
+		std::shared_ptr<std::vector<Eigen::Matrix3d> > R;
+		std::shared_ptr<std::vector<SPARSE1344WithXYZ> > featureVectors;
+		std::string rotationFile, fileName, scanNumber, buildName, featName;
+		int current;
 };
 
 
 class BoundingBox {
 	private:
 		Eigen::Vector3f average, sigma, range;
-		std::shared_ptr<const std::vector<Eigen::Vector3f> > points;
+		DensityMapsManager::PointsPtr points;
 	public:
-		BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points, 
+		typedef std::shared_ptr<BoundingBox> Ptr;
+		typedef std::shared_ptr<const BoundingBox> ConstPtr;
+		BoundingBox(const DensityMapsManager::PointsPtr & points, 
 			Eigen::Vector3f && range);
-		BoundingBox(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points, 
+		BoundingBox(const DensityMapsManager::PointsPtr & points, 
 			Eigen::Vector3f & range);
 		void run();
 		void setRange(Eigen::Vector3f && range);
@@ -76,9 +81,9 @@ class BoundingBox {
 
 class CloudAnalyzer2D {
 	private:
-		std::shared_ptr<const BoundingBox> bBox;
-		std::shared_ptr<const std::vector<Eigen::Vector3f> > points;
-		std::shared_ptr<const std::vector<Eigen::Matrix3d> > R;
+		BoundingBox::ConstPtr bBox;
+		DensityMapsManager::PointsPtr points;
+		DensityMapsManager::MatPtr R;
 		std::vector<Eigen::MatrixXi> pointsPerVoxel;
 		std::vector<cv::Mat> pointEvidence, freeSpaceEvidence;
 		Eigen::Vector3f pointMin, pointMax;
@@ -88,9 +93,10 @@ class CloudAnalyzer2D {
 		int numY, numX;
 		float zScale, scale;
 	public:
-		CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
-			const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
-			const std::shared_ptr<const BoundingBox> & bBox);
+		typedef std::shared_ptr<CloudAnalyzer2D> Ptr;
+		CloudAnalyzer2D(const DensityMapsManager::PointsPtr & points,
+			const DensityMapsManager::MatPtr & R,
+			const BoundingBox::ConstPtr & bBox);
 		void initalize(double scale);
 		void examinePointEvidence();
 		void examineFreeSpaceEvidence();
