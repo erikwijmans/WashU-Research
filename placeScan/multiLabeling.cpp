@@ -20,7 +20,7 @@
 #include "gurobi_c++.h"
 
 multi::Labeler::Labeler() {
-	
+
 	place::parseFolders(pointFileNames,
 	  zerosFileNames, &freeFileNames);
 
@@ -31,10 +31,10 @@ multi::Labeler::Labeler() {
 	  if ((dir = opendir (folder.data())) != NULL) {
 	    while ((ent = readdir (dir)) != NULL) {
 	      std::string fileName = ent->d_name;
-	      if (fileName != ".." && fileName != "." 
+	      if (fileName != ".." && fileName != "."
 	        && fileName.find("point") != std::string::npos){
 	        pointVoxelFileNames.push_back(fileName);
-	      } else if (fileName != ".." && fileName != "." 
+	      } else if (fileName != ".." && fileName != "."
 	        && fileName.find("freeSpace") != std::string::npos) {
 	        freeVoxelFileNames.push_back(fileName);
 	      }
@@ -67,7 +67,7 @@ multi::Labeler::Labeler() {
 		}
 		std::sort(metaDataFiles.begin(), metaDataFiles.end());
 	}
-	
+
 
 	const int numScans = pointFileNames.size();
 
@@ -75,18 +75,38 @@ multi::Labeler::Labeler() {
 	for (int i = 0; i < metaDataFiles.size(); ++i) {
 	  const std::string metaName = metaDataFolder + metaDataFiles[i];
 	  std::ifstream in (metaName, std::ios::in | std::ios::binary);
-	  
+
 	  for (int j = 0; j < NUM_ROTS; ++j) {
 	  	voxelInfo[i][j].loadFromFile(in);
 	  }
 	  in.close();
 	}
 
+	{
+		DIR *dir;
+		struct dirent *ent;
+		if ((dir = opendir (metaDataFolder.data())) != NULL) {
+		  while ((ent = readdir (dir)) != NULL) {
+		    std::string fileName = ent->d_name;
+		    if (fileName != ".." && fileName != ".")
+		      metaDataFiles.push_back(fileName);
+		  }
+		  closedir (dir);
+		}  else {
+		  /* could not open directory */
+		  perror ("");
+		  exit(-1);
+		}
+		std::sort(metaDataFiles.begin(), metaDataFiles.end());
+	}
+
 	zeroZeros.resize(numScans);
 	place::loadInScansGraph(pointFileNames, freeFileNames,
 	  zerosFileNames, scans, masks, zeroZeros);
-	
-	const int numToParse = numScans;
+
+	loadInPanosAndRot();
+
+	const int numToParse = 15;
 	const int nodeStart = 0;
 	for (int i = nodeStart; i < std::min(numToParse + nodeStart,
 	  (int)pointFileNames.size()); ++i) {
@@ -114,7 +134,7 @@ multi::Labeler::Labeler() {
 	}
 }
 
-void multi::Labeler::loadInRot() {
+void multi::Labeler::loadInPanosAndRot() {
 
 	DIR *dir;
 	struct dirent *ent;
@@ -130,24 +150,61 @@ void multi::Labeler::loadInRot() {
 	  perror ("");
 	  exit(-1);
 	}
-	std::sort(rotationsFiles.begin(), rotationsFiles.end());
 
-	for (auto & name : rotationsFiles) {
-		const std::string rotName = FLAGS_rotFolder + name;
+	std::string panoImagesFolder = FLAGS_panoFolder + "images/";
+	std::string panoDataFolder = FLAGS_panoFolder + "data/";
+	if ((dir = opendir (panoImagesFolder.data())) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    std::string fileName = ent->d_name;
+	    if (fileName != ".." && fileName != ".")
+	    	panoFiles.push_back(fileName);
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(-1);
+	}
+
+	std::vector<std::string> panoDataNames;
+	if ((dir = opendir (panoDataFolder.data())) != NULL) {
+	  while ((ent = readdir (dir)) != NULL) {
+	    std::string fileName = ent->d_name;
+	    if (fileName != ".." && fileName != ".")
+	    	panoDataNames.push_back(fileName);
+	  }
+	  closedir (dir);
+	}  else {
+	  /* could not open directory */
+	  perror ("");
+	  exit(-1);
+	}
+
+	std::sort(rotationsFiles.begin(), rotationsFiles.end());
+	std::sort(panoFiles.begin(), panoFiles.end());
+	std::sort(panoDataNames.begin(), panoDataNames.end());
+
+	rotationMatricies.assign(rotationsFiles.size(), std::vector<Eigen::Matrix3d> (NUM_ROTS));
+	for (int j = 0; j < rotationsFiles.size(); ++j) {
+		const std::string rotName = FLAGS_rotFolder + rotationsFiles[j];
 		std::ifstream in (rotName, std::ios::binary | std::ios::in);
-		std::vector<Eigen::Matrix3d> v (NUM_ROTS);
-		for (int i = 0; i < NUM_ROTS; ++i) {
-			in.read(reinterpret_cast<char *>(v[i].data()), sizeof(Eigen::Matrix3d));
-		}
-		in.close();
-		rotationMatricies.push_back(v);
+		for (int i = 0; i < NUM_ROTS; ++i)
+			in.read(reinterpret_cast<char *>(rotationMatricies[j][i].data()), sizeof(Eigen::Matrix3d));
+
+	in.close();
+	}
+	panoramas.resize(panoFiles.size());
+	for (int i = 0; i < panoFiles.size(); ++i) {
+		const std::string imgName = panoImagesFolder + panoFiles[i];
+		const std::string dataName = panoDataFolder + panoDataNames[i];
+		panoramas[i].loadFromFile(imgName, dataName);
 	}
 }
 
 void multi::Labeler::weightEdges() {
 	const double startTime = omp_get_wtime();
-	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames, 
-		freeVoxelFileNames, adjacencyMatrix);
+	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames,
+		freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
 	place::normalizeWeights(adjacencyMatrix, nodes);
 	const double endTime = omp_get_wtime();
 	std::cout << "Time: " << endTime - startTime << std::endl;

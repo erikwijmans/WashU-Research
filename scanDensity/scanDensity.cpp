@@ -2,7 +2,7 @@
 
 #include "scanDensity_scanDensity.h"
 
-#include <locale> 
+#include <locale>
 
 #include <sstream>
 #include <map>
@@ -10,7 +10,7 @@
 
 static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
-DensityMapsManager::DensityMapsManager (const std::string & commandLine): 
+DensityMapsManager::DensityMapsManager (const std::string & commandLine):
 	R {NULL},
 	pointsWithCenter {NULL},
 	pointsNoCenter {NULL},
@@ -45,19 +45,14 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
-	FLAGS_binaryFolder = FLAGS_dataPath + FLAGS_binaryFolder;
-	FLAGS_dmFolder = FLAGS_dataPath + FLAGS_dmFolder;
-	FLAGS_zerosFolder = FLAGS_dataPath + FLAGS_zerosFolder;
-	FLAGS_voxelFolder = FLAGS_dataPath + FLAGS_voxelFolder;
-	FLAGS_rotFolder = FLAGS_dataPath + FLAGS_rotFolder;
-	FLAGS_descriptorsFolder = FLAGS_dataPath + FLAGS_descriptorsFolder;
+	preappendDataPath();
 
-	if (!FLAGS_2D && !FLAGS_3D) 
+	if (!FLAGS_2D && !FLAGS_3D)
 		FLAGS_2D = FLAGS_3D = true;
 
 	if(!FLAGS_pe && !FLAGS_fe)
 		FLAGS_pe = FLAGS_fe = true;
-	
+
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (FLAGS_binaryFolder.data())) != NULL) {
@@ -74,13 +69,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	  perror ("");
 	  exit(EXIT_FAILURE);
 	}
-
-	sort(binaryNames.begin(), binaryNames.end(), 
-		[](auto & a, auto & b) {
-			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-			return numA < numB;
-		});
+	sort(binaryNames.begin(), binaryNames.end());
 
 	if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
 	  /* Add all the files and directories to a std::vector */
@@ -112,13 +101,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	  perror ("");
 	  exit(EXIT_FAILURE);
 	}
-
-	sort(featureNames.begin(), featureNames.end(), 
-		[](auto & a, auto & b) {
-			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-			return numA < numB;
-		});
+	sort(featureNames.begin(), featureNames.end());
 
 	if (binaryNames.size() != rotationsFiles.size()) {
 		std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
@@ -131,14 +114,14 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 
 	std::string buildName = rotationsFiles[0].substr(0, 3);
 	std::locale loc;
-	for (int i = 0; i < buildName.length(); ++i) {
-		buildName[i] = std::tolower(buildName[i], loc);
-	}
+	for (auto & c : buildName)
+		c = std::tolower(c, loc);
+
 	if (FLAGS_scale == -1) {
 		auto it = buildingToScale.find(buildName);
 		if (it == buildingToScale.end()) {
 			std::cout << "Could not find a scale assocaited with " << buildName << std::endl;
-			exit(1); 
+			exit(1);
 		}
 		FLAGS_scale = buildingToScale.find(buildName)->second;
 	}
@@ -149,7 +132,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 }
 
 void DensityMapsManager::run() {
-	rotationFile = FLAGS_rotFolder + rotationsFiles[current]; 
+	rotationFile = FLAGS_rotFolder + rotationsFiles[current];
 	fileName = FLAGS_binaryFolder + binaryNames[current];
 	featName = FLAGS_descriptorsFolder + featureNames[current];
 
@@ -197,10 +180,10 @@ void DensityMapsManager::run() {
 	binaryReader.open(featName, std::ios::in | std::ios::binary);
 	int num;
 	binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
-	featureVectors = std::make_shared<std::vector<SPARSE1344WithXYZ> > (num);
+	featureVectors = std::make_shared<std::vector<SPARSE352WithXYZ> > (num);
 	for (auto & v : *featureVectors)
 		v.loadFromFile(binaryReader);
-	
+
 	binaryReader.close();
 }
 
@@ -245,7 +228,7 @@ std::string DensityMapsManager::getZerosName() {
 }
 
 std::string DensityMapsManager::getMetaDataName() {
-	return FLAGS_voxelFolder + "metaData/" + buildName + "_scan_"
+	return FLAGS_voxelFolder + "metaData/" + buildName + "_metaData_"
 		+ scanNumber + ".dat";
 }
 
@@ -323,7 +306,7 @@ void BoundingBox::run() {
 	for (auto & point : *points)
 		for (int i = 0; i < 3; ++i)
 			sigma[i] += (point[i] - average[i])*(point[i] - average[i]);
-	
+
 	sigma /= points->size() - 1;
 	for (int i = 0; i < 3; ++i)
 		sigma[i] = sqrt(sigma[i]);
@@ -337,13 +320,13 @@ void BoundingBox::setRange(Eigen::Vector3f & range) {
 	this->range = range;
 }
 
-void BoundingBox::getBoundingBox(Eigen::Vector3f & min, 
+void BoundingBox::getBoundingBox(Eigen::Vector3f & min,
 	Eigen::Vector3f & max) const {
 
 	Eigen::Vector3f delta;
 	for (int i = 0; i < delta.size(); ++i)
 	  delta[i] = 1.1*range[i]*sigma[i];
-	
+
 	min = average - delta/2.0;
 	max = average + delta/2.0;
 }
@@ -374,17 +357,17 @@ void CloudAnalyzer2D::initalize(double scale) {
 	 	const int x = scale*(point[0] - pointMin[0]);
 		const int y = scale*(point[1] - pointMin[1]);
 		const int z = zScale*(point[2] - pointMin[2]);
-		   
+
 		if (x < 0 || x >= numX)
 			continue;
 		if (y < 0 || y >= numY)
-			continue; 
+			continue;
 		if ( z < 0 || z >= numZ)
 			continue;
 
 	  ++pointsPerVoxel[y](z, x);
 	}
-	
+
 	zeroZero = Eigen::Vector3d(-pointMin[0]*FLAGS_scale, -pointMin[1]*FLAGS_scale, 0);
 }
 
@@ -450,7 +433,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 				const double count = total(src[1], src[0]);
 				if (count > 0) {
 					const int gray = cv::saturate_cast<uchar>(
-						255.0 * (count - average - sigma) 
+						255.0 * (count - average - sigma)
 						 	/ (3.0 * sigma));
 					dst[i] = 255 - gray;
 				}
@@ -488,7 +471,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 				unitRay[2] = ray[2]/length;
 				int voxelHit [3];
 				for (int a = 0; a <= ceil(length); ++a) {
-			
+
 					voxelHit[0] = floor(cameraCenter[0]*FLAGS_scale + a*unitRay[0]);
 					voxelHit[1] = floor(cameraCenter[1]*FLAGS_scale + a*unitRay[1]);
 					voxelHit[2] = floor(cameraCenter[2]*zScale + a*unitRay[2]);
@@ -505,7 +488,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 			}
 		}
 	}
-	
+
 
 	Eigen::MatrixXd collapsedCount (numY, numX);
 
@@ -525,7 +508,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	average = sigma = 0;
 	size_t count = 0;
 	const double * vPtr = collapsedCount.data();
-	
+
 	for (int i = 0; i < collapsedCount.size(); ++i) {
 		if (*(vPtr + i) != 0) {
 			average += *(vPtr + i);
@@ -571,12 +554,12 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 						255.0 * ((count - average)/sigma + 1.0 ));
 					dst[i] = 255 - gray;
 				}
-			}				
+			}
 		}
 		const double radius = 0.6;
 		for (int j = -sqrt(radius)*FLAGS_scale; j < sqrt(radius)*FLAGS_scale; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j + imageZeroZero[1]);
-			for (int i = -sqrt(radius*FLAGS_scale*FLAGS_scale - j*j); 
+			for (int i = -sqrt(radius*FLAGS_scale*FLAGS_scale - j*j);
 				i < sqrt(radius*FLAGS_scale*FLAGS_scale - j*j); ++i) {
 				dst[i + imageZeroZero[0]] = 0;
 			}

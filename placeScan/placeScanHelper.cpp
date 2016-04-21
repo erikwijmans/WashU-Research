@@ -11,25 +11,25 @@
 
 cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
-const double maxDelta = 0.10, maxTotal = 0.15;
+const double maxDelta = 0.10, maxTotal = 0.20;
 
 static const int minWrite = 20;
 
 
-void place::parseFolders(std::vector<std::string> & pointFileNames, 
+void place::parseFolders(std::vector<std::string> & pointFileNames,
 	std::vector<std::string> & zerosFileNames,
 	std::vector<std::string> * freeFileNames){
-	
+
 	DIR *dir;
 	struct dirent *ent;
 	const std::string newDmFolder = FLAGS_dmFolder + "R0/";
 	if ((dir = opendir (newDmFolder.data())) != NULL) {
 	  while ((ent = readdir (dir)) != NULL) {
 	  	std::string fileName = ent->d_name;
-	  	if (fileName != ".." && fileName != "." 
+	  	if (fileName != ".." && fileName != "."
 	  		&& fileName.find("point") != std::string::npos){
 	  		pointFileNames.push_back(fileName);
-	  	} else if (freeFileNames && fileName != ".." && fileName != "." 
+	  	} else if (freeFileNames && fileName != ".." && fileName != "."
 	  		&& fileName.find("freeSpace") != std::string::npos) {
 	  		freeFileNames->push_back(fileName);
 	  	}
@@ -77,7 +77,7 @@ void place::loadInScans(const std::string & scanName,
 			sizeof(Eigen::Vector2i));
 	}
 	binaryReader.close();
-	
+
 	for (int i = 0; i < NUM_ROTS; ++i) {
 		std::string fullScanName = FLAGS_dmFolder + "R" + std::to_string(i) + "/"
 			+ scanName;
@@ -90,7 +90,7 @@ void place::loadInScans(const std::string & scanName,
 		}
 	}
 
-	
+
 	if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
 		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 		cv::imshow("Preview", rotatedScans[0]);
@@ -113,7 +113,7 @@ void place::loadInScans(const std::string & scanName,
 		}
 	}
 
-	
+
 	if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
 		cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 		cv::imshow("Preview", rotatedScans[0]);
@@ -121,8 +121,8 @@ void place::loadInScans(const std::string & scanName,
 	}
 }
 
-void place::loadInScansAndMasks(const std::string & scanName, 
-   	const std::string & zerosFile, 
+void place::loadInScansAndMasks(const std::string & scanName,
+   	const std::string & zerosFile,
     const std::string & maskName, std::vector<cv::Mat> & rotatedScans,
     std::vector<cv::Mat> & masks, std::vector<Eigen::Vector2i> & zeroZero) {
 
@@ -130,7 +130,7 @@ void place::loadInScansAndMasks(const std::string & scanName,
     place::loadInScans(maskName, zerosFile, masks);
 }
 
-void place::trimScans(const std::vector<cv::Mat> & toTrim, 
+void place::trimScans(const std::vector<cv::Mat> & toTrim,
 	std::vector<cv::Mat> & trimmedScans, std::vector<Eigen::Vector2i> & zeroZero) {
 	int k = 0;
 	for (auto & scan : toTrim){
@@ -192,8 +192,8 @@ static int countNumToDeltas(const std::vector<const place::posInfo *> & minima) 
 	double lastScore = 1.0;
 	const double initailScore = minima[0]->score;
 	for (auto & min : minima) {
-		if (min->score - lastScore < maxDelta 
-			&& min->score - initailScore < 0.2)
+		if (min->score - lastScore < maxDelta
+			&& min->score - initailScore < maxTotal)
 			++num;
 		else
 			break;
@@ -205,7 +205,7 @@ void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 	const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero){
 	std::ofstream out (outName, std::ios::out);
 	std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
-	
+
 	const int numToDeltas = countNumToDeltas(minima);
 	int num = minWrite > numToDeltas ? minWrite : numToDeltas;
 	num = num > minima.size() ? minima.size() : num;
@@ -218,7 +218,7 @@ void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 		minScore.y += zeroZero[minScore.rotation][1];
 		out << minScore.score << " " << minScore.x  << " "
 			<< minScore.y << " " << minScore.rotation << std::endl;
-		
+
 		outB.write(reinterpret_cast<const char *> (&minScore), sizeof(minScore));
 	}
 	out.close();
@@ -227,7 +227,7 @@ void place::savePlacement(const std::vector<const place::posInfo *> & minima,
 
 bool place::reshowPlacement(const std::string & scanName,
 	const std::string & zerosFile, const std::string & preDone) {
-	const std::string placementName = preDone + scanName.substr(scanName.find("_")-3, 3) 
+	const std::string placementName = preDone + scanName.substr(scanName.find("_")-3, 3)
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
 
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
@@ -238,7 +238,7 @@ bool place::reshowPlacement(const std::string & scanName,
 
 	if (!FLAGS_quiteMode)
 		std::cout << placementName << std::endl;
-	
+
 	std::vector<cv::Mat> rotatedScans, toTrim;
   std::vector<Eigen::Vector2i> zeroZero;
 	place::loadInScans(scanName, zerosFile, toTrim, zeroZero);
@@ -268,7 +268,7 @@ bool place::reshowPlacement(const std::string & scanName,
 
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3);
 		fpColor.copyTo(output);
-		
+
 		for (int i = 0; i < bestScan.rows; ++i) {
 			if (i + yOffset < 0 || i + yOffset >= fpColor.rows)
 				continue;
@@ -312,7 +312,7 @@ bool place::reshowPlacement(const std::string & scanName,
 	return true;
 }
 
-void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
+void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed,
 	const std::vector<const place::posInfo *> & minima) {
 
 	const int numToDeltas = countNumToDeltas(minima);
@@ -322,7 +322,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 		std::cout << "Num minima: " << num << std::endl;
 		std::cout << "Press a key to begin displaying placement options" << std::endl;
 	}
-	
+
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 	cv::imshow("Preview", fpColor);
 	cv::waitKey(0);
@@ -332,8 +332,8 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 	for (auto & min : minima){
 		const int xOffset = min->x;
 		const int yOffset = min->y;
-		const Eigen::SparseMatrix<double> & currentScan = 
-			rSSparseTrimmed[min->rotation]; 
+		const Eigen::SparseMatrix<double> & currentScan =
+			rSSparseTrimmed[min->rotation];
 		cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
 		fpColor.copyTo(output);
 
@@ -345,7 +345,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 					continue;
 				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
 					continue;
-				
+
 				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[1]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[2]=255;
@@ -364,7 +364,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
 }
 
 void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
-	const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed, 
+	const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed,
 	const std::vector<const place::posInfo *> & minima) {
 	const int num = minima.size() < 20 ? minima.size() : 20;
 	if (!FLAGS_quiteMode) {
@@ -385,7 +385,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
       }
     }
   }
-	
+
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 	cv::imshow("Preview", tmpColor);
 	cv::waitKey(0);
@@ -395,8 +395,8 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 	for (auto & min : minima){
 		const int xOffset = min->x;
 		const int yOffset = min->y;
-		const Eigen::SparseMatrix<double> & currentScan = 
-			rSSparseTrimmed[min->rotation]; 
+		const Eigen::SparseMatrix<double> & currentScan =
+			rSSparseTrimmed[min->rotation];
 		cv::Mat output (tmpColor.rows, tmpColor.cols, CV_8UC3, cv::Scalar::all(255));
 		tmpColor.copyTo(output);
 		cv::Mat_<cv::Vec3b> _output = output;
@@ -407,7 +407,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 					continue;
 				if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
 					continue;
-				
+
 				_output(it.row() + yOffset, it.col() + xOffset)[0]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[1]=0;
 				_output(it.row() + yOffset, it.col() + xOffset)[2]=255;
@@ -425,9 +425,9 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
 	}
 }
 
-void place::loadInTruePlacement(const std::string & scanName, 
+void place::loadInTruePlacement(const std::string & scanName,
   const std::vector<Eigen::Vector2i> & zeroZero){
-	const std::string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3) 
+	const std::string placementName = FLAGS_preDone + scanName.substr(scanName.find("_")-3, 3)
 	+ "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
 	std::ifstream in (placementName, std::ios::in | std::ios::binary);
 
@@ -441,7 +441,7 @@ void place::loadInTruePlacement(const std::string & scanName,
 
 	truePlacement.clear();
 	for (auto & s : tmp){
-		Eigen::Vector3i tmp2 (s.x - zeroZero[s.rotation][0], 
+		Eigen::Vector3i tmp2 (s.x - zeroZero[s.rotation][0],
 			s.y - zeroZero[s.rotation][1], s.rotation);
 		truePlacement.push_back(tmp2);
 	}
@@ -497,7 +497,7 @@ cv::Mat place::sparseToImage(const Eigen::SparseMatrix<double> & toImage){
 	return image;
 }
 
-void place::scanToSparse(const cv::Mat & scan, 
+void place::scanToSparse(const cv::Mat & scan,
 	Eigen::SparseMatrix<double> & sparse) {
 	std::vector<Eigen::Triplet<double> > tripletList;
 
@@ -596,7 +596,7 @@ void place::erodeSparse(const Eigen::SparseMatrix<double> & src,
 						value = std::max(value, srcNS(j + l, i + k));
 				}
 			}
-			
+
 			if (value != 0)
 				tripletList.push_back(Eigen::Triplet<double> (j, i, value));
 		}
@@ -639,9 +639,9 @@ void place::removeMinimumConnectedComponents(cv::Mat & image) {
 			if (src[i] != 255 && labeledImage(j,i) == 0) {
 				labeledImage(j,i) = currentLabel;
 				toLabel.emplace_front(j,i);
-				
+
 				labelNeighbours(image, currentLabel, labeledImage, toLabel);
-				
+
 				++currentLabel;
 			}
 		}
@@ -651,14 +651,14 @@ void place::removeMinimumConnectedComponents(cv::Mat & image) {
 	const int * labeledImagePtr = labeledImage.data();
 	for (int i = 1; i < labeledImage.size(); ++i)
 			++countPerLabel[*(labeledImagePtr + i)];
-	
+
 
 
 	double average = 0.0, sigma = 0.0;
 	const int * countPerLabelPtr = countPerLabel.data();
 	for (int i = 1; i < countPerLabel.size(); ++i)
 		average += *(countPerLabelPtr + i);
-	
+
 	average /= countPerLabel.size() - 1;
 
 	for (int i = 1; i < countPerLabel.size(); ++i) {

@@ -1,6 +1,9 @@
+#pragma once
 #ifndef SCAN_TYPEDEFS_HPP
 #define SCAN_TYPEDEFS_HPP
 
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <eigen3/Eigen/StdVector>
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Sparse>
@@ -9,32 +12,20 @@
 
 #define NUM_ROTS 4
 
-const int panoResolution = 4267;
 const double PI = 3.14159265358979323846;
-
-static inline Eigen::Vector3i alignedToSource(const auto & aligned,
-  const Eigen::Matrix3d & R, const auto & zZ) {
-	Eigen::Vector3d AD  (aligned[0], aligned[1], aligned[2]);
-	Eigen::Vector3d zZD (zZ[0], zZ[1], zZ[0]);
-  return (R*(AD - zZD) + zZD).cast<int>();
-}
-
-static inline Eigen::Vector3i sourceToAligned(const auto & source,
-  const Eigen::Matrix3d & R, const auto & zZ) {
-	Eigen::Vector3d SD (source[0], source[1], source[2]);
-	Eigen::Vector3d zZD (zZ[0], zZ[1], zZ[2]);
-  return (R.inverse()*(SD - zZD) + zZD).cast<int>();
-}
+const double maxPhi = 2.61946;
 
 namespace place {
   class edge {
 	  public:
 	    double pA, feA, feB, fx;
 	    double w, shotW;
-	    edge () : pA {0}, feA {0}, feB {0}, fx {0}, w {0}, shotW {0}
+	    double panoW;
+	    edge () : pA {0}, feA {0}, feB {0}, fx {0}, w {0}, shotW {0}, panoW{0}
 	    {};
 	    edge (double pA, double feA, double feB, double fx, double w,
-	    	double shotW) : pA {pA}, feA {feA}, feB {feB}, w {w}, shotW {shotW}
+	    	double shotW) : pA {pA}, feA {feA}, feB {feB}, w {w}, shotW {shotW},
+	    	panoW {0}
 	    {};
   };
 
@@ -45,23 +36,25 @@ namespace place {
 } // place
 
 namespace Eigen {
-	typedef Matrix< float, 1344, 1 > Vector1344f;
 	typedef Array<place::edge, Dynamic, Dynamic> MatrixXE;
   typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
   typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 	typedef Matrix< int, Dynamic, Dynamic, RowMajor > RowMatrixXi;
+	typedef Matrix<char, Dynamic, Dynamic, RowMajor> RowMatrixXb;
+	typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
+	typedef Matrix<float, Dynamic, Dynamic, RowMajor> RowMatrixXf;
 } // Eigen
 
 typedef struct SHOT1344WithXYZ {
-	std::shared_ptr<Eigen::Vector1344f> descriptor;
+	std::shared_ptr<Eigen::VectorXf> descriptor;
 	Eigen::Vector3d position;
 
-	SHOT1344WithXYZ() : descriptor {std::make_shared<Eigen::Vector1344f> ()}
+	SHOT1344WithXYZ() : descriptor {std::make_shared<Eigen::VectorXf> (1344)}
 	{
 	};
 
 	void writeToFile(std::ofstream & out) {
-		out.write(reinterpret_cast<const char *>(descriptor->data()), 
+		out.write(reinterpret_cast<const char *>(descriptor->data()),
 			descriptor->size()*sizeof(float));
 		out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
 	}
@@ -193,6 +186,27 @@ void loadSparseVetor(SparseVectorType & vec, std::ifstream & in) {
 	}
 }
 
+typedef struct SPARSE352WithXYZ {
+	typedef Eigen::SparseVector<float> VecType;
+	std::shared_ptr<VecType> descriptor;
+	Eigen::Vector3d position;
+
+	SPARSE352WithXYZ() : descriptor {std::make_shared<VecType> (352)}
+	{
+	};
+
+	void writeToFile(std::ofstream & out) {
+		saveSpareVector(*descriptor, out);
+		out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
+	}
+
+	void loadFromFile(std::ifstream & in) {
+		loadSparseVetor(*descriptor, in);
+		in.read(reinterpret_cast<char *>(position.data()), sizeof(position));
+	}
+
+} SPARSE352WithXYZ;
+
 typedef struct SPARSE1344WithXYZ {
 	typedef Eigen::SparseVector<float> VecType;
 	std::shared_ptr<VecType> descriptor;
@@ -232,7 +246,7 @@ namespace scan {
 		}
 
 	} PointXYZRGBA;
-	
+
 	typedef struct {
 		Eigen::Vector3f point;
 		unsigned char rgb [3];
@@ -262,7 +276,7 @@ namespace place {
 
 	typedef struct {
 		const posInfo *** maps;
-		double exclusionSize;
+		double exclusionX, exclusionY;
 		int rows, cols;
 	} exclusionMap;
 
@@ -302,6 +316,7 @@ namespace place {
 	typedef struct {
 		posInfo s;
     double w;
+    double nw;
 		int color;
 	} node;
 
@@ -336,16 +351,10 @@ namespace place {
   } metaData;
 
   class cube {
-	  private:
-	  	void swap(int & a, int & b) {
-	  		int savedA = a;
-	  		a = b;
-	  		b = savedA;
-	  	};
     public:
       int X1, Y1, Z1;
       int X2, Y2, Z2;
-      cube() : X1 {0}, X2 {0}, Y1 {0}, Y2 {0}, Z1 {0}, Z2 {0} 
+      cube() : X1 {0}, X2 {0}, Y1 {0}, Y2 {0}, Z1 {0}, Z2 {0}
       {};
       int volume() {
       	const int width = this->X2 - this->X1;
@@ -353,30 +362,81 @@ namespace place {
       	const int height = this->Z2 - this->Z1;
       	return width*length*height;
       };
-      void rotate(const Eigen::Matrix3d & R, const Eigen::Vector3i & zZ) {
-      	Eigen::Vector3i corner1 (X1, X2, 0), corner2 (X2, Y1, 0),
-      		corner3 (X2, Y2, 0), corner4(X1, Y2, 0);
-      	corner1 = sourceToAligned(corner1, R, zZ);
-      	corner2 = sourceToAligned(corner2, R, zZ);
-      	corner3 = sourceToAligned(corner3, R, zZ);
-      	corner4 = sourceToAligned(corner4, R, zZ);
-
-
-      	X1 = std::min(std::min(std::min(corner1[0], corner2[0]), corner3[0]),
-      		corner4[0]);
-      	Y1 = std::min(std::min(std::min(corner1[1], corner2[1]), corner3[1]),
-      		corner4[1]);
-
-      	X2 = std::max(std::max(std::max(corner1[0], corner2[0]), corner3[0]),
-      		corner4[0]);
-      	Y2 = std::max(std::max(std::max(corner1[1], corner2[1]), corner3[1]),
-      		corner4[1]);
-
-      	if (X1 > X2) swap(X1, X2);
-      	if (Y1 > Y2) swap(Y1, Y2);
-      };
   };
 
+  typedef struct Panorama {
+  	cv::Mat img;
+  	Eigen::RowMatrixXf rMap;
+  	std::vector<cv::Point2f> keypoints;
+  	cv::Mat descriptors;
+  	void writeToFile(const std::string & imgName,
+  		const std::string & dataName) {
+  		cv::imwrite(imgName, img);
+
+  		std::ofstream out (dataName, std::ios::out | std::ios::binary);
+  		int rows = rMap.rows();
+  		int cols = rMap.cols();
+  		out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+  		out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+  		const float * dataPtr = rMap.data();
+  		for (int i = 0; i < rMap.size(); ++i)
+  			out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(float));
+
+  		const int numKeypoints = keypoints.size();
+  		out.write(reinterpret_cast<const char *>(&numKeypoints), sizeof(numKeypoints));
+  		for (auto & kp : keypoints) {
+  			out.write(reinterpret_cast<const char *>(&kp.x), sizeof(float));
+  			out.write(reinterpret_cast<const char *>(&kp.y), sizeof(float));
+  		}
+
+  		rows = descriptors.rows;
+  		cols = descriptors.cols;
+  		out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+  		out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+  		for (int j = 0; j < rows; ++j) {
+  			const float * src = descriptors.ptr<float>(j);
+  			for (int i = 0; i < cols; ++i) {
+  				out.write(reinterpret_cast<const char *>(src + i), sizeof(float));
+  			}
+  		}
+
+  		out.close();
+  	}
+
+  	void loadFromFile(const std::string & imgName,
+  		const std::string & dataName) {
+  		img = cv::imread(imgName);
+
+  		int rows, cols, numKeypoints;
+  		std::ifstream in (dataName, std::ios::in | std::ios::binary);
+  		in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+  		in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+  		rMap.resize(rows, cols);
+  		float * dataPtr = rMap.data();
+  		for (int i = 0; i < rMap.size(); ++i)
+  			in.read(reinterpret_cast<char *>(dataPtr + i), sizeof(float));
+
+  		in.read(reinterpret_cast<char *>(&numKeypoints), sizeof(numKeypoints));
+  		keypoints.resize(numKeypoints);
+  		for (auto & kp : keypoints) {
+  			in.read(reinterpret_cast<char *>(&kp.x), sizeof(float));
+  			in.read(reinterpret_cast<char *>(&kp.y), sizeof(float));
+  		}
+
+
+  		in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+  		in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+  		descriptors = cv::Mat(rows, cols, CV_32FC1);
+  		for (int j = 0; j < rows; ++j) {
+  			float * src = descriptors.ptr<float>(j);
+  			for (int i = 0; i < cols; ++i) {
+  				in.read(reinterpret_cast<char *>(src + i), sizeof(float));
+  			}
+  		}
+
+  		in.close();
+  	}
+  } Panorama;
 } // place
 
 static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
@@ -386,17 +446,23 @@ static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
 }
 
 static std::ostream & operator<<(std::ostream & os, const place::edge & print) {
-  os << "edge: " << print.w << " shot: " << print.shotW << std::endl;
+  os << "edge: " << print.w << " shot: " << print.shotW;
+  os << "  pano: " << print.panoW << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
   os << print.fx << "  " << print.feB;
   return os;
 }
 
 static std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
-	os << print->score <<"      " << print->x << "      " 
+	os << print->score <<"      " << print->x << "      "
 		<< print->y << "      " << print->rotation << std::endl;
 	os << print->scanFP << "      " << print->fpScan << std::endl;
 	os << print->scanPixels << "    " << print->fpPixels;
+	return os;
+}
+
+static std::ostream & operator<<(std::ostream & os, const place::posInfo & print) {
+	os << &print;
 	return os;
 }
 

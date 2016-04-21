@@ -21,9 +21,11 @@ namespace place {
 	  place::exclusionMap & maps,
 	  std::vector<const place::posInfo *> & minima);
 
-	void createPyramid(std::vector<Eigen::SparseMatrix<double> > & pyramid);
+	template<typename MatType>
+	void createPyramid(std::vector<MatType> & pyramid);
 
-	void createPyramid( std::vector<std::vector<Eigen::SparseMatrix<double> > >  & pyramid);
+	template<typename MatType>
+	void createPyramid(std::vector<std::vector<MatType> >  & pyramid);
 
 	void trimScanPryamids(const std::vector<std::vector<Eigen::SparseMatrix<double> > >  & rSSparsePyramid,
 		std::vector<std::vector<Eigen::SparseMatrix<double> > > & rSSparsePyramidTrimmed, 

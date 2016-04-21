@@ -22,7 +22,8 @@ class DensityMapsManager {
 	public:
 		typedef std::shared_ptr<const std::vector<Eigen::Vector3f> > PointsPtr;
 		typedef std::shared_ptr<const std::vector<Eigen::Matrix3d> > MatPtr;
-		/* Constructs argv and argc, then called the constructor with them */
+		typedef std::shared_ptr<const std::vector<SPARSE352WithXYZ> > FeaturePtr;
+		/* Constructs argv and argc, then calls the constructor with them */
 		DensityMapsManager(const std::string & commandLine);
 		DensityMapsManager(int argc, char * argv[]);
 		/*Runs 2D and 3D based on flags in the range specified */
@@ -45,7 +46,7 @@ class DensityMapsManager {
 			return pointsNoCenter; };	
 		MatPtr getR() {
 			return R; };
-		std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > getFeatureVectors() {
+		FeaturePtr getFeatureVectors() {
 			return featureVectors;
 		}
 		void setScale(double newScale) { FLAGS_scale = newScale; };
@@ -56,7 +57,7 @@ class DensityMapsManager {
 		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsWithCenter;
 		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsNoCenter;
 		std::shared_ptr<std::vector<Eigen::Matrix3d> > R;
-		std::shared_ptr<std::vector<SPARSE1344WithXYZ> > featureVectors;
+		std::shared_ptr<std::vector<SPARSE352WithXYZ> > featureVectors;
 		std::string rotationFile, fileName, scanNumber, buildName, featName;
 		int current;
 };
@@ -69,6 +70,10 @@ class BoundingBox {
 	public:
 		typedef std::shared_ptr<BoundingBox> Ptr;
 		typedef std::shared_ptr<const BoundingBox> ConstPtr;
+		template<typename... Targs>
+		static inline Ptr Create(Targs... args) {
+			return std::make_shared<BoundingBox> (args...);
+		};
 		BoundingBox(const DensityMapsManager::PointsPtr & points, 
 			Eigen::Vector3f && range);
 		BoundingBox(const DensityMapsManager::PointsPtr & points, 

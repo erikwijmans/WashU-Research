@@ -8,8 +8,7 @@
 
 namespace std {
   template <>
-  struct hash<Eigen::Vector3i>
-  {
+  struct hash<Eigen::Vector3i> {
     std::size_t operator()(const Eigen::Vector3i & k) const {
       size_t seed = 0;
       for (int i = 0; i < k.size(); ++i) {
@@ -27,8 +26,8 @@ namespace voxel {
       DensityMapsManager::PointsPtr points;
       DensityMapsManager::MatPtr R;
       BoundingBox::ConstPtr bBox;
-      std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > featureVectors;
-      std::unordered_map<Eigen::Vector3i, FeatureVoxel<float>::DescripPtr> xyzToSHOT1334;
+      DensityMapsManager::FeaturePtr featureVectors;
+      std::unordered_map<Eigen::Vector3i, FeatureVoxel<float>::DescripPtr> xyzToSHOT;
       std::vector<Eigen::MatrixXi> pointsPerVoxel, numTimesSeen;
       Eigen::Vector3f pointMin, pointMax;
       double voxelsPerMeter, pixelsPerMeter;
@@ -38,7 +37,7 @@ namespace voxel {
       typedef std::shared_ptr<voxel::CloudAnalyzer3D> Ptr;
       CloudAnalyzer3D(const DensityMapsManager::PointsPtr & points,
         const DensityMapsManager::MatPtr & R,
-        const std::shared_ptr<const std::vector<SPARSE1344WithXYZ> > & featureVectors,
+        const DensityMapsManager::FeaturePtr & featureVectors,
         const BoundingBox::ConstPtr & bBox);
       void run(double voxelsPerMeter, double pixelsPerMeter);
       void saveVoxelGrids(const std::vector<std::string> & pointNames,

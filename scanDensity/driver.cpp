@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
         loaded = true;
       }
 
-      auto bBox2D = std::make_shared<BoundingBox>(manager.getPointsNoCenter(), Eigen::Vector3f (9.0, 9.0, 6.0));
+      auto bBox2D = BoundingBox::Create(manager.getPointsNoCenter(), Eigen::Vector3f (9.0, 9.0, 6.0));
       bBox2D->run();
 
       CloudAnalyzer2D analyzer2D (manager.getPointsNoCenter(), manager.getR(), bBox2D);
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     if (FLAGS_3D && (FLAGS_redo || !manager.exists3D())) {
       if(!loaded) manager.run();
 
-      auto bBox3D = std::make_shared<BoundingBox>(manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
+      auto bBox3D = BoundingBox::Create(manager.getPointsWithCenter(), Eigen::Vector3f (10.0, 10.0, 6.0));
       bBox3D->run();
       Eigen::Vector3f pointMin, pointMax;
       bBox3D->getBoundingBox(pointMin, pointMax);

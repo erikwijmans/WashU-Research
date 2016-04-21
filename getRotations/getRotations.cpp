@@ -1,15 +1,12 @@
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
 #include <Eigen/Sparse>
-#include <stdio.h>
 #include <iostream>
 #include <string>
 #include <dirent.h>
-#include <vector>
 #include <fstream>
 #include <random>
-#include <math.h>
-#include <time.h>
+
 #include <omp.h>
 
 #include <scan_gflags.h>
@@ -19,7 +16,7 @@ using namespace std;
 using namespace Eigen;
 
 void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &, Vector3d &);
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &, const Vector3d &, 
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &, const Vector3d &,
 	Vector3d &, Vector3d &);
 void getMajorAngles(const Vector3d &, vector<Matrix3d> &);
 Matrix3d getRotationMatrix(const Vector3d &, const Vector3d &);
@@ -50,18 +47,16 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	sort(normalsNames.begin(), normalsNames.end(), 
-		[](const std::string & a, const std::string & b) {
-			int numA = std::stoi(a.substr(a.find(".") - 3, 3));
-			int numB = std::stoi(b.substr(b.find(".") - 3, 3));
-			return numA < numB;
-		});
+	sort(normalsNames.begin(), normalsNames.end());
 
-	for(int i = FLAGS_startIndex; i < normalsNames.size() - FLAGS_startIndex; ++i) {
+	if (FLAGS_numScans == -1)
+		FLAGS_numScans = normalsNames.size() - FLAGS_startIndex;
+
+	for(int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
 		const string normalsFilePath = FLAGS_normalsFolder + normalsNames[i];
 		analyzeNormals(normalsFilePath, FLAGS_rotFolder);
 	}
-	
+
 	return 0;
 }
 
@@ -69,7 +64,7 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	vector<Vector3d> normals;
 	const string number = normalsFileName.substr(normalsFileName.find(".") - 3, 3);
 	const string buildName = normalsFileName.substr(normalsFileName.rfind("/") + 1, 3);
-	const string rotOut = outputFolder + buildName + "_rotation_" + number + ".dat";
+	const string rotOut = outputFolder + buildName + "_rotations_" + number + ".dat";
 
 	cout << rotOut << endl;
 
@@ -79,7 +74,6 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 			return;
 	}
 
-
 	ifstream normalsFile (normalsFileName, ios::in | ios::binary);
 	size_t count = 0;
 	normalsFile.read(reinterpret_cast<char *> (&count), sizeof(size_t));
@@ -87,16 +81,12 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 	for (int i = 0; i < count; ++i) {
 		Vector3f point;
 		normalsFile.read(reinterpret_cast<char *> (point.data()), sizeof(Vector3f));
-		Vector3d tmp;
-		tmp[0] = point[0];
-		tmp[1] = point[1];
-		tmp[2] = point[2];
-		normals.push_back(tmp);
+		normals.push_back(point.cast<double>());
 	}
 	normalsFile.close();
 
 	if(!FLAGS_quiteMode)
-		cout << "N size: " << normals.size() << endl; 
+		cout << "N size: " << normals.size() << endl;
 
 	Vector3d d1, d2, d3;
 	satoshiRansacManhattan1(normals, d1);
@@ -104,15 +94,15 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 		cout << "D1: " << d1 << endl << endl;
 	}
 	std::vector<Eigen::Vector3d> N2;
-	for (auto & n : normals) 
-		if(asin(n.cross(d1).norm()) > PI/2.0 - 0.02)	
+	for (auto & n : normals)
+		if(asin(n.cross(d1).norm()) > PI/2.0 - 0.02)
 			N2.push_back(n);
 
 	if(!FLAGS_quiteMode)
 		cout << "N2 size: " << N2.size() << endl;
 
 	satoshiRansacManhattan2(N2, d1, d2, d3);
-	
+
 	if(!FLAGS_quiteMode) {
 		cout << "D2: " << d2 << endl << endl;
 		cout << "D3: " << d3 << endl << endl;
@@ -140,15 +130,18 @@ void analyzeNormals(const string & normalsFileName, const string & outputFolder)
 
 void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Vector3d & M) {
 	const int m = N.size();
-	static std::random_device seed;
-	std::uniform_int_distribution<int> dist(0, m - 1);
-	std::mt19937_64 gen(seed());
-	
+
 	volatile double maxInliers = 0, K = 1e5;
 	volatile int k = 0;
 
 	#pragma omp parallel shared(k, K, maxInliers, N, M)
 	{
+		std::random_device seed;
+		std::mt19937_64 gen(seed());
+		std::uniform_int_distribution<int> dist(0, m - 1);
+		for (int i = 0; i < 5000; ++i)
+			dist(gen);
+
 		while (k < K) {
 			// random sampling
 			int randomIndex = dist(gen);
@@ -167,17 +160,17 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Vector3d & 
 						average += n;
 				}
 			}
-			
+
 			#pragma omp crtical
 			{
 				if(numInliers > maxInliers) {
 					maxInliers = numInliers;
-					
+
 					M = average/average.norm();
-					
+
 					double w = (numInliers-3)/m;
 					double p = max(0.001,pow(w,3));
-					K = log(1-0.999)/log(1-p);	
+					K = log(1-0.999)/log(1-p);
 				}
 				if(k > 10000) k = 10*k;
 				++k;
@@ -186,18 +179,21 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Vector3d & 
 	}
 }
 
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vector3d & n1, 
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vector3d & n1,
 	Vector3d & M1, Vector3d & M2) {
 	const int m = N.size();
-	static std::random_device seed;
-	std::uniform_int_distribution<int> dist(0, m - 1);
-	std::mt19937_64 gen(seed());
-	
+
 	volatile double maxInliers = 0, K = 1.0e5;
 	volatile int k = 0;
 
 	#pragma omp parallel shared (k, K, maxInliers, N, n1, M1, M2)
 	{
+		std::random_device seed;
+		std::mt19937_64 gen(seed());
+		std::uniform_int_distribution<int> dist(0, m - 1);
+		for (int i = 0; i < 5000; ++i)
+			dist(gen);
+
 		while (k < K) {
 			// random sampling
 			int randomIndex = dist(gen);
@@ -208,7 +204,7 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vecto
 
 			// counting inliers and outliers
 			double numInliers = 0, numInliers2 = 0;
-			Eigen::Vector3d average = Vector3d::Zero(), 
+			Eigen::Vector3d average = Vector3d::Zero(),
 				average2 = Vector3d::Zero();
 			for(auto & n : N) {
 				if(min(acos(abs(nest.dot(n))),acos(abs(nest2.dot(n)))) < 0.02) {
@@ -222,17 +218,17 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vecto
 						++numInliers2;
 						if (nest2.dot(n) < 0)
 							average2 -= n;
-						else 
+						else
 							average2 += n;
 					}
-				}		
+				}
 			}
 
 			#pragma omp crtical
 			{
 				if((numInliers + numInliers2) > maxInliers) {
 					maxInliers = numInliers + numInliers2;
-					
+
 					if(numInliers > numInliers2) {
 						average /= average.norm();
 						M1 = average;
@@ -242,12 +238,12 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Vecto
 						M1 = average2.cross(n1);
 						M2 = average2;
 					}
-					
+
 					double w = (maxInliers-3)/m;
 					double p = max(0.001,pow(w,3));
-					K = log(1-0.999)/log(1-p);	
+					K = log(1-0.999)/log(1-p);
 				}
-					
+
 				if(k > 10000) k = 10*K;
 				++k;
 			}
@@ -292,5 +288,12 @@ Matrix3d getRotationMatrix(const Vector3d & end, const Vector3d & start) {
 
 	Matrix3d vx = crossProductMatrix(v);
 
-	return Matrix3d::Identity() + vx + vx*vx*(1 - c)/s;
+	Matrix3d out = Matrix3d::Identity() + vx + vx*vx*(1 - c)/s;
+	out(2, 2) = 1.0;
+	out(0, 2) = 0;
+	out(1, 2) = 0;
+	out(2, 0) = 0;
+	out(2, 1) = 0;
+
+	return out;
 }

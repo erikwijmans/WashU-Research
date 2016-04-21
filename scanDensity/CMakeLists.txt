@@ -1,7 +1,7 @@
 set(CMAKE_CXX_COMPILER g++)
 cmake_minimum_required(VERSION 2.8)
 project( scanDensity )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast -g -fopenmp")
 find_package( OpenCV REQUIRED )
 find_package(gflags REQUIRED)
 
