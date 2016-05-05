@@ -6,7 +6,7 @@
 #include <eigen3/Eigen/StdVector>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-
+#include <opencv2/core.hpp>
 #include <scan_typedefs.hpp>
 
 namespace pano {
@@ -15,8 +15,8 @@ namespace pano {
 		const std::vector<Eigen::Vector3d> & pointsInA,
 		const std::vector<Eigen::Vector3d> & pointsInB);
 
-	double compareSIFT2(const place::Panorama & panoA,
-		const place::Panorama & panoB, const Eigen::Matrix3d & RA,
+	double compareSIFT2(place::Panorama & panoA,
+		place::Panorama & panoB, const Eigen::Matrix3d & RA,
 		const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
 		const Eigen::Vector3d & bToA);
 
@@ -30,6 +30,11 @@ namespace pano {
 	void voxelGridToWorld(std::vector<Eigen::Vector3d> & points,
 		const Eigen::Matrix3d & R, const Eigen::Vector3i & zeroZero,
 		const double metersPerVoxel);
+
+	double compareNCC2(place::Panorama & panoA,
+		place::Panorama & panoB, const Eigen::Matrix3d & RA,
+		const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
+		const Eigen::Vector3d & bToA);
 
 } // pano
 

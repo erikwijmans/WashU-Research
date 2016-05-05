@@ -22,6 +22,7 @@
 #include "gurobi_c++.h"
 
 const int minScans = 2;
+const int maxScans = 20;
 
 static void displayCollapsed(auto & collapsed, const std::string & windowName) {
   double average, sigma;
@@ -44,7 +45,6 @@ static void displayCollapsed(auto & collapsed, const std::string & windowName) {
 
   sigma = sigma/(count-1);
   sigma = sqrt(sigma);
-
 
   cv::Mat heatMap (collapsed.rows(), collapsed.cols(), CV_8UC3, cv::Scalar::all(255));
   for (int i = 0; i < heatMap.rows; ++i) {
@@ -218,11 +218,11 @@ static void displayVoxelGridS(const TA & voxelA, const TB & voxelB,
   const int z = aRect.Z2 - aRect.Z1 + 1;
   const int Xrows = aRect.Y2 - aRect.Y1 + 1;
   const int Xcols = aRect.X2 - aRect.X1 + 1;
-  for (int k = 0; k < z; ++k) {
+
   Eigen::MatrixXd collapsedA = Eigen::MatrixXd::Zero(Xrows, Xcols);
   Eigen::MatrixXd collapsedB = Eigen::MatrixXd::Zero(Xrows, Xcols);
 
-
+  for (int k = 0; k < z; ++k) {
     auto & currentA = voxelA[k + aRect.Z1];
     auto & currentB = voxelB[k + bRect.Z1];
 
@@ -247,9 +247,9 @@ static void displayVoxelGridS(const TA & voxelA, const TB & voxelB,
         collapsedB(BPos[1], BPos[0]) += it.value();
       }
     }
-
+  }
   displayCollapsed(collapsedA, collapsedB, aRect, bRect);
-}
+
 }
 
 void place::loadInScansGraph(const std::vector<std::string> & pointFileNames,
@@ -327,7 +327,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   const std::vector<std::string> & pointVoxelFileNames,
   const std::vector<std::string> & freeVoxelFileNames,
   const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
-  const std::vector<place::Panorama> & panoramas,
+  std::vector<place::Panorama> & panoramas,
   Eigen::MatrixXE & adjacencyMatrix) {
 
   typedef struct {
@@ -341,17 +341,12 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
   std::vector<later> tracker;
-
+  //Iterator over the lower triangle of the adjaceny matrix
   for (int i = 0; i < cols ; ++i) {
     const place::node & nodeA = nodes[i];
-    for (int j = 0; j < rows; ++j) {
+    for (int j = i + 1; j < rows; ++j) {
       const place::node & nodeB = nodes[j];
-
       if (nodeA.color == nodeB.color) {
-        continue;
-      }
-      if (i > j) {
-        adjacencyMatrix(j, i) = adjacencyMatrix(i,j);
         continue;
       }
 
@@ -426,20 +421,23 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   std::cout << tracker.size() << std::endl;
 
   omp_set_nested(1);
-  #pragma omp parallel num_threads(5) \
+  #pragma omp target teams num_teams(1)\
    shared(tracker, adjacencyMatrix, nodes)
   {
     int voxelAColor = -1, voxelARot = -1;
     int voxelBcolor = -1, voxelBRot = -1;
     place::voxelGrid aPoint, bPoint;
     place::voxelGrid aFree, bFree;
-    #pragma omp for
+    #pragma omp distribute
     for (int k = 0; k < tracker.size(); ++k) {
       const later & current = tracker[k];
       const int i = current.i;
       const int j = current.j;
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
+
+     //  if (j != 228 /*224*/) continue;
+     //  if (i != 226) continue;
 
       if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
         std::string name = FLAGS_voxelFolder + "R"
@@ -484,9 +482,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const Eigen::Vector3d aToB = AZeroZero - BZeroZero;
       const Eigen::Vector3d bToA = BZeroZero - AZeroZero;
 
-      weight.panoW = pano::compareSIFT2(panoA,
-        panoB, RA, RB, aToB, bToA);
-
       if (false) {
         displayVoxelGridS(aPoint.v, "aPoint");
         displayVoxelGridS(bPoint.v, "bPoint");
@@ -495,10 +490,15 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         displayVoxelGridS(aPoint.v, bPoint.v,
           current.crossWRTA, current.crossWRTB);
       }
-
+      weight.panoW = pano::compareNCC2(panoA,
+        panoB, RA, RB, aToB, bToA);
       adjacencyMatrix(j, i) = weight;
     }
   }
+  //Copy the lower tranalge into the upper triangle
+  for (int i = 0; i < cols ; ++i)
+    for (int j = i + 1; j < rows; ++j)
+      adjacencyMatrix(i, j) = adjacencyMatrix(j, i);
 
   if (FLAGS_save)
     place::saveGraph(adjacencyMatrix);
@@ -534,6 +534,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
     lastScore = tmp.score;
   }
   if(!final) final = numToLoad - 1;
+  if (final > maxScans - 1) final = maxScans - 1;
   std::vector<place::node> nodestmp;
   for (auto & s : scoretmp)
     nodestmp.push_back({s, 0.0, 0.0, num});
@@ -562,6 +563,9 @@ void place::loadInPlacementGraph(const std::string & imageName,
 
   for (auto & n : nodestmp)
     n.nw = (n.w - average)/sigma;
+
+  for (auto & n : nodestmp)
+    n.w = n.nw;
 
   nodes.insert(nodes.end(), nodestmp.begin(),
     nodestmp.begin() + (final + 1));
@@ -618,24 +622,16 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   const int cols = adjacencyMatrix.cols();
   int numBreaks = 0;
   for (int i = 0; i < cols; ++i) {
+    const place::node & nodeA = nodes[i];
+    if (nodeA.color != 40) continue;
     for (int j = 0; j < rows; ++j) {
-
-      const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
 
-      if (nodeA.color == nodeB.color)
+      /*if (i > j)
+        continue;*/
+      if (adjacencyMatrix(j, i).w == 0)
         continue;
-      if (i > j)
-        continue;
-      if (adjacencyMatrix(j,i).w == 0)
-        continue;
-
-      if (nodeA.color != 36)
-        break;
-      else if ((numBreaks++) < 20)
-        break;
-
-      std::cout << j << "," << i << std::endl;
+      std::cout << "(" << i << ", " << j << ")" << std::endl;
 
       const Eigen::MatrixXb & aScan = scans[nodeA.color][nodeA.s.rotation];
       const Eigen::MatrixXb & bScan = scans[nodeB.color][nodeB.s.rotation];
@@ -687,7 +683,7 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
       if (!FLAGS_quiteMode) {
         std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
         std::cout << adjacencyMatrix(j,i) << std::endl;
-        std::cout << nodeA.w << "   " << nodeB.w << std::endl;
+        std::cout << "urnary: " << nodeA.w << "   " << nodeB.w << std::endl;
       }
       cv::waitKey(0);
       ~output;
@@ -765,7 +761,7 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
   #pragma omp parallel for shared(aPoint, bPoint, aFree, bFree, aRect, bRect) \
     reduction(+: pointAgreement, freeSpaceAgreementA, freeSpaceAgreementB) \
     reduction(+: freeSpaceCross, totalPointA, totalPointB) \
-    reduction(+: averageFreeSpace) num_threads(2) if (false)
+    reduction(+: averageFreeSpace)
   for (int k = 0; k < z; ++k) {
     auto & Ap = aPoint.v[k + aRect.Z1];
     auto & Bp = bPoint.v[k + bRect.Z1];

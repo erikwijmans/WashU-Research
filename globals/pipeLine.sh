@@ -8,8 +8,8 @@
 cd ~/Projects/3DscanData/DUC/Floor1/
 find -type d -links 2 -exec mkdir -p "$1{}" \;
 cd ~/Projects/c++/preprocessor
-#make
-#./preprocessor -dataPath=$1
+make
+./preprocessor -dataPath=$1 -redo -ptx
 cd ../scanDensity
 make
 ./scanDensity -dataPath=$1 -redo

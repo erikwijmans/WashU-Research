@@ -41,6 +41,6 @@ DECLARE_int32(stopNumber);
 DECLARE_int32(top);
 DECLARE_double(scale);
 
-void preappendDataPath();
+void prependDataPath();
 
 #endif // SCAN_GFLAGS_H

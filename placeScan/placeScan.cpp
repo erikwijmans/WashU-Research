@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  preappendDataPath();
+  prependDataPath();
 
   if (!FLAGS_V1 && !FLAGS_V2)
     FLAGS_V1 = FLAGS_V2 = true;
@@ -120,7 +120,8 @@ int main(int argc, char *argv[]) {
     labeler.weightEdges();
     labeler.displayGraph();
     labeler.solveTRW();
-    labeler.displaySolution();
+    while (1)
+      labeler.displaySolution();
   }
 
   /*if (FLAGS_previewOut){

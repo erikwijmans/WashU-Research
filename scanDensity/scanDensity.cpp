@@ -384,15 +384,11 @@ void CloudAnalyzer2D::examinePointEvidence() {
 	double average, sigma;
 	average = sigma = 0;
 	int count = 0;
-	float minV = 1e10;
-	float maxV = 0;
 	const float * dataPtr = total.data();
 	for (int i = 0; i < total.size(); ++i) {
 		if (*(dataPtr+ i)) {
 			++count;
 			average+= *(dataPtr + i);
-			minV = std::min(minV, *(dataPtr+i));
-			maxV = std::max(maxV, *(dataPtr + i));
 		}
 	}
 

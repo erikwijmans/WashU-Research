@@ -163,8 +163,8 @@ static void displayVoxelGrid(const auto & voxelB) {
         int red, green, blue;
         if (gray < 128) {
           red = 0;
-          blue = 2 * gray;
-          green = 255 - blue;
+          green = 2 * gray;
+          blue = 255 - green;
         } else {
           blue = 0;
           red = 2 * (gray - 128);

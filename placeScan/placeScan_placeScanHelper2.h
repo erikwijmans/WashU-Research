@@ -43,7 +43,7 @@ namespace place {
     const std::vector<std::string> & pointVoxelFileNames,
     const std::vector<std::string> & freeVoxelFileNames,
     const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
-    const std::vector<place::Panorama> & panoramas,
+    std::vector<place::Panorama> & panoramas,
     Eigen::MatrixXE & adjacencyMatrix);
 
   void loadInPlacementGraph(const std::string & imageName,

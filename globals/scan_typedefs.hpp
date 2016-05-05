@@ -9,6 +9,7 @@
 #include <eigen3/Eigen/Sparse>
 #include <fstream>
 #include <memory>
+#include <omp.h>
 
 #define NUM_ROTS 4
 
@@ -36,6 +37,7 @@ namespace place {
 } // place
 
 namespace Eigen {
+	typedef Array<Eigen::Vector3f, Dynamic, Dynamic, RowMajor> ArrayXV3f;
 	typedef Array<place::edge, Dynamic, Dynamic> MatrixXE;
   typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
   typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
@@ -150,7 +152,6 @@ void loadSparseMatrix(SparseMatrixType & mat, std::ifstream & in) {
 		tripletList.push_back(TripType (row, col, value));
 	}
 	mat.setFromTriplets(tripletList.begin(), tripletList.end());
-	mat.prune(1);
 }
 
 template<typename SparseVectorType>
@@ -365,13 +366,13 @@ namespace place {
   };
 
   typedef struct Panorama {
-  	cv::Mat img;
+  	std::vector<cv::Mat> imgs;
   	Eigen::RowMatrixXf rMap;
   	std::vector<cv::Point2f> keypoints;
-  	cv::Mat descriptors;
+  	Eigen::ArrayXV3f surfaceNormals;
   	void writeToFile(const std::string & imgName,
   		const std::string & dataName) {
-  		cv::imwrite(imgName, img);
+  		cv::imwrite(imgName, imgs[0]);
 
   		std::ofstream out (dataName, std::ios::out | std::ios::binary);
   		int rows = rMap.rows();
@@ -389,15 +390,14 @@ namespace place {
   			out.write(reinterpret_cast<const char *>(&kp.y), sizeof(float));
   		}
 
-  		rows = descriptors.rows;
-  		cols = descriptors.cols;
+  		rows = surfaceNormals.rows();
+  		cols = surfaceNormals.cols();
   		out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
   		out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
-  		for (int j = 0; j < rows; ++j) {
-  			const float * src = descriptors.ptr<float>(j);
-  			for (int i = 0; i < cols; ++i) {
-  				out.write(reinterpret_cast<const char *>(src + i), sizeof(float));
-  			}
+  		const auto * nPtr = surfaceNormals.data();
+  		for (int i = 0; i < surfaceNormals.size(); ++i) {
+  			out.write(reinterpret_cast<const char *>((nPtr + i)->data()),
+  				3*sizeof(float));
   		}
 
   		out.close();
@@ -405,7 +405,8 @@ namespace place {
 
   	void loadFromFile(const std::string & imgName,
   		const std::string & dataName) {
-  		img = cv::imread(imgName);
+  		imgs.resize(1);
+  		imgs[0] = cv::imread(imgName);
 
   		int rows, cols, numKeypoints;
   		std::ifstream in (dataName, std::ios::in | std::ios::binary);
@@ -422,19 +423,33 @@ namespace place {
   			in.read(reinterpret_cast<char *>(&kp.x), sizeof(float));
   			in.read(reinterpret_cast<char *>(&kp.y), sizeof(float));
   		}
-
-
   		in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
   		in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
-  		descriptors = cv::Mat(rows, cols, CV_32FC1);
-  		for (int j = 0; j < rows; ++j) {
-  			float * src = descriptors.ptr<float>(j);
-  			for (int i = 0; i < cols; ++i) {
-  				in.read(reinterpret_cast<char *>(src + i), sizeof(float));
-  			}
+  		surfaceNormals.resize(rows, cols);
+  		auto * nPtr = surfaceNormals.data();
+  		for (int i = 0; i < surfaceNormals.size(); ++i) {
+  			in.read(reinterpret_cast<char *>((nPtr + i)->data()),
+  				3*sizeof(float));
   		}
-
   		in.close();
+  	}
+
+  	const cv::Mat & operator[](int n) {
+  		if (imgs.size() > n && imgs[n].data) {
+  			return imgs[n];
+  		} else{
+  			#pragma omp critical
+  			{
+  				if (imgs.size() <= n)
+  					imgs.resize(n + 1);
+
+  				if (!imgs[n].data) {
+  					const double scale = pow(2, -n/2.0);
+  					cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
+  				}
+  			}
+  			return imgs[n];
+  		}
   	}
   } Panorama;
 } // place

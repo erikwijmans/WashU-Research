@@ -24,6 +24,8 @@ multi::Labeler::Labeler() {
 	place::parseFolders(pointFileNames,
 	  zerosFileNames, &freeFileNames);
 
+	std::cout << "Starting up Labeler" << std::endl;
+
 	{
 	  std::string folder = FLAGS_voxelFolder + "R0/";
 	  DIR *dir;
@@ -100,13 +102,16 @@ multi::Labeler::Labeler() {
 		std::sort(metaDataFiles.begin(), metaDataFiles.end());
 	}
 
+	std::cout << "Done parsing folders" << std::endl;
+	std::cout << "Loading in scans" << std::endl;
 	zeroZeros.resize(numScans);
 	place::loadInScansGraph(pointFileNames, freeFileNames,
 	  zerosFileNames, scans, masks, zeroZeros);
 
+	std::cout << "Loading in panoramas and rot mats" << std::endl;
 	loadInPanosAndRot();
-
-	const int numToParse = 15;
+	std::cout << "Loading in placements" << std::endl;
+	const int numToParse = numScans;
 	const int nodeStart = 0;
 	for (int i = nodeStart; i < std::min(numToParse + nodeStart,
 	  (int)pointFileNames.size()); ++i) {
@@ -132,6 +137,7 @@ multi::Labeler::Labeler() {
 	  }
 	  numberOfLabels.push_back(i);
 	}
+	std::cout << "Leaving labeler init" << std::endl;
 }
 
 void multi::Labeler::loadInPanosAndRot() {
@@ -202,6 +208,7 @@ void multi::Labeler::loadInPanosAndRot() {
 }
 
 void multi::Labeler::weightEdges() {
+	std::cout << "Weighting edges" << std::endl;
 	const double startTime = omp_get_wtime();
 	place::weightEdges(nodes, voxelInfo, pointVoxelFileNames,
 		freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
