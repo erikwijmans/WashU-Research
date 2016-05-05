@@ -118,23 +118,11 @@ int main(int argc, char *argv[]) {
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
-    labeler.displayGraph();
+    // labeler.displayGraph();
     labeler.solveTRW();
     while (1)
       labeler.displaySolution();
   }
-
-  /*if (FLAGS_previewOut){
-    std::vector<confidence::moreInfo> scoreInfo;
-    confidence::findMostConfidentPlacements(scoreInfo);
-    std::cout << scoreInfo.size() << std::endl;
-    for (auto & m : scoreInfo) {
-      const std::string scanName = FLAGS_dmFolder + pointFileNames[m.scanNum];
-      const std::string rotationFile = FLAGS_rotFolder + rotationFileNames[m.scanNum];
-      const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[m.scanNum];
-      place::displayMostConfidentScan(scanName, rotationFile, zerosFile, m.s);
-    }
-  }*/
 
   return 0;
 }

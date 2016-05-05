@@ -214,7 +214,12 @@ void multi::Labeler::weightEdges() {
 		freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
 	place::normalizeWeights(adjacencyMatrix, nodes);
 	const double endTime = omp_get_wtime();
-	std::cout << "Time: " << endTime - startTime << std::endl;
+	const int totalTime = endTime - startTime;
+	const int seconds = totalTime % 60;
+	const int minutes = (totalTime % 3600)/60;
+	const int hours = totalTime/3600;
+	std::cout << "Time: " << hours << "h " << minutes << "m "
+		<< seconds << "s" << std::endl;
 }
 
 void multi::Labeler::solveTRW() {

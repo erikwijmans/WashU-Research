@@ -225,6 +225,7 @@ double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
 
 static inline double getAngle(const auto & a,
 	const auto & b) {
+	if (a.norm() == 0 || b.norm() == 0) return PI;
 	return std::acos(static_cast<double>(a.dot(b))/(a.norm()*b.norm()));
 }
 
@@ -296,12 +297,12 @@ static void SIFTHeatMap(place::Panorama & panoA,
 	exit(1);
 }
 
-double pano::compareSIFT2(place::Panorama & panoA,
+/*double pano::compareSIFT2(place::Panorama & panoA,
 	place::Panorama & panoB, const Eigen::Matrix3d & RA,
 	const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
 	const Eigen::Vector3d & bToA) {
 
-	// SIFTHeatMap(panoB, panoB, RB, RA, bToA, aToB);
+	SIFTHeatMap(panoB, panoB, RB, RA, bToA, aToB);
 
 	constexpr double cutoffAngle = degreesToRadians(45);
 	constexpr double maxRadiusRatio = 2.0;
@@ -420,7 +421,7 @@ double pano::compareSIFT2(place::Panorama & panoA,
 	score = 1.0 - score;
 
 	return count > 0 && Eigen::numext::isfinite(score) ? score : 0;
-}
+}*/
 
 double NCC(const cv::Mat_<cv::Vec3b> & a, const cv::Mat_<cv::Vec3b> & b) {
 	assert(a.rows == b.rows);
@@ -447,9 +448,9 @@ double NCC(const cv::Mat_<cv::Vec3b> & a, const cv::Mat_<cv::Vec3b> & b) {
 	for (int j = 0; j < a.rows; ++j) {
 		for (int i = 0; i < a.cols; ++i) {
 			for (int c = 0; c < a.channels(); ++c) {
-				AA += (a(j,i)[c] - aveA[c])*(a(j,i)[c] - aveA[c]);
-				BB += (b(j,i)[c] - aveB[c])*(b(j,i)[c] - aveB[c]);
-				AB += (b(j,i)[c] - aveB[c])*(a(j,i)[c] - aveA[c]);
+				AA += (a(j, i)[c] - aveA[c])*(a(j, i)[c] - aveA[c]);
+				BB += (b(j, i)[c] - aveB[c])*(b(j, i)[c] - aveB[c]);
+				AB += (b(j, i)[c] - aveB[c])*(a(j, i)[c] - aveA[c]);
 			}
 		}
 	}
@@ -611,9 +612,9 @@ double pano::compareNCC2(place::Panorama & panoA,
 	const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
 	const Eigen::Vector3d & bToA) {
 
-	constexpr double cutoffAngle = degreesToRadians(30);
+	constexpr double cutoffAngle = degreesToRadians(25);
 	constexpr double maxDiff = 0.3;
-	constexpr double occulisionCutoff = 0.2;
+	constexpr double occulisionCutoff = 0.3;
 	constexpr double roundingOffset = 0.5;
 	constexpr int offset = NCCSize/2;
 	static_assert(offset*2 + 1 == NCCSize, "offset isn't correct");
@@ -632,9 +633,6 @@ double pano::compareNCC2(place::Panorama & panoA,
 
 	const Eigen::RowMatrixXf & rMapA = panoA.rMap;
 	const Eigen::RowMatrixXf & rMapB = panoB.rMap;
-
-	const cv::Mat & trueADescrip = panoA.descriptors;
-	const cv::Mat & trueBDescrip = panoB.descriptors;
 
 	const Eigen::Vector2i aMaxes (std::min(panoA[0].cols, (int)rMapA.cols()), std::min(panoA[0].rows, (int)rMapA.rows())),
 		bMaxes (std::min(panoB[0].cols, (int)rMapB.cols()), std::min(panoB[0].rows, (int)rMapB.rows()));
@@ -716,11 +714,6 @@ double pano::compareNCC2(place::Panorama & panoA,
 						out1(j - offset + a[1], i - offset + a[0])[0] = 0;
 						out1(j - offset + a[1], i - offset + a[0])[1] = 0;
 						out1(j - offset + a[1], i - offset + a[0])[2] = 255;
-
-						/*Eigen::Vector2d tmp (i + a[0] - offset, j + a[1] - offset);
-						auto aVoxelSpace = panoramaToVoxelSpace(tmp, r, aLvlImg.size());
-						auto bVoxelSpace = aToBRotMat*aVoxelSpace + aToBTrans;
-						b = voxelSpaceToPanorama(bVoxelSpace, bLvlImg.size());*/
 
 						out2(j - offset + b[1], i - offset + b[0])[0] = 0;
 						out2(j - offset + b[1], i - offset + b[0])[1] = 0;

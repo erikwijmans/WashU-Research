@@ -5,16 +5,13 @@
 #include <locale>
 
 #include <sstream>
-#include <map>
-#include <HashVoxel.hpp>
 
-static std::map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
+static std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
 DensityMapsManager::DensityMapsManager (const std::string & commandLine):
 	R {NULL},
 	pointsWithCenter {NULL},
-	pointsNoCenter {NULL},
-	featureVectors {NULL}
+	pointsNoCenter {NULL}
 {
 	this->resetFlags(commandLine);
 }
@@ -22,8 +19,7 @@ DensityMapsManager::DensityMapsManager (const std::string & commandLine):
 DensityMapsManager::DensityMapsManager(int argc, char * argv[]):
 	R {NULL},
 	pointsWithCenter {NULL},
-	pointsNoCenter {NULL},
-	featureVectors {NULL}
+	pointsNoCenter {NULL}
 {
 	this->resetFlags(argc, argv);
 }
@@ -45,7 +41,7 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
-	preappendDataPath();
+	prependDataPath();
 
 	if (!FLAGS_2D && !FLAGS_3D)
 		FLAGS_2D = FLAGS_3D = true;
@@ -107,10 +103,10 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 		std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
 		exit(1);
 	}
-	if (rotationsFiles.size() != featureNames.size()) {
+	/*if (rotationsFiles.size() != featureNames.size()) {
 		std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
 		exit(1);
-	}
+	}*/
 
 	std::string buildName = rotationsFiles[0].substr(0, 3);
 	std::locale loc;
@@ -134,7 +130,7 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 void DensityMapsManager::run() {
 	rotationFile = FLAGS_rotFolder + rotationsFiles[current];
 	fileName = FLAGS_binaryFolder + binaryNames[current];
-	featName = FLAGS_descriptorsFolder + featureNames[current];
+	// featName = FLAGS_descriptorsFolder + featureNames[current];
 
 	scanNumber = fileName.substr(fileName.find(".") - 3, 3);
 	buildName = fileName.substr(fileName.rfind("/") + 1, 3);
@@ -157,8 +153,6 @@ void DensityMapsManager::run() {
 
  	pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
   pointsWithCenter->reserve(columns*rows);
-  pointsNoCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
-  pointsNoCenter->reserve(columns*rows);
 
   for (int k = 0; k < columns * rows; ++k) {
     scan::PointXYZRGBA tmp;
@@ -171,20 +165,17 @@ void DensityMapsManager::run() {
 			continue;
 
 		pointsWithCenter->push_back(point);
-
-		if (point[0]*point[0] + point[1]*point[1] > 0.8)
-			pointsNoCenter->push_back(point);
 	}
 	binaryReader.close();
 
-	binaryReader.open(featName, std::ios::in | std::ios::binary);
+	/*binaryReader.open(featName, std::ios::in | std::ios::binary);
 	int num;
 	binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
 	featureVectors = std::make_shared<std::vector<SPARSE352WithXYZ> > (num);
 	for (auto & v : *featureVectors)
 		v.loadFromFile(binaryReader);
 
-	binaryReader.close();
+	binaryReader.close();*/
 }
 
 bool DensityMapsManager::hasNext() {
@@ -337,7 +328,8 @@ CloudAnalyzer2D::CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::
 	const std::shared_ptr<const BoundingBox> & bBox) :
 	points {points},
 	R {R},
-	bBox {bBox}
+	bBox {bBox},
+	pointsPerVoxel {nullptr}
 {
 	cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 }
@@ -345,13 +337,15 @@ CloudAnalyzer2D::CloudAnalyzer2D(const std::shared_ptr<const std::vector<Eigen::
 void CloudAnalyzer2D::initalize(double scale) {
 	bBox->getBoundingBox(pointMin, pointMax);
 
+
 	zScale = (float)numZ/(pointMax[2] - pointMin[2]);
 
 	numX = scale * (pointMax[0] - pointMin[0]);
 	numY = scale * (pointMax[1] - pointMin[1]);
 
-
-	pointsPerVoxel.assign(numY, Eigen::MatrixXi::Zero(numZ, numX));
+	pointsPerVoxel =
+		voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi>::Create(Eigen::Vector2i(0, 0),
+			Eigen::Vector2i(numX, numY));
 
 	for (auto & point : *points){
 	 	const int x = scale*(point[0] - pointMin[0]);
@@ -365,7 +359,13 @@ void CloudAnalyzer2D::initalize(double scale) {
 		if ( z < 0 || z >= numZ)
 			continue;
 
-	  ++pointsPerVoxel[y](z, x);
+		auto p = pointsPerVoxel->at(x, y);
+	  if (!p)
+	  	p = pointsPerVoxel->insert(std::make_shared<Eigen::VectorXi>
+	  		(Eigen::VectorXi::Zero(numZ)), x, y);
+
+	  ++(*p)[z];
+
 	}
 
 	zeroZero = Eigen::Vector3d(-pointMin[0]*FLAGS_scale, -pointMin[1]*FLAGS_scale, 0);
@@ -374,12 +374,17 @@ void CloudAnalyzer2D::initalize(double scale) {
 void CloudAnalyzer2D::examinePointEvidence() {
 	pointEvidence.clear();
 	Eigen::MatrixXf total = Eigen::MatrixXf::Zero (numY, numX);
-	for (int i = 0; i < numX; ++i)
-		for (int j = 0; j < numY; ++j)
-			for (int k = 0; k < numZ; ++k)
-				if (pointsPerVoxel[j](k,i))
-					++total(j,i);
-
+	for (int i = 0; i < numX; ++i) {
+		for (int j = 0; j < numY; ++j) {
+			auto column = pointsPerVoxel->at(i, j);
+			if (column) {
+				for (int k = 0; k < numZ; ++k) {
+					if ((*column)[k])
+						++total(j, i);
+				}
+			}
+		}
+	}
 
 	double average, sigma;
 	average = sigma = 0;
@@ -448,12 +453,16 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 	freeSpaceEvidence.clear();
 	Eigen::Vector3f cameraCenter = -1.0*pointMin;
 
-	std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
-
+	voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi> numTimesSeen (
+		Eigen::Vector2i(0, 0), Eigen::Vector2i(numX, numY));
+	const double startTime = omp_get_wtime();
 	for (int i = 0; i < numX; ++i) {
 		for (int j = 0; j < numY; ++j) {
+			auto column = pointsPerVoxel->at(i, j);
+			if (!column)
+				continue;
 			for (int k = 0; k < numZ; ++k) {
-				if (pointsPerVoxel[j](k,i) == 0)
+				if (!(*column)[k])
 					continue;
 
 				float ray[3];
@@ -478,25 +487,38 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 						continue;
 					if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
 						continue;
-					numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1])
-						+= pointsPerVoxel[j](k,i);
+					auto n = numTimesSeen(voxelHit[0], voxelHit[1]);
+					if (!n) {
+						n = numTimesSeen.insert(std::make_shared<Eigen::VectorXi>
+							(Eigen::VectorXi::Zero(numZ)), voxelHit[0], voxelHit[1]);
+					}
+
+					(*n)[voxelHit[2]] +=
+						(*column)[k];
 				}
 			}
 		}
 	}
+	const double endTime = omp_get_wtime();
+	const int totalTime = endTime - startTime;
+	const int seconds = totalTime % 60;
+	const int minutes = (totalTime % 3600)/60;
+	const int hours = totalTime/3600;
+	std::cout << "Time: " << hours << "h " << minutes << "m "
+		<< seconds << "s" << std::endl;
 
-
-	Eigen::MatrixXd collapsedCount (numY, numX);
+	Eigen::MatrixXd collapsedCount = Eigen::MatrixXd::Zero(numY, numX);
 
 	for (int i = 0; i < numX; ++i) {
 		for (int j = 0; j < numY; ++j) {
-			int count = 0;
-			for (int k = 0; k < numZ; ++k) {
-				if (numTimesSeen[i](k,j)) {
-					count++;
+			auto column = numTimesSeen(i, j);
+			if (column) {
+				for (int k = 0; k < numZ; ++k) {
+					if ((*column)[k]) {
+						++collapsedCount(j, i);
+					}
 				}
 			}
-			collapsedCount(j,i) = count;
 		}
 	}
 
@@ -552,7 +574,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 				}
 			}
 		}
-		const double radius = 0.6;
+		const double radius = 0.2;
 		for (int j = -sqrt(radius)*FLAGS_scale; j < sqrt(radius)*FLAGS_scale; ++j) {
 			uchar * dst = heatMap.ptr<uchar>(j + imageZeroZero[1]);
 			for (int i = -sqrt(radius*FLAGS_scale*FLAGS_scale - j*j);

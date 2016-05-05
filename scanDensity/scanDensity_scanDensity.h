@@ -17,6 +17,7 @@
 
 #include <scan_gflags.h>
 #include <scan_typedefs.hpp>
+#include <HashVoxel.hpp>
 
 class DensityMapsManager {
 	public:
@@ -43,12 +44,10 @@ class DensityMapsManager {
 		PointsPtr getPointsWithCenter() {
 			return pointsWithCenter; };
 		PointsPtr getPointsNoCenter() {
-			return pointsNoCenter; };	
+			exit(1);
+			return pointsNoCenter; };
 		MatPtr getR() {
 			return R; };
-		FeaturePtr getFeatureVectors() {
-			return featureVectors;
-		}
 		void setScale(double newScale) { FLAGS_scale = newScale; };
 		double getScale() { return FLAGS_scale; };
 
@@ -57,7 +56,6 @@ class DensityMapsManager {
 		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsWithCenter;
 		std::shared_ptr<std::vector<Eigen::Vector3f> > pointsNoCenter;
 		std::shared_ptr<std::vector<Eigen::Matrix3d> > R;
-		std::shared_ptr<std::vector<SPARSE352WithXYZ> > featureVectors;
 		std::string rotationFile, fileName, scanNumber, buildName, featName;
 		int current;
 };
@@ -72,11 +70,11 @@ class BoundingBox {
 		typedef std::shared_ptr<const BoundingBox> ConstPtr;
 		template<typename... Targs>
 		static inline Ptr Create(Targs... args) {
-			return std::make_shared<BoundingBox> (args...);
+			return std::make_shared<BoundingBox> (std::forward<Targs>(args)...);
 		};
-		BoundingBox(const DensityMapsManager::PointsPtr & points, 
+		BoundingBox(const DensityMapsManager::PointsPtr & points,
 			Eigen::Vector3f && range);
-		BoundingBox(const DensityMapsManager::PointsPtr & points, 
+		BoundingBox(const DensityMapsManager::PointsPtr & points,
 			Eigen::Vector3f & range);
 		void run();
 		void setRange(Eigen::Vector3f && range);
@@ -89,7 +87,7 @@ class CloudAnalyzer2D {
 		BoundingBox::ConstPtr bBox;
 		DensityMapsManager::PointsPtr points;
 		DensityMapsManager::MatPtr R;
-		std::vector<Eigen::MatrixXi> pointsPerVoxel;
+		voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi>::Ptr pointsPerVoxel;
 		std::vector<cv::Mat> pointEvidence, freeSpaceEvidence;
 		Eigen::Vector3f pointMin, pointMax;
 		Eigen::Vector3d zeroZero;

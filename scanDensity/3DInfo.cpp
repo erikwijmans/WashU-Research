@@ -3,12 +3,10 @@
 
 voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
   const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
-  const DensityMapsManager::FeaturePtr & featureVectors,
   const std::shared_ptr<const BoundingBox> & bBox) :
   points {points},
   R {R},
-  bBox {bBox},
-  featureVectors {featureVectors}
+  bBox {bBox}
 {
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 }
@@ -93,7 +91,7 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter,
   zeroZero = Eigen::Vector3i(-pointMin[0]*voxelsPerMeter,
     -pointMin[1]*voxelsPerMeter, -pointMin[2]*zScale);
 
-  std::unordered_map<Eigen::Vector3i, int> xyzToCount;
+  /*std::unordered_map<Eigen::Vector3i, int> xyzToCount;
   for (auto& feature : *featureVectors) {
     auto point = feature.position;
     point[1] *= -1.0;
@@ -120,7 +118,7 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter,
   }
   for (auto feat : xyzToSHOT) {
     *feat.second /= xyzToCount.find(feat.first)->second;
-  }
+  }*/
 }
 
 static void displayVoxelGrid(const auto & voxelB) {

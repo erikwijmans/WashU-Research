@@ -11,21 +11,28 @@
 #include <omp.h>
 
 void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &, Eigen::Vector3d &);
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &, const Eigen::Vector3d &, 
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &, const Eigen::Vector3d &,
 	Eigen::Vector3d &, Eigen::Vector3d &);
 void getMajorAngles(const Eigen::Vector3d &, std::vector<Eigen::Matrix3d> &);
 Eigen::Matrix3d getRotationMatrix(const Eigen::Vector3d &, const Eigen::Vector3d &);
 
-void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals, 
+void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
 	const std::string & outName) {
+
+	if (!FLAGS_redo) {
+		std::ifstream in (outName, std::ios::in | std::ios::binary);
+		if (in.is_open())
+			return;
+	}
+
 	std::vector<Eigen::Vector3d> normals;
-	
+
 	normals.reserve(cloud_normals->size());
 	for (auto & n : *cloud_normals)
 		normals.emplace_back(n.normal_x, n.normal_y, n.normal_z);
 
 	if(!FLAGS_quiteMode)
-		std::cout << "N size: " << normals.size() << std::endl; 
+		std::cout << "N size: " << normals.size() << std::endl;
 
 	Eigen::Vector3d d1, d2, d3;
 	satoshiRansacManhattan1(normals, d1);
@@ -33,15 +40,15 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
 		std::cout << "D1: " << d1 << std::endl << std::endl;
 	}
 	std::vector<Eigen::Vector3d> N2;
-	for (auto & n : normals) 
-		if(std::asin(n.cross(d1).norm()) > PI/2.0 - 0.02)	
+	for (auto & n : normals)
+		if(std::asin(n.cross(d1).norm()) > PI/2.0 - 0.02)
 			N2.push_back(n);
 
 	if(!FLAGS_quiteMode)
 		std::cout << "N2 size: " << N2.size() << std::endl;
 
 	satoshiRansacManhattan2(N2, d1, d2, d3);
-	
+
 	if(!FLAGS_quiteMode) {
 		std::cout << "D2: " << d2 << std::endl << std::endl;
 		std::cout << "D3: " << d3 << std::endl << std::endl;
@@ -69,7 +76,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
 
 void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Eigen::Vector3d & M) {
 	const int m = N.size();
-	
+
 	volatile double maxInliers = 0, K = 1e5;
 	volatile int k = 0;
 
@@ -99,17 +106,17 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Eigen::Vect
 						average += n;
 				}
 			}
-			
+
 			#pragma omp crtical
 			{
 				if(numInliers > maxInliers) {
 					maxInliers = numInliers;
-					
+
 					M = average/average.norm();
-					
+
 					double w = (numInliers-3)/m;
 					double p = std::max(0.001, std::pow(w,3));
-					K = log(1-0.999)/log(1-p);	
+					K = log(1-0.999)/log(1-p);
 				}
 				if(k > 10000) k = 10*K;
 				++k;
@@ -118,11 +125,11 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> & N, Eigen::Vect
 	}
 }
 
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen::Vector3d & n1, 
+void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen::Vector3d & n1,
 	Eigen::Vector3d & M1, Eigen::Vector3d & M2) {
 	const int m = N.size();
-	
-	
+
+
 	volatile double maxInliers = 0, K = 1.0e5;
 	volatile int k = 0;
 
@@ -144,7 +151,7 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen
 
 			// counting inliers and outliers
 			double numInliers = 0, numInliers2 = 0;
-			Eigen::Vector3d average = Eigen::Vector3d::Zero(), 
+			Eigen::Vector3d average = Eigen::Vector3d::Zero(),
 				average2 = Eigen::Vector3d::Zero();
 			for(auto & n : N) {
 				if(std::min(std::acos(std::abs(nest.dot(n))), std::acos(std::abs(nest2.dot(n)))) < 0.02) {
@@ -158,17 +165,17 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen
 						++numInliers2;
 						if (nest2.dot(n) < 0)
 							average2 -= n;
-						else 
+						else
 							average2 += n;
 					}
-				}		
+				}
 			}
 
 			#pragma omp crtical
 			{
 				if((numInliers + numInliers2) > maxInliers) {
 					maxInliers = numInliers + numInliers2;
-					
+
 					if(numInliers > numInliers2) {
 						average /= average.norm();
 						M1 = average;
@@ -178,12 +185,12 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen
 						M1 = average2.cross(n1);
 						M2 = average2;
 					}
-					
+
 					double w = (maxInliers-3)/m;
 					double p = std::max(0.001, std::pow(w,3));
-					K = log(1-0.999)/log(1-p);	
+					K = log(1-0.999)/log(1-p);
 				}
-					
+
 				if(k > 10000) k = 10*K;
 				++k;
 			}

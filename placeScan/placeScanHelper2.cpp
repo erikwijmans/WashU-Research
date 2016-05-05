@@ -22,7 +22,7 @@
 #include "gurobi_c++.h"
 
 const int minScans = 2;
-const int maxScans = 20;
+const int maxScans = 200;
 
 static void displayCollapsed(auto & collapsed, const std::string & windowName) {
   double average, sigma;
@@ -436,8 +436,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
 
-     //  if (j != 228 /*224*/) continue;
-     //  if (i != 226) continue;
+     // if (j != 228 /*224*/) continue;
+     // if (i != 226) continue;
 
       if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
         std::string name = FLAGS_voxelFolder + "R"
@@ -623,13 +623,15 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   int numBreaks = 0;
   for (int i = 0; i < cols; ++i) {
     const place::node & nodeA = nodes[i];
-    if (nodeA.color != 40) continue;
+    // if (nodeA.color != 40) continue;
     for (int j = 0; j < rows; ++j) {
       const place::node & nodeB = nodes[j];
 
-      /*if (i > j)
-        continue;*/
+      if (i > j)
+        continue;
       if (adjacencyMatrix(j, i).w == 0)
+        continue;
+      if (adjacencyMatrix(j, i).panoW == 0)
         continue;
       std::cout << "(" << i << ", " << j << ")" << std::endl;
 

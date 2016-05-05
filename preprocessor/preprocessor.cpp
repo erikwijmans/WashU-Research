@@ -41,8 +41,10 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> & points,
 	pcl::PointCloud<PointType>::Ptr & cloud);
 void getNormals(const pcl::PointCloud<PointType>::Ptr & cloud,
 	pcl::PointCloud<NormalType>::Ptr & cloud_normals,
-	pcl::PointCloud<PointType>::Ptr & normals_points);
+	pcl::PointCloud<PointType>::Ptr & normals_points,
+	const std::string & outName);
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
+	pcl::PointCloud<PointType>::Ptr & normals_points,
 	const std::string & outName);
 void getDescriptors(const pcl::PointCloud<PointType>::Ptr & cloud,
 	const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
@@ -113,23 +115,20 @@ int main(int argc, char *argv[]) {
 			buildName + "_normals_" + number + ".dat";
 		pcl::PointCloud<NormalType>::Ptr cloud_normals (new pcl::PointCloud<NormalType>);
 		pcl::PointCloud<PointType>::Ptr normals_points (new pcl::PointCloud<PointType>);
-		getNormals(cloud, cloud_normals, normals_points);
-		saveNormals(cloud_normals, normalsName);
-
-		const std::string panoName = FLAGS_panoFolder + "images/"
-			+ buildName + "_panorama_" + number + ".png";
-			const std::string dataName = FLAGS_panoFolder + "data/"
-			+ buildName + "_data_" + number + ".dat";
-		createPanorama(pointCloud, cloud_normals, normals_points, panoName, dataName);
-		continue;
-
-
+		getNormals(cloud, cloud_normals, normals_points, normalsName);
 
 		const std::string rotName = FLAGS_rotFolder +
 			buildName + "_rotations_" + number + ".dat";
 		getRotations(cloud_normals, rotName);
 
-		std::cout << "Getting descriptors" << std::endl;
+		const std::string panoName = FLAGS_panoFolder + "images/"
+			+ buildName + "_panorama_" + number + ".png";
+			const std::string dataName = FLAGS_panoFolder + "data/"
+			+ buildName + "_data_" + number + ".dat";
+		std::cout << "Creating Panorama" << std::endl;
+		createPanorama(pointCloud, cloud_normals, normals_points, panoName, dataName);
+
+		/*std::cout << "Getting descriptors" << std::endl;
 		pcl::PointCloud<DescriptorType>::Ptr cloud_descriptors (new pcl::PointCloud<DescriptorType>);
 		pcl::PointCloud<PointType>::Ptr filtered_cloud (new pcl::PointCloud<PointType>);
 		getDescriptors(cloud, cloud_normals, normals_points, cloud_descriptors, filtered_cloud);
@@ -137,7 +136,7 @@ int main(int argc, char *argv[]) {
 		const std::string descriptorsName = FLAGS_descriptorsFolder +
 			buildName + "_descriptors_" + number + ".dat";
 
-		saveDescriptors(filtered_cloud, cloud_descriptors, descriptorsName);
+		saveDescriptors(filtered_cloud, cloud_descriptors, descriptorsName);*/
 	}
 	return 0;
 }
@@ -319,7 +318,7 @@ void fillGaps(auto & mat, auto & mask) {
 	assert(mat.rows() == mask.rows());
 	assert(mat.cols() == mask.cols());
 	int count = 0;
-	constexpr int limit = 10;
+	constexpr int limit = 15;
 	decltype(mat.data()) current = nullptr;
 	auto maskPtr = mask.data();
 	auto matPtr = mat.data();
@@ -344,7 +343,6 @@ void fillGaps(auto & mat, auto & mask) {
 			}
 		}
 	}
-
 
 	for (int j = mat.rows() - 1, loop = 1; j >= 0 && loop; --j) {
 		for (int i = mat.cols() - 1; i >= 0 && loop; --i) {
@@ -387,7 +385,6 @@ void fillGaps(auto & mat, auto & mask) {
 			}
 		}
 	}
-
 
 	for (int i = mat.cols() - 1, loop = 1; i >= 0 && loop; --i) {
 		for (int j = mat.rows() - 1; j >= 0 && loop; --j) {
@@ -581,7 +578,8 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> & pointCloud,
 		else
 			++it;
 
-	pano.writeToFile(panoName, dataName);
+	if (FLAGS_save)
+		pano.writeToFile(panoName, dataName);
 
 	if (FLAGS_preview) {
 		std::cout << "Well formed kps: " << pano.keypoints.size()/startSize*100
@@ -631,9 +629,39 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> & points,
 	}
 }
 
+bool reloadNormals(pcl::PointCloud<NormalType>::Ptr & cloud_normals,
+	pcl::PointCloud<PointType>::Ptr & normals_points,
+	const std::string & outName) {
+	std::ifstream in (outName, std::ios::in | std::ios::binary);
+	if (!in.is_open())
+		return false;
+
+	size_t size;
+	in.read(reinterpret_cast<char *>
+		(& size), sizeof(size_t));
+
+	cloud_normals->resize(size);
+	normals_points->resize(size);
+
+	for (int i = 0; i < size; ++i) {
+		in.read(reinterpret_cast<char *> (&cloud_normals->at(i)),
+			sizeof(NormalType));
+		in.read(reinterpret_cast<char *>(&normals_points->at(i)),
+			sizeof(PointType));
+	}
+
+	return true;
+}
+
 void getNormals(const pcl::PointCloud<PointType>::Ptr & cloud,
 	pcl::PointCloud<NormalType>::Ptr & cloud_normals,
-	pcl::PointCloud<PointType>::Ptr & normals_points) {
+	pcl::PointCloud<PointType>::Ptr & normals_points,
+	const std::string & outName) {
+
+	if (!FLAGS_redo) {
+		if (reloadNormals(cloud_normals, normals_points, outName))
+			return;
+	}
 
 	pcl::PointCloud<int> sampled_indices;
 	pcl::PointCloud<PointType>::Ptr filtered_cloud (new pcl::PointCloud<PointType>);
@@ -663,21 +691,26 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr & cloud,
 	pcl::copyPointCloud(*filtered_cloud, indices, *normals_points);
 
 	std::cout << startSize -  cloud_normals->size() << " NaN removed" << std::endl;
+
+	if (FLAGS_save)
+		saveNormals(cloud_normals, normals_points, outName);
 }
 
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
+	pcl::PointCloud<PointType>::Ptr & normals_points,
 	const std::string & outName) {
+	assert(cloud_normals->size() == normals_points->size());
 	std::ofstream out (outName, std::ios::out | std::ios::binary);
 
 	size_t size = cloud_normals->points.size();
 	out.write(reinterpret_cast<const char *>
 		(& size), sizeof(size_t));
 
-	for (auto & n : *cloud_normals) {
-		Eigen::Vector3f normals (n.normal_x, n.normal_y, n.normal_z);
-
-		out.write(reinterpret_cast<const char *> (normals.data()),
-			sizeof(normals));
+	for (int i = 0; i < size; ++i) {
+		out.write(reinterpret_cast<const char *> (&cloud_normals->at(i)),
+			sizeof(NormalType));
+		out.write(reinterpret_cast<const char *>(&normals_points->at(i)),
+			sizeof(PointType));
 	}
 
 	out.close();

@@ -37,7 +37,6 @@ namespace voxel {
       typedef std::shared_ptr<voxel::CloudAnalyzer3D> Ptr;
       CloudAnalyzer3D(const DensityMapsManager::PointsPtr & points,
         const DensityMapsManager::MatPtr & R,
-        const DensityMapsManager::FeaturePtr & featureVectors,
         const BoundingBox::ConstPtr & bBox);
       void run(double voxelsPerMeter, double pixelsPerMeter);
       void saveVoxelGrids(const std::vector<std::string> & pointNames,
