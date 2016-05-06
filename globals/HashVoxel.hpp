@@ -49,11 +49,11 @@ namespace voxel {
       };
       template<typename... Kargs>
       VPtr insert(V & v, Kargs... args) {
-        return insert(std::make_shared<V>(v), args...);
+        return insert(std::make_shared<V>(v), std::forward<Kargs>(args)...);
       };
       template<typename... Kargs>
       VPtr insert(V && v, Kargs... args) {
-        return insert(std::make_shared<V>(v), args...);
+        return insert(std::make_shared<V>(v), std::forward<Kargs>(args)...);
       };
       template<typename... Kargs>
       VPtr operator()(Kargs... args) {
@@ -70,8 +70,8 @@ namespace voxel {
         return operator()(std::forward<Kargs>(args)...);
       }
 
-      inline K max() { return _max; };
-      inline K min() {return _min; };
+      inline K & max() { return _max; };
+      inline K & min() {return _min; };
     private:
       std::unordered_map<K, VPtr> map;
       K _min, _max;
