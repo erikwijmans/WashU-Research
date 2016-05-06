@@ -5,11 +5,11 @@
 
 
 namespace dt{
-	Eigen::MatrixXd distanceTransform(const Eigen::MatrixXd &);
+  Eigen::MatrixXd distanceTransform(const Eigen::MatrixXd &);
 
-	void dt(Eigen::MatrixXd & image);
+  void dt(Eigen::MatrixXd & image);
 
-	Eigen::VectorXf dt(Eigen::VectorXf &);
+  Eigen::VectorXf dt(Eigen::VectorXf &);
 }
 
 

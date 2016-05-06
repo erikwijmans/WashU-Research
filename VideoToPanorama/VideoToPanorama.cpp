@@ -1,5 +1,5 @@
 /*
-This program takes a video in the form of a series of still and its IMU file and stitches a panorama 
+This program takes a video in the form of a series of still and its IMU file and stitches a panorama
 out of the stills based solely on the rotation information.
 
 The stitching is done by transforming the corners of an image into world coordinates and then projecting those
@@ -57,19 +57,19 @@ Mat K;
 
 int main(int argc, char** argv)
 {
-	//Moto X K
-	K = (Mat_<float>(3,3) << 3867.214290/3.25, 0, 1220.329623/3.25, 
-		0, 3850.296435/3.25, 2077.400229/3.25, 0, 0, 1);
-	
+  //Moto X K
+  K = (Mat_<float>(3,3) << 3867.214290/3.25, 0, 1220.329623/3.25,
+    0, 3850.296435/3.25, 2077.400229/3.25, 0, 0, 1);
 
-	//Nexus 9 K
-	K = (Mat_<float>(3,3) << 1082, 0, 360, 0, 1085, 640, 0, 0, 1);
-	
 
+  //Nexus 9 K
+  K = (Mat_<float>(3,3) << 1082, 0, 360, 0, 1085, 640, 0, 0, 1);
 
 
 
-	if ( argc != 4 )
+
+
+  if ( argc != 4 )
     {
         printf("usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> <Panorama_Output_Path.png>\n");
         return -1;
@@ -77,247 +77,247 @@ int main(int argc, char** argv)
 
 
 
-	const char* imageFolderPath = argv[1];
+  const char* imageFolderPath = argv[1];
 
 
-	std::vector<string> imageNames;
-	
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (imageFolderPath)) != NULL) {
-	  /* Add all the files and directories to a vector */
-	  while ((ent = readdir (dir)) != NULL) {
-	  	string imageName = ent->d_name;
-	  	if(imageName != ".." && imageName != "."){
-	  		imageNames.push_back(argv[1] + imageName);
-	  	}
-	  }
-	  closedir (dir);
-	}  else {
-	  /* could not open directory */
-	  perror ("");
-	  return EXIT_FAILURE;
-	}
+  std::vector<string> imageNames;
 
-	
-	ifstream csvFile (argv[2], ios::in );
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir (imageFolderPath)) != NULL) {
+    /* Add all the files and directories to a vector */
+    while ((ent = readdir (dir)) != NULL) {
+      string imageName = ent->d_name;
+      if(imageName != ".." && imageName != "."){
+        imageNames.push_back(argv[1] + imageName);
+      }
+    }
+    closedir (dir);
+  }  else {
+    /* could not open directory */
+    perror ("");
+    return EXIT_FAILURE;
+  }
 
 
-	ofstream binaryFileOut("output.dat",  ios::out | ios::binary);
+  ifstream csvFile (argv[2], ios::in );
 
-	csvToBinary(csvFile, binaryFileOut);
-	csvFile.close();
-	binaryFileOut.close();
-	
 
-	
+  ofstream binaryFileOut("output.dat",  ios::out | ios::binary);
 
-	cvNamedWindow("panorama", WINDOW_NORMAL);
-	imshow("panorama", panorama);
-	waitKey(0);
-
-	sort(imageNames.begin(), imageNames.end());
-	ifstream binaryFile("output.dat",  ios::in | ios::binary);
-
-	clock_t startTime, endTime;
-	startTime = clock();
-
-	for (auto & image : imageNames){
-		projectImageToPanorama(image, binaryFile);
-		imshow("panorama", panorama);
-		waitKey(1);	
-	}
-
-	endTime = clock();
-	float seconds = ((float) endTime - (float)startTime)/CLOCKS_PER_SEC;
-	
-	cout << "Time to stitch : " << seconds << endl;
-	binaryFile.close();
-
-	flip(panorama, flippedPanorama, 0);
-
-	imshow("panorama", flippedPanorama);
+  csvToBinary(csvFile, binaryFileOut);
+  csvFile.close();
+  binaryFileOut.close();
 
 
 
-	imwrite(argv[3], flippedPanorama);
-	cout << "Saved" << endl;
-	return 0;
+
+  cvNamedWindow("panorama", WINDOW_NORMAL);
+  imshow("panorama", panorama);
+  waitKey(0);
+
+  sort(imageNames.begin(), imageNames.end());
+  ifstream binaryFile("output.dat",  ios::in | ios::binary);
+
+  clock_t startTime, endTime;
+  startTime = clock();
+
+  for (auto & image : imageNames){
+    projectImageToPanorama(image, binaryFile);
+    imshow("panorama", panorama);
+    waitKey(1);
+  }
+
+  endTime = clock();
+  float seconds = ((float) endTime - (float)startTime)/CLOCKS_PER_SEC;
+
+  cout << "Time to stitch : " << seconds << endl;
+  binaryFile.close();
+
+  flip(panorama, flippedPanorama, 0);
+
+  imshow("panorama", flippedPanorama);
+
+
+
+  imwrite(argv[3], flippedPanorama);
+  cout << "Saved" << endl;
+  return 0;
 }
 
 
 
 Mat readInRotation(ifstream & file, float  timeSamp){
 
-	//cout << "Reading the file" << endl;
-	float time1, time2;
-	file.seekg(0);
+  //cout << "Reading the file" << endl;
+  float time1, time2;
+  file.seekg(0);
 
-	file.read(reinterpret_cast<char *> (& time1), sizeof(float));
+  file.read(reinterpret_cast<char *> (& time1), sizeof(float));
 
-	int i = 1;
-	while(file && !file.eof()){
-		file.seekg(sizeof(float) * NUM_ENTRY_PER_LINE *i);
-		file.read(reinterpret_cast<char *> (& time2), sizeof(float));
-
-		
-		if((time1 <= timeSamp && time2 >= timeSamp))
-			break;
-		else
-			time1 = time2;
-		
-		++i;
-	}
-
-	if(file && !file.eof()){
-		Mat rot_matrix (3,3, CV_32F);
+  int i = 1;
+  while(file && !file.eof()){
+    file.seekg(sizeof(float) * NUM_ENTRY_PER_LINE *i);
+    file.read(reinterpret_cast<char *> (& time2), sizeof(float));
 
 
-		file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(0,0)), sizeof(float)*3);
-		file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(1,0)), sizeof(float)*3); 
-		file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(2,0)), sizeof(float)*3); 
+    if((time1 <= timeSamp && time2 >= timeSamp))
+      break;
+    else
+      time1 = time2;
+
+    ++i;
+  }
+
+  if(file && !file.eof()){
+    Mat rot_matrix (3,3, CV_32F);
 
 
-		return rot_matrix.t();
-	} else{
-		return Mat (0,0, CV_32F);
-		cout << "EOF" << endl;
-	}
+    file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(0,0)), sizeof(float)*3);
+    file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(1,0)), sizeof(float)*3);
+    file.read(reinterpret_cast< char *> (&rot_matrix.at<float>(2,0)), sizeof(float)*3);
+
+
+    return rot_matrix.t();
+  } else{
+    return Mat (0,0, CV_32F);
+    cout << "EOF" << endl;
+  }
 }
 
 
 void csvToBinary(ifstream & csv, ofstream & binary){
-	string line;
-	getline(csv, line); //dump the header
+  string line;
+  getline(csv, line); //dump the header
 
-	while(getline(csv, line)){
-		
-		size_t pos1, pos2;
-		pos1 = pos2 = 0;
+  while(getline(csv, line)){
 
-		pos1 = line.find("\t");
-		float number = stof (line.substr(0, pos1));
-		binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
+    size_t pos1, pos2;
+    pos1 = pos2 = 0;
+
+    pos1 = line.find("\t");
+    float number = stof (line.substr(0, pos1));
+    binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
 
 
-		while((pos2 = line.find("\t", pos1 +1)) != string::npos){
-			number = stof (line.substr(pos1 + 1, pos2 - pos1 -1));
-			binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
+    while((pos2 = line.find("\t", pos1 +1)) != string::npos){
+      number = stof (line.substr(pos1 + 1, pos2 - pos1 -1));
+      binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
 
-			pos1 = pos2;
-		}
+      pos1 = pos2;
+    }
 
-		number = stof (line.substr(pos1 +1));
-		binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
-		
-	} 
+    number = stof (line.substr(pos1 +1));
+    binary.write(reinterpret_cast<const char *> (& number), sizeof(float));
+
+  }
 }
 
 
 int projectImageToPanorama(string & imageName, ifstream & imuFile){
-	clock_t startTime, endTime;
-	startTime = clock();
-	Mat img = imread (imageName, 1);
+  clock_t startTime, endTime;
+  startTime = clock();
+  Mat img = imread (imageName, 1);
 
-	if ( !img.data )
+  if ( !img.data )
     {
-    	cout << "Error reading image" << endl;
+      cout << "Error reading image" << endl;
         throw "Error reading image";
     }
 
 
-	size_t pos  = imageName.find("-");
-	float imgNum = stof (imageName.substr(pos +1, 5));
+  size_t pos  = imageName.find("-");
+  float imgNum = stof (imageName.substr(pos +1, 5));
 
-	//cout << imgNum << endl;
+  //cout << imgNum << endl;
 
-	Mat rot_matrix = readInRotation(imuFile, (imgNum-1)/FPS);
+  Mat rot_matrix = readInRotation(imuFile, (imgNum-1)/FPS);
 
-	if(rot_matrix.empty())
-		return -1;
-	
-	
-	int channels = img.channels();
-	int nRows = img.rows;
-	int nCols = img.cols;
+  if(rot_matrix.empty())
+    return -1;
 
 
-	float panoCoords [2] = {0, 0};
-	int vp, up;
+  int channels = img.channels();
+  int nRows = img.rows;
+  int nCols = img.cols;
 
 
-	//cout << "Sticthing " << endl;
-
-	
-	float corner1 [3], corner2 [3], corner3 [3], corner4 [3];
-	float imageCoords [2] = {0,0};
-
-	image_coords_to_pano_coords(imageCoords, corner1, rot_matrix);
-
-	imageCoords [0] = nCols;
-	image_coords_to_pano_coords(imageCoords, corner2, rot_matrix);
-
-	imageCoords[1] = nRows;
-	image_coords_to_pano_coords(imageCoords, corner3, rot_matrix);
-
-	imageCoords[0] = 0;
-	image_coords_to_pano_coords(imageCoords, corner4, rot_matrix); 
+  float panoCoords [2] = {0, 0};
+  int vp, up;
 
 
-	int width = max(corner2[0] - corner1[0], corner3[0] - corner4[0]);
-	int height = max(corner1[1] - corner4[1], corner2[1] - corner3[1]);
-	int startRow = min(corner3[1], corner4[1]);
-	int startCol = min(corner1[0], corner4[0]);
-	width *= channels;
-	startCol *= channels;
+  //cout << "Sticthing " << endl;
 
 
-	for (int i = startRow; i < height + startRow; ++i)
-	{
-		uchar * dst = panorama.ptr<uchar>(i);
-		
-		panoCoords[0] = startCol/channels;
-		panoCoords[1] = i;
+  float corner1 [3], corner2 [3], corner3 [3], corner4 [3];
+  float imageCoords [2] = {0,0};
 
-		pano_coords_to_image_coords(panoCoords, imageCoords, rot_matrix);
+  image_coords_to_pano_coords(imageCoords, corner1, rot_matrix);
 
-		
-		if( imageCoords[1] < nRows && imageCoords[1] >= 0){
+  imageCoords [0] = nCols;
+  image_coords_to_pano_coords(imageCoords, corner2, rot_matrix);
 
-			uchar * src = img.ptr<uchar>((int) imageCoords[1]);
+  imageCoords[1] = nRows;
+  image_coords_to_pano_coords(imageCoords, corner3, rot_matrix);
 
-			for (int j = startCol; j < width + startCol; j+=channels)
-			{
-				panoCoords[0] = j/channels;
-
-				pano_coords_to_image_coords(panoCoords, imageCoords, rot_matrix);
+  imageCoords[0] = 0;
+  image_coords_to_pano_coords(imageCoords, corner4, rot_matrix);
 
 
-				if(imageCoords[0] < nCols && imageCoords[0] >= 0){
-					int srcRow = imageCoords[0];
-					srcRow *= channels;
-
-					for (int k = 0; k < channels; ++k) {
-						if(dst[j + k] == 255)
-							dst[j+k] = src[srcRow + k];
-						else
-							dst[j+k] = (dst[j+k] + src[srcRow + k])/2;
-					}
-				}
+  int width = max(corner2[0] - corner1[0], corner3[0] - corner4[0]);
+  int height = max(corner1[1] - corner4[1], corner2[1] - corner3[1]);
+  int startRow = min(corner3[1], corner4[1]);
+  int startCol = min(corner1[0], corner4[0]);
+  width *= channels;
+  startCol *= channels;
 
 
-			}
-		}
-	}
+  for (int i = startRow; i < height + startRow; ++i)
+  {
+    uchar * dst = panorama.ptr<uchar>(i);
 
-	endTime = clock();
-	float seconds = ((float)endTime - (float)startTime)/CLOCKS_PER_SEC;
+    panoCoords[0] = startCol/channels;
+    panoCoords[1] = i;
+
+    pano_coords_to_image_coords(panoCoords, imageCoords, rot_matrix);
 
 
-	/*cout << "Done sticthing \t" << flush;
-	cout << seconds << endl;*/
+    if( imageCoords[1] < nRows && imageCoords[1] >= 0){
 
-	return 0;
+      uchar * src = img.ptr<uchar>((int) imageCoords[1]);
+
+      for (int j = startCol; j < width + startCol; j+=channels)
+      {
+        panoCoords[0] = j/channels;
+
+        pano_coords_to_image_coords(panoCoords, imageCoords, rot_matrix);
+
+
+        if(imageCoords[0] < nCols && imageCoords[0] >= 0){
+          int srcRow = imageCoords[0];
+          srcRow *= channels;
+
+          for (int k = 0; k < channels; ++k) {
+            if(dst[j + k] == 255)
+              dst[j+k] = src[srcRow + k];
+            else
+              dst[j+k] = (dst[j+k] + src[srcRow + k])/2;
+          }
+        }
+
+
+      }
+    }
+  }
+
+  endTime = clock();
+  float seconds = ((float)endTime - (float)startTime)/CLOCKS_PER_SEC;
+
+
+  /*cout << "Done sticthing \t" << flush;
+  cout << seconds << endl;*/
+
+  return 0;
 
 
 }
@@ -325,92 +325,92 @@ int projectImageToPanorama(string & imageName, ifstream & imuFile){
 
 void image_coords_to_pano_coords(float * img_coords, float * pano_coords , Mat & R){
 
-	Mat image_coords = (Mat_<float>(3,1) << img_coords[0], img_coords[1], 1);
+  Mat image_coords = (Mat_<float>(3,1) << img_coords[0], img_coords[1], 1);
 
-	Mat world_coords = R * K.inv() * image_coords;
-
-
-
-	float r = world_coords.at<float>(0) * world_coords.at<float>(0) 
-		+ world_coords.at<float>(1) * world_coords.at<float>(1) 
-		+ world_coords.at<float>(2) * world_coords.at<float>(2);
+  Mat world_coords = R * K.inv() * image_coords;
 
 
-	r = sqrt(r);
 
-	float phi = acos(world_coords.at<float>(2)/r);
+  float r = world_coords.at<float>(0) * world_coords.at<float>(0)
+    + world_coords.at<float>(1) * world_coords.at<float>(1)
+    + world_coords.at<float>(2) * world_coords.at<float>(2);
 
-	float theta = 
-		atan2(world_coords.at<float>(1),world_coords.at<float>(0)) + PI;
 
-	pano_coords [0] = theta/PI * PANO_H; //col #
-	pano_coords [1] = phi/PI * PANO_H; //row #
+  r = sqrt(r);
+
+  float phi = acos(world_coords.at<float>(2)/r);
+
+  float theta =
+    atan2(world_coords.at<float>(1),world_coords.at<float>(0)) + PI;
+
+  pano_coords [0] = theta/PI * PANO_H; //col #
+  pano_coords [1] = phi/PI * PANO_H; //row #
 }
 
 
 void pano_coords_to_image_coords(float * pano_coords, float * img_coords, Mat & R){
-	float theta = pano_coords[0]*PI/PANO_H - PI;
-	float phi = pano_coords[1]*PI/PANO_H;
-	float x = cos(theta) * sin(phi);
-	float y = sin(theta) * sin(phi);
-	float z = cos(phi);
+  float theta = pano_coords[0]*PI/PANO_H - PI;
+  float phi = pano_coords[1]*PI/PANO_H;
+  float x = cos(theta) * sin(phi);
+  float y = sin(theta) * sin(phi);
+  float z = cos(phi);
 
-	Mat world_coords = (Mat_<float>(3,1) << x, y, z);
+  Mat world_coords = (Mat_<float>(3,1) << x, y, z);
 
-	Mat image_coords = K * R.t() * world_coords;
+  Mat image_coords = K * R.t() * world_coords;
 
-	img_coords [0] = 720 - 1- image_coords.at<float>(0)/image_coords.at<float>(2);
-	img_coords [1] = image_coords.at<float>(1)/image_coords.at<float>(2);	
+  img_coords [0] = 720 - 1- image_coords.at<float>(0)/image_coords.at<float>(2);
+  img_coords [1] = image_coords.at<float>(1)/image_coords.at<float>(2);
 }
 
 
 
 
 /*int project_v_to_vp (int v, Mat & R){
-	int u = 0;
+  int u = 0;
 
-	float xi = u ;
-	float yi = v ;
-
-
-
-	Mat image_coords = (Mat_<float>(3,1) << xi, yi, 1);
-
-	Mat world_coords = R * K.inv() * image_coords;
+  float xi = u ;
+  float yi = v ;
 
 
-	double r = world_coords.at<float>(0) * world_coords.at<float>(0) 
-		+ world_coords.at<float>(1) * world_coords.at<float>(1) 
-		+ world_coords.at<float>(2) * world_coords.at<float>(2);
+
+  Mat image_coords = (Mat_<float>(3,1) << xi, yi, 1);
+
+  Mat world_coords = R * K.inv() * image_coords;
 
 
-	r = sqrt(r);
+  double r = world_coords.at<float>(0) * world_coords.at<float>(0)
+    + world_coords.at<float>(1) * world_coords.at<float>(1)
+    + world_coords.at<float>(2) * world_coords.at<float>(2);
 
-	double phi = acos(world_coords.at<float>(2)/r);
+
+  r = sqrt(r);
+
+  double phi = acos(world_coords.at<float>(2)/r);
 
 
-	return (int) (phi/PI* PANO_H );
+  return (int) (phi/PI* PANO_H );
 }
 
 
 int project_u_to_up(int u, int v, Mat & R){
-	float xi = u ;
-	float yi = v ;
+  float xi = u ;
+  float yi = v ;
 
 
 
 
-	Mat image_coords = (Mat_<float>(3,1) << xi, yi, 1);
+  Mat image_coords = (Mat_<float>(3,1) << xi, yi, 1);
 
-	Mat world_coords = R * K.inv() * image_coords;
-
-
-
-	double theta = 
-		atan2(world_coords.at<float>(1),world_coords.at<float>(0)) + PI;
+  Mat world_coords = R * K.inv() * image_coords;
 
 
 
-	return (int) (theta/PI* PANO_H );
+  double theta =
+    atan2(world_coords.at<float>(1),world_coords.at<float>(0)) + PI;
+
+
+
+  return (int) (theta/PI* PANO_H );
 }*/
 

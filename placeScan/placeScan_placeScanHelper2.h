@@ -26,10 +26,10 @@ namespace std {
 
 namespace place {
 
-	void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);
+  void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);
 
-	void loadInPlacement(const std::string & scanName,
-	  std::vector<place::moreInfo> & scoreVec, const int scanNum);
+  void loadInPlacement(const std::string & scanName,
+    std::vector<place::moreInfo> & scoreVec, const int scanNum);
 
   void displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan);
 

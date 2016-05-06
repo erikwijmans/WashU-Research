@@ -56,13 +56,13 @@ void confidence::loadInPlacement(const std::string & scanName,
   for (auto s : scoretmp)
     if (s.score == minScore)
       scoreVec.push_back({s, scanNum});
-  
+
 }
 
 void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & scoreInfo,
   std::vector<int> & localMins,
-  std::vector<std::string> & pointFileNames, 
-  std::vector<std::string> & rotationFileNames, 
+  std::vector<std::string> & pointFileNames,
+  std::vector<std::string> & rotationFileNames,
   std::vector<std::string> & zerosFileNames) {
 
     Eigen::MatrixXd fpNS = Eigen::MatrixXd(place::scanToSparse(floorPlan));
@@ -103,7 +103,7 @@ void confidence::findLocalMinima(const std::vector<confidence::moreInfo> & score
     }
   }
 
-double confidence::TKernel(Eigen::MatrixXd & currentScanNS, 
+double confidence::TKernel(Eigen::MatrixXd & currentScanNS,
   Eigen::MatrixXd & currentFPNS) {
   Eigen::MatrixXd kernel (5,5);
   for(int i = 0; i < 5; ++i) {
@@ -115,7 +115,7 @@ double confidence::TKernel(Eigen::MatrixXd & currentScanNS,
 
 
   Eigen::MatrixXd diff = currentScanNS - currentFPNS;
-  
+
   double score1, score2;
   score1 = score2 = 0.0;
 

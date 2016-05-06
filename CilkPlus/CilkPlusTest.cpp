@@ -154,7 +154,7 @@ void reducer_list_test()
 
 int main(int argc, char **argv)
 {
- 
+
     locked_list_test();
     reducer_list_test();
 

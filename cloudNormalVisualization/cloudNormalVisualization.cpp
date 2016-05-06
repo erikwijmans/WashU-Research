@@ -118,8 +118,8 @@ int main(int argc, char const *argv[])
     if(point[0] == 0 || point[1] == 0 || point[2] == 0)
       continue;
 
-    
-    
+
+
     PointXYZRGB tmp;
     tmp.x = point[0];
     tmp.y = point[1];
@@ -159,7 +159,7 @@ int main(int argc, char const *argv[])
 
   // Create an empty kdtree representation, and pass it to the normal estimation object.
   // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-  search::KdTree<PointXYZRGB>::Ptr tree 
+  search::KdTree<PointXYZRGB>::Ptr tree
     (new search::KdTree<PointXYZRGB> ());
   ne.setSearchMethod (tree);
 
@@ -175,8 +175,8 @@ int main(int argc, char const *argv[])
     viewer->spinOnce (100);
     boost::this_thread::sleep (boost::posix_time::microseconds (100000));
   }
-	
-	return 0;
+
+  return 0;
 }
 
 
@@ -219,7 +219,7 @@ void createBoundingBox(float * pointMin, float * pointMax,
   pointMax[0] = averageX + dX/2;
   pointMax[1] = averageY + dY/2;
   pointMax[2] = averageZ + dZ/2;
-      
-  
 
-} 
+
+
+}

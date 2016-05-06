@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
 
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
-	DensityMapsManager manager (argc, argv);
+  DensityMapsManager manager (argc, argv);
 
   #pragma omp parallel shared(manager) if(!FLAGS_preview) \
     num_threads(4)
