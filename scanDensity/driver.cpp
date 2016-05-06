@@ -13,7 +13,8 @@ int main(int argc, char *argv[]) {
 
 	DensityMapsManager manager (argc, argv);
 
-  #pragma omp parallel shared(manager) if(!FLAGS_preview)
+  #pragma omp parallel shared(manager) if(!FLAGS_preview) \
+    num_threads(4)
   {
     bool loop = true;
     while(loop) {

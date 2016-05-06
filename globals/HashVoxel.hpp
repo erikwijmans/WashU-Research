@@ -47,6 +47,7 @@ namespace voxel {
 				} else
 					return nullptr;
 			};
+
 			template<typename... Kargs>
 			VPtr operator()(Kargs... args) {
 				K key (std::forward<Kargs>(args)...);
