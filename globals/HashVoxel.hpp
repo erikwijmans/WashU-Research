@@ -37,7 +37,7 @@ namespace voxel {
 				return std::make_shared<HashVoxel<K, V> >(std::forward<Targs>(args)...);
 			}
 			template<typename... Kargs>
-			VPtr insert(VPtr & v, Kargs... args) {
+			VPtr insert(VPtr v, Kargs... args) {
 				K key (std::forward<Kargs>(args)...);
 				checkBounds(key);
 				auto it = map.find(key);
@@ -52,7 +52,11 @@ namespace voxel {
 				return insert(std::make_shared<V>(v), args...);
 			};
 			template<typename... Kargs>
-			VPtr & operator()(Kargs... args) {
+			VPtr insert(V && v, Kargs... args) {
+				return insert(std::make_shared<V>(v), args...);
+			};
+			template<typename... Kargs>
+			VPtr operator()(Kargs... args) {
 				K key (std::forward<Kargs>(args)...);
 				checkBounds(key);
 				auto it = map.find(key);

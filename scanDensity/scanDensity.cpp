@@ -361,8 +361,7 @@ void CloudAnalyzer2D::initalize(double scale) {
 
 		auto p = pointsPerVoxel->at(x, y);
 	  if (!p)
-	  	p = pointsPerVoxel->insert(std::make_shared<Eigen::VectorXi>
-	  		(Eigen::VectorXi::Zero(numZ)), x, y);
+	  	p = pointsPerVoxel->insert(Eigen::VectorXi::Zero(numZ), x, y);
 
 	  ++(*p)[z];
 
