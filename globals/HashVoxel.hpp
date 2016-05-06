@@ -13,7 +13,7 @@ namespace std {
   {
     std::size_t operator()(const Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > & k) const {
       size_t seed = 0;
-      auto * dataPtr = k.data();
+      auto dataPtr = k.data();
       for (int i = 0; i < k.size(); ++i) {
         seed ^= *(dataPtr + i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       }
