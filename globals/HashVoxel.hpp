@@ -28,7 +28,11 @@ namespace voxel {
     public:
       typedef std::shared_ptr<V> VPtr;
       typedef std::shared_ptr<HashVoxel<K, V> > Ptr;
-      HashVoxel(K min, K max) :
+      HashVoxel(K & min, K & max) :
+        _min {min}, _max {max}
+      {
+      };
+      HashVoxel(K && min, K && max) :
         _min {min}, _max {max}
       {
       };
