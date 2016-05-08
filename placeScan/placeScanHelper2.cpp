@@ -424,7 +424,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   std::cout << tracker.size() << std::endl;
 
   omp_set_nested(1);
-  #pragma omp target teams num_teams(1)\
+  #pragma omp target
+  #pragma omp teams num_teams(1)\
    shared(tracker, adjacencyMatrix, nodes)
   {
     int voxelAColor = -1, voxelARot = -1;
