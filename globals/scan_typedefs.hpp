@@ -13,8 +13,8 @@
 
 #define NUM_ROTS 4
 
-const double PI = 3.14159265358979323846;
-const double maxPhi = 2.61946;
+constexpr double PI = 3.14159265358979323846;
+constexpr double maxPhi = 2.61946;
 
 namespace place {
   class edge {

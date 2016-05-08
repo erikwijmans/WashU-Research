@@ -2,7 +2,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <opencv2/xfeatures2d.hpp>
+// #include <opencv2/xfeatures2d.hpp>
 
 static constexpr int NCCSize = 11;
 static_assert(NCCSize%2 == 1, "NCCSize isn't odd");
@@ -90,7 +90,7 @@ static double aveDepth(const Eigen::RowMatrixXf & depthMap,
   return count > 0 ? ave/count : 0;
 }
 
-double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
+/*double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
   const std::vector<Eigen::Vector3d> & pointsInA,
   const std::vector<Eigen::Vector3d> & pointsInB) {
 
@@ -113,8 +113,8 @@ double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
     #pragma omp for reduction(+: score, count)
     for (int k = 0; k < pointsInA.size(); ++k) {
 
-      /*std::cout << "A: " << pointsInA[k] << std::endl << std::endl;
-      std::cout << "B: " << pointsInB[k] << std::endl << std::endl;*/
+      std::cout << "A: " << pointsInA[k] << std::endl << std::endl;
+      std::cout << "B: " << pointsInB[k] << std::endl << std::endl;
 
       auto panoCoordA = pointCloudToPanorama(pointsInA[k], panoA.size());
       auto panoCoordB = pointCloudToPanorama(pointsInB[k], panoB.size());
@@ -132,8 +132,8 @@ double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
       double radiusA = pointsInA[k].norm();
       double radiusB = pointsInB[k].norm();
 
-      /*std::cout << "RA: " << radiusA << std::endl;
-      std::cout << "RB: " << radiusB << std::endl;*/
+      std::cout << "RA: " << radiusA << std::endl;
+      std::cout << "RB: " << radiusB << std::endl;
 
       cv::Mat scaledA = panoA, scaledB = panoB;
       double level = 0;
@@ -209,7 +209,7 @@ double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
 
   score /= count*1000.0;
   return count > 0 ? -1.0*score : 0;
-}
+}*/
 
 #pragma omp declare reduction \
   (merge : std::vector<cv::Point2f> : omp_out.insert(omp_out.end(), omp_in.begin(),\
@@ -223,13 +223,14 @@ double pano::compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,
   (merge : std::vector<cv::KeyPoint> : omp_out.insert(omp_out.end(), omp_in.begin(),\
     omp_in.end()))
 
-static inline double getAngle(const auto & a,
-  const auto & b) {
+template<typename T, typename S>
+static inline double getAngle(const T & a,
+  const S & b) {
   if (a.norm() == 0 || b.norm() == 0) return PI;
   return std::acos(static_cast<double>(a.dot(b))/(a.norm()*b.norm()));
 }
 
-static void SIFTHeatMap(place::Panorama & panoA,
+/*static void SIFTHeatMap(place::Panorama & panoA,
   place::Panorama & panoB, const Eigen::Matrix3d & RA,
   const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
   const Eigen::Vector3d & bToA) {
@@ -295,7 +296,7 @@ static void SIFTHeatMap(place::Panorama & panoA,
 
   std::cout << "saved" << std::endl;
   exit(1);
-}
+}*/
 
 /*double pano::compareSIFT2(place::Panorama & panoA,
   place::Panorama & panoB, const Eigen::Matrix3d & RA,

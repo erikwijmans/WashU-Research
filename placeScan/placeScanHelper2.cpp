@@ -24,7 +24,8 @@
 const int minScans = 2;
 const int maxScans = 200;
 
-static void displayCollapsed(auto & collapsed, const std::string & windowName) {
+template<typename T>
+static void displayCollapsed(T & collapsed, const std::string & windowName) {
   double average, sigma;
   average = sigma = 0;
   int count = 0;
@@ -74,7 +75,8 @@ static void displayCollapsed(auto & collapsed, const std::string & windowName) {
   cv::imshow(windowName, heatMap);
 }
 
-static void displayVoxelGrid(const auto & grid,
+template<typename T>
+static void displayVoxelGrid(const T & grid,
   const std::string & windowName) {
   Eigen::MatrixXd collapsed = Eigen::MatrixXd::Zero (grid[0].rows(), grid[0].cols());
 
@@ -101,8 +103,8 @@ static void displayVoxelGridS(const T & sparse,
   }
   displayCollapsed(collapsed, windowName);
 }
-
-static void displayCollapsed(const auto & collapsedA, const auto & collapsedB,
+template<typename T, typename S>
+static void displayCollapsed(const T & collapsedA, const S & collapsedB,
   const place::cube & aRect, const place::cube & bRect) {
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
@@ -186,7 +188,8 @@ static void displayCollapsed(const auto & collapsedA, const auto & collapsedB,
   cv::waitKey(0);
 }
 
-static void displayVoxelGrid(const auto & voxelA, const auto & voxelB,
+template<typename T, typename S>
+static void displayVoxelGrid(const T & voxelA, const S & voxelB,
   const place::cube & aRect, const place::cube & bRect) {
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
@@ -1160,8 +1163,8 @@ void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
 
   out.close();
 }
-
-bool place::localGroup(auto & toCheck, const int yOffset,
+template<typename T>
+bool place::localGroup(T & toCheck, const int yOffset,
   const int xOffset, const int range) {
   for (int i = -range; i <= range; ++i) {
     for (int j = -range; j <= range; ++j) {

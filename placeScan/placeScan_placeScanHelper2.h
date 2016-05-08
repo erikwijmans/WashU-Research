@@ -85,7 +85,8 @@ namespace place {
   bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix);
   void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
 
-  bool localGroup(auto & toCheck, const int yOffset,
+  template<typename T>
+  bool localGroup(T & toCheck, const int yOffset,
     const int xOffset, const int range);
 
   void createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
