@@ -1,4 +1,4 @@
-#Usage: ./pipeLine.sh <location_of_data_to_use>/
+#Usage: ./pipeLine.sh <location_of_data_to_use>
 #CSE Scale = 98.0
 #DUC Scale = 73.5
 

@@ -8,21 +8,7 @@
 
 extern const int minScans;
 
-#include <unordered_map>
 
-namespace std {
-  template <>
-  struct hash<std::vector<int> >
-  {
-    std::size_t operator()(const std::vector<int> & k) const {
-      size_t seed = 0;
-      for (auto v : k) {
-        seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-      }
-      return seed;
-    }
-  };
-} // std
 
 namespace place {
 
@@ -88,20 +74,6 @@ namespace place {
   template<typename T>
   bool localGroup(T & toCheck, const int yOffset,
     const int xOffset, const int range);
-
-  void createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
-    const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
-    const std::vector<place::node> & nodes, std::unordered_map<std::vector<int>, double> &
-    highOrder);
-
-  void displayHighOrder(const std::unordered_map<std::vector<int>, double> highOrder,
-    const std::vector<place::node> & nodes,
-    const std::vector<std::vector<Eigen::MatrixXb> > & scans,
-    const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
-
-  void MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
-    const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
-    std::vector<const place::node *> & bestNodes);
 
   void normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     std::vector<place::node> & nodes);

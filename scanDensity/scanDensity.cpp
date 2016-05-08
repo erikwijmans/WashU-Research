@@ -99,10 +99,10 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
   }
   sort(featureNames.begin(), featureNames.end());
 
-  if (binaryNames.size() != rotationsFiles.size()) {
+  /*if (binaryNames.size() != rotationsFiles.size()) {
     std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
     exit(1);
-  }
+  }*/
   /*if (rotationsFiles.size() != featureNames.size()) {
     std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
     exit(1);
