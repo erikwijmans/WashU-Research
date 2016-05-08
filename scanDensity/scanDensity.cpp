@@ -151,6 +151,8 @@ void DensityMapsManager::run() {
   binaryReader.read(reinterpret_cast<char *> (& columns), sizeof(int));
   binaryReader.read(reinterpret_cast<char *> (& rows), sizeof(int));
 
+  std::cout << rows << "  " << columns << std::endl;
+
   pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
   pointsWithCenter->reserve(columns*rows);
 

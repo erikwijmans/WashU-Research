@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
           threeD = FLAGS_3D && (FLAGS_redo || !manager.exists3D());
         }
       }
-
+      std::cout << points->size();
 
       if (twoD) {
         auto bBox2D = BoundingBox::Create(points, Eigen::Vector3f (9.0, 9.0, 6.0));

@@ -221,6 +221,7 @@ void convertToBinary(const std::string & fileNameIn,
   std::ifstream in (outName, std::ios::in | std::ios::binary);
 
   if (FLAGS_ptx || !in.is_open()) {
+  	in.close();
     std::ifstream scanFile (fileNameIn, std::ios::in);
     int columns, rows;
     scanFile >> columns >> rows;
@@ -230,6 +231,7 @@ void convertToBinary(const std::string & fileNameIn,
     PTXcols = columns;
     PTXrows = rows;
     std::string line;
+    std::cout << rows << "   " << columns << std::endl;
     pointCloud.reserve(columns*rows);
     for (int i = 0; i < 9; ++i) {
       getline(scanFile, line);

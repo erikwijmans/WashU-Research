@@ -150,41 +150,33 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen
       const Eigen::Vector3d nest2 = nest.cross(n1);
 
       // counting inliers and outliers
-      double numInliers = 0, numInliers2 = 0;
-      Eigen::Vector3d average = Eigen::Vector3d::Zero(),
-        average2 = Eigen::Vector3d::Zero();
+      double numInliers = 0;
+      Eigen::Vector3d average = Eigen::Vector3d::Zero();
+      Eigen::Vector3d x;
       for(auto & n : N) {
         if(std::min(std::acos(std::abs(nest.dot(n))), std::acos(std::abs(nest2.dot(n)))) < 0.02) {
           if(std::acos(std::abs(nest.dot(n))) < 0.02) {
-            ++numInliers;
-            if (nest.dot(n) < 0)
-              average -= n;
-            else
-              average += n;
+            x = n;
           } else {
-            ++numInliers2;
-            if (nest2.dot(n) < 0)
-              average2 -= n;
-            else
-              average2 += n;
+            x = n.cross(n1);
           }
+
+          if (nest.dot(x) < 0)
+            average -= x;
+          else
+            average += x;
+          ++numInliers;
         }
       }
 
       #pragma omp crtical
       {
-        if((numInliers + numInliers2) > maxInliers) {
-          maxInliers = numInliers + numInliers2;
+        if(numInliers > maxInliers) {
+          maxInliers = numInliers;
 
-          if(numInliers > numInliers2) {
-            average /= average.norm();
-            M1 = average;
-            M2 = average.cross(n1);
-          } else {
-            average2 /= average2.norm();
-            M1 = average2.cross(n1);
-            M2 = average2;
-          }
+          average /= average.norm();
+          M1 = average;
+          M2 = average.cross(n1);
 
           double w = (maxInliers-3)/m;
           double p = std::max(0.001, std::pow(w,3));
