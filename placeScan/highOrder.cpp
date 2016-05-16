@@ -151,32 +151,20 @@ void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> 
   }
 }
 
-static void condenseStack(std::vector<GRBVar> & stacked,
-  GRBModel & model) {
-  if (stacked.size() == 2) {
-    GRBVar first = stacked.back();
-    stacked.pop_back();
-    GRBVar second = stacked.back();
-    stacked.pop_back();
 
+static void condenseStack(const std::vector<GRBVar> & toStack,
+  std::vector<GRBVar> & stacked,
+  GRBModel & model) {
+  int i = 0
+  for (; i < toStack.size() - 1; i += 2) {
     GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
     model.update();
-    model.addQConstr(first * second,
+    model.addQConstr(toStack[i] * toStack[i + 1],
       GRB_EQUAL, newStack);
     stacked.push_back(newStack);
-
-  } else if (stacked.size() == 1) return;
-  else {
-    std::vector<GRBVar> firstHalf (stacked.begin(),
-      stacked.begin() + stacked.size()/2);
-    std::vector<GRBVar> secondHalf(stacked.begin() + stacked.size()/2,
-      stacked.end());
-
-    condenseStack(firstHalf, model);
-    condenseStack(secondHalf, model);
-    stacked.clear();
-    stacked.insert(stacked.end(), firstHalf.begin(), firstHalf.end());
-    stacked.insert(stacked.end(), secondHalf.begin(), secondHalf.end());
+  }
+  for (; i < toStack.size(); ++i) {
+    stacked.push_back(toStack[i]);
   }
 }
 
@@ -184,6 +172,10 @@ static void stackTerms(const std::vector<int> & toStack,
   const GRBVar * varList, GRBModel & model,
   std::map<std::pair<int,int>, GRBVar > & preStacked,
   std::vector<GRBVar> & stacked) {
+  if (toStack.size() < 3) {
+    stacked.assign(toStack);
+    return;
+  }
   int i = 0;
   for (; i < toStack.size() - 1; i+=2) {
     std::pair<int, int> key (toStack[i], toStack[i+1]);
@@ -191,7 +183,7 @@ static void stackTerms(const std::vector<int> & toStack,
     if (it == preStacked.end()) {
       GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
       model.update();
-      model.addQConstr(varList[toStack[i]] * varList[toStack[i+1]],
+      model.addQConstr(varList[toStack[i]] * varList[toStack[i + 1]],
         GRB_EQUAL, newStack);
       preStacked.emplace(key, newStack);
       stacked.push_back(newStack);
@@ -200,19 +192,14 @@ static void stackTerms(const std::vector<int> & toStack,
     }
   }
   for (; i < toStack.size(); ++i) {
-    if (stacked.size() > 1) {
-      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
-      model.update();
-      model.addQConstr(varList[toStack[i]] * stacked.back(),
-        GRB_EQUAL, newStack);
-      stacked.pop_back();
-      stacked.push_back(newStack);
-    } else {
-      stacked.push_back(varList[toStack[i]]);
-    }
+    stacked.push_back(varList[toStack[i]]);
   }
-  while (stacked.size() > 2)
-    condenseStack(stacked, model);
+  std::vector<GRBVar> toStack;
+  while (stacked.size() > 2) {
+    toStack.assign(stacked);
+    stacked.clear();
+    condenseStack(stacked, tmpStack model);
+  }
 }
 
 void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
@@ -298,17 +285,12 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
     }
 */
     std::map<std::pair<int, int>, GRBVar > termCondense;
+    std::vector<GRBQuadExpr> hOrderQs;
     for (auto & it : highOrder) {
       auto & incident = it.first;
-      /*if (incident.size() == 2) {
-        objective -= inverseVarList[incident[0]]*inverseVarList[incident[1]]*it.second;
-      } else if (incident.size() == 1) {
-
-      }else*/ if(incident.size() > 3) {
-        std::vector<GRBVar> final;
-        stackTerms(incident, inverseVarList, model, termCondense, final);
-        objective -= final[0]*final[1]*it.second;
-      }
+      std::vector<GRBVar> final;
+      stackTerms(incident, inverseVarList, model, termCondense, final);
+      objective -= final[0]*final[1]*it.second;
     }
     model.update();
     model.setObjective(objective, GRB_MAXIMIZE);

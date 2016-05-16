@@ -917,7 +917,11 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
       Function f(shape, shape + 2);
       for (int a = 0; a < currentMat.cols(); ++a) {
         for (int b = 0; b < currentMat.rows(); ++b) {
+<<<<<<< 1e69c3a7cbdfbdf761658cb6a6db26f8a2393137
+          f(a,b) = currentMat(b,a).w + currentMat(b,a).panoW;
+=======
           f(a, b) = currentMat(b, a).w + currentMat(b, a).panoW;
+>>>>>>> Commit before rebase
         }
       }
       for (int a = 0; a < shape[1]; ++a) {
@@ -972,6 +976,176 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   }
 }
 
+<<<<<<< 1e69c3a7cbdfbdf761658cb6a6db26f8a2393137
+=======
+static void condenseStack(const std::vector<GRBVar> & toStack,
+  std::vector<GRBVar> & stacked,
+  GRBModel & model) {
+  int i = 0
+  for (; i < toStack.size() - 1; i += 2) {
+    GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+    model.update();
+    model.addQConstr(toStack[i] * toStack[i + 1],
+      GRB_EQUAL, newStack);
+    stacked.push_back(newStack);
+  }
+  for (; i < toStack.size(); ++i) {
+    stacked.push_back(toStack[i]);
+  }
+}
+
+static void stackTerms(const std::vector<int> & toStack,
+  const GRBVar * varList, GRBModel & model,
+  std::map<std::pair<int,int>, GRBVar > & preStacked,
+  std::vector<GRBVar> & stacked) {
+  if (toStack.size() < 3) {
+    stacked.assign
+  }
+  int i = 0;
+  for (; i < toStack.size() - 1; i+=2) {
+    std::pair<int, int> key (toStack[i], toStack[i+1]);
+    auto it = preStacked.find(key);
+    if (it == preStacked.end()) {
+      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+      model.update();
+      model.addQConstr(varList[toStack[i]] * varList[toStack[i + 1]],
+        GRB_EQUAL, newStack);
+      preStacked.emplace(key, newStack);
+      stacked.push_back(newStack);
+    } else {
+      stacked.push_back(it->second);
+    }
+  }
+  for (; i < toStack.size(); ++i) {
+    stacked.push_back(varList[toStack[i]]);
+  }
+  std::vector<GRBVar> toStack;
+  while (stacked.size() > 2) {
+    toStack.assign(stacked);
+    stacked.clear();
+    condenseStack(stacked, tmpStack model);
+  }
+}
+
+void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
+  const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
+  std::vector<const place::node *> & bestNodes) {
+
+  std::vector<int> numberOfLabels;
+  {
+    int i = 0;
+    const place::node * prevNode = &nodes[0];
+    for (auto & n : nodes) {
+      if (n.color == prevNode->color) {
+        prevNode = &n;
+        ++i;
+      } else {
+        numberOfLabels.push_back(i);
+        i = 1;
+        prevNode = &n;
+      }
+    }
+    numberOfLabels.push_back(i);
+  }
+
+  const int numVars = numberOfLabels.size();
+  const int numOpts = nodes.size();
+  try {
+    GRBEnv env = GRBEnv();
+    env.set("TimeLimit", "600");
+
+    GRBModel model = GRBModel(env);
+
+    double * upperBound = new double [numOpts];
+    char * type = new char [numOpts];
+    for (int i = 0; i < numOpts; ++i) {
+      upperBound[i] = 1.0;
+      type[i] = GRB_BINARY;
+    }
+
+    GRBVar * varList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
+    GRBVar * inverseVarList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
+    delete [] upperBound;
+    delete [] type;
+    // Integrate new variables
+    model.update();
+    for (int i = 0; i < numOpts; ++i) {
+      model.addConstr(varList[i] + inverseVarList[i], GRB_EQUAL, 1.0);
+    }
+
+    GRBQuadExpr objective = 0.0;
+    for (int i = 0; i < numOpts; ++i) {
+      for (int j = i + 1; j < numOpts; ++j) {
+        if (adjacencyMatrix(j,i).w == 0.0)
+          continue;
+
+        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).shotW)*varList[i]*varList[j];
+      }
+      const place::posInfo & currentScore = nodes[i].s;
+      double scanExplained =
+        (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
+      double fpExplained =
+      (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
+
+      objective += varList[i]*(fpExplained + scanExplained)/2.0;
+    }
+
+    for (int i = 0, offset = 0; i < numVars; ++i) {
+      GRBLinExpr constr = 0.0;
+      double * coeff = new double [numberOfLabels[i]];
+      for (int a = 0; a < numberOfLabels[i]; ++ a)
+        coeff[a] = 1.0;
+
+      constr.addTerms(coeff, varList + offset, numberOfLabels[i]);
+      model.addConstr(constr, GRB_LESS_EQUAL, 1.0);
+      offset += numberOfLabels[i];
+      delete [] coeff;
+    }
+
+
+    /*for (auto & it : highOrder) {
+      auto & incident = it.first;
+      for (auto & i : incident)
+        objective += varList[i]*it.second;
+    }
+*/
+    std::map<std::pair<int, int>, GRBVar > termCondense;
+    std::vector<GRBQuadExpr> hOrderQs;
+    for (auto & it : highOrder) {
+      auto & incident = it.first;
+      /*if (incident.size() == 2) {
+        objective -= inverseVarList[incident[0]]*inverseVarList[incident[1]]*it.second;
+      } else if (incident.size() == 1) {
+
+      }else*/ if(incident.size() > 3) {
+        std::vector<GRBVar> final;
+        stackTerms(incident, inverseVarList, model, termCondense, final);
+        objective -= final[0]*final[1]*it.second;
+      }
+    }
+    model.update();
+    model.setObjective(objective, GRB_MAXIMIZE);
+    model.optimize();
+
+    for (int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
+      if (varList[i].get(GRB_DoubleAttr_X) == 1.0) {
+        bestNodes.push_back(&(nodes[i]));
+        std::cout << i - offset << "_";
+      }
+      if (numberOfLabels[k] == i + 1 - offset)
+        offset += numberOfLabels[k++];
+    }
+    std::cout << std::endl;
+    std::cout << "Labeling found for " << bestNodes.size() << " out of " << numVars << " options" << std::endl;
+  } catch(GRBException e) {
+    std::cout << "Error code = " << e.getErrorCode() << std::endl;
+    std::cout << e.getMessage() << std::endl;
+  } catch(...) {
+    std::cout << "Exception during optimization" << std::endl;
+  }
+}
+
+>>>>>>> Commit before rebase
 bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
 
   const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
@@ -1010,6 +1184,35 @@ void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
     sizeof(place::edge)*adjacencyMatrix.size());
 
   out.close();
+}
+<<<<<<< 1e69c3a7cbdfbdf761658cb6a6db26f8a2393137
+=======
+
+template<typename T>
+bool place::localGroup(T & toCheck, const int yOffset,
+  const int xOffset, const int range) {
+  for (int i = -range; i <= range; ++i) {
+    for (int j = -range; j <= range; ++j) {
+      if (yOffset + j < 0 || yOffset + j >= toCheck.rows())
+        continue;
+      if (xOffset + i < 0 || xOffset + i >= toCheck.cols())
+        continue;
+      if (toCheck(yOffset + j, xOffset + i))
+        return true;
+    }
+  }
+
+  return false;
+}
+>>>>>>> Commit before rebase
+
+static double harmonic(int stop, double r) {
+  double val = 0.0;
+  for (int i = 1; i <= stop; ++i) {
+    double v = std::pow(static_cast<double>(i), r);
+    val += 0.1/v;
+  }
+  return val;
 }
 
 void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,

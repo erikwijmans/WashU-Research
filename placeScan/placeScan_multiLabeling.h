@@ -14,7 +14,7 @@ namespace multi {
       Eigen::MatrixXE adjacencyMatrix;
       std::vector<place::node> nodes;
       std::vector<std::vector<Eigen::Vector2i> > zeroZeros;
-      std::vector<const place::node *> bestNodes;
+      std::vector<place::SelectedNode> bestNodes;
       std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
       std::vector<std::string > pointVoxelFileNames, freeVoxelFileNames;
       std::vector<std::string> metaDataFiles, rotationsFiles, panoFiles;

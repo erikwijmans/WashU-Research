@@ -709,23 +709,21 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   }
 }
 
-void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
+void place::displayBest(const std::vector<const place::node *> & bestNodes,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans,
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
 
   std::cout << "Displaying solution" << std::endl;
 
   for (auto & n : bestNodes) {
-    std::cout << n << std::endl;
-    if (!n.selected) continue;
-
+    std::cout << n->color << std::endl;
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
     cv::Mat_<cv::Vec3b> _output = output;
-    const Eigen::MatrixXb & scan = scans[n.color][n.s.rotation];
-    const Eigen::Vector2i zeroZero = zeroZeros[n.color][n.s.rotation];
-    const int xOffset = n.s.x - zeroZero[0];
-    const int yOffset = n.s.y - zeroZero[1];
+    const Eigen::MatrixXb & scan = scans[n->color][n->s.rotation];
+    const Eigen::Vector2i zeroZero = zeroZeros[n->color][n->s.rotation];
+    const int xOffset = n->s.x - zeroZero[0];
+    const int yOffset = n->s.y - zeroZero[1];
 
     for (int i = 0; i < scan.cols(); ++i) {
       for (int j = 0; j < scan.rows(); ++j) {
@@ -851,7 +849,7 @@ inline void place::loadInVoxel(const std::string & name,
 
 void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   const std::vector<place::node> & nodes,
-  std::vector<place::SelectedNode> & bestNodes) {
+  std::vector<const place::node * > & bestNodes) {
 
   typedef opengm::DiscreteSpace<> Space;
   typedef opengm::ExplicitFunction<double> Function;
@@ -862,8 +860,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     opengm::Adder
   > Model;
 
-  // Figure out how many different variables and
-  // labels per variable
+  //Figure out how many different variables and labels there are
   std::vector<size_t> numberOfLabels;
   {
     size_t i = 0;
@@ -883,12 +880,8 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   const int numVars = numberOfLabels.size();
 
   //Construct the model
-  size_t * noLabelSpace = new size_t [numVars];
-  for (int i = 0; i < numVars; ++i) {
-    // The "+1" adds a special "no label" label
-    noLabelSpace[i] = numberOfLabels[i] + 1;
-  }
-  Model gm (Space (noLabelSpace, noLabelSpace + numVars));
+  Model gm (Space (numberOfLabels.begin(), numberOfLabels.end()));
+
 
   //Add urnary terms
   for (size_t i = 0, offset = 0; i < numVars; ++i) {
@@ -897,7 +890,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     for (int j = 0; j < numberOfLabels[i]; ++j) {
       f(j) = nodes[offset + j].w;
     }
-    f(shape[0] - 1) = 0;
+    // f(shape[0] - 1) = 0;
     Model::FunctionIdentifier fid = gm.addFunction(f);
     const size_t factors [] = {i};
     gm.addFactor(fid, factors, factors + 1);
@@ -906,32 +899,32 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   }
 
   //Add pairwise terms
-  for (size_t i = 0, colOffset = 0, startRow = 0; i < numVars; ++i) {
-    startRow += numberOfLabels[i];
-    int currentRow = startRow;
+  for (size_t i = 0, colOffset = 0, rowOffset = 0; i < numVars; ++i) {
+    rowOffset += numberOfLabels[i];
+    int rowOcp = rowOffset;
     for (size_t j = i + 1; j < numVars; ++j) {
-      Eigen::MatrixXE currentMat = adjacencyMatrix.block(currentRow, colOffset,
+      Eigen::MatrixXE currentMat = adjacencyMatrix.block(rowOcp, colOffset,
         numberOfLabels[j], numberOfLabels[i]);
 
       const size_t shape [] = {numberOfLabels[i], numberOfLabels[j]};
       Function f(shape, shape + 2);
       for (int a = 0; a < currentMat.cols(); ++a) {
         for (int b = 0; b < currentMat.rows(); ++b) {
-          f(a, b) = currentMat(b, a).w + currentMat(b, a).panoW;
+          f(a,b) = currentMat(b,a).w + currentMat(b,a).panoW;
         }
       }
-      for (int a = 0; a < shape[1]; ++a) {
+      /* for (int a = 0; a < shape[1]; ++a) {
         f(shape[0] - 1, a) = 0;
       }
       for (int a = 0; a < shape[0]; ++a) {
         f(a, shape[1] - 1) = 0;
-      }
+      } */
 
       Model::FunctionIdentifier fid = gm.addFunction(f);
-      const size_t factors [] = {i, j};
+      const size_t factors [] = {i,j};
       gm.addFactor(fid, factors, factors + 2);
 
-      currentRow += numberOfLabels[j];
+      rowOcp += numberOfLabels[j];
     }
     colOffset += numberOfLabels[i];
   }
@@ -955,25 +948,13 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
 
   bestNodes.reserve(numVars);
   for (int i = 0, offset = 0; i < numVars; ++i) {
-    const int index = offset + labeling[i];
-    if (labeling[i] >= numVars) {
-      bestNodes.emplace_back(nodes[index], 0, false);
-    } else {
-      double agreement = nodes[index].w;
-      for (int j = 0, rowOffset = 0; j < numVars; ++j) {
-        const int row = rowOffset + labeling[j];
-        agreement += adjacencyMatrix(row, index).w
-          + adjacencyMatrix(row, index).panoW;
-        rowOffset += numberOfLabels[j];
-      }
-      bestNodes.emplace_back(nodes[index], agreement, true);
-    }
+    if (labeling[i] < numberOfLabels[i])
+      bestNodes.push_back(&nodes[offset + labeling[i]]);
     offset += numberOfLabels[i];
   }
 }
 
 bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
-
   const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
   std::ifstream in (graphName, std::ios::in | std::ios::binary);
 
@@ -1010,6 +991,15 @@ void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
     sizeof(place::edge)*adjacencyMatrix.size());
 
   out.close();
+}
+
+static double harmonic(int stop, double r) {
+  double val = 0.0;
+  for (int i = 1; i <= stop; ++i) {
+    double v = std::pow(static_cast<double>(i), r);
+    val += 0.1/v;
+  }
+  return val;
 }
 
 void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,

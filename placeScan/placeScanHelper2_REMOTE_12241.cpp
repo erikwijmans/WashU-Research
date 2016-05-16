@@ -19,13 +19,10 @@
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
-#include <boost/progress.hpp>
-
+#include "gurobi_c++.h"
 
 const int minScans = 2;
-const int maxScans = 30;
-constexpr double nccOffset = 0.2;
-constexpr double geometryOffset = 0.5;
+const int maxScans = 200;
 
 template<typename T>
 static void displayCollapsed(T & collapsed, const std::string & windowName) {
@@ -328,11 +325,6 @@ static bool orderPairs(int x1, int y1, int x2, int y2) {
   return x1 < x2 || (x1 == x2 && y1 < y2);
 }
 
-boost::progress_display * show_progress;
-static void postProgress() {
-  ++*(show_progress);
-}
-
 void place::weightEdges(const std::vector<place::node> & nodes,
   const std::vector<std::vector<place::metaData> > & voxelInfo,
   const std::vector<std::string> & pointVoxelFileNames,
@@ -430,7 +422,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
     });
 
   std::cout << tracker.size() << std::endl;
-  show_progress = new boost::progress_display(tracker.size());
 
   omp_set_nested(1);
   #pragma omp target
@@ -449,8 +440,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
 
-     /*if (j != 89) continue;
-     if (i != 30) continue;*/
+     // if (j != 228 /*224*/) continue;
+     // if (i != 226) continue;
 
       if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
         std::string name = FLAGS_voxelFolder + "R"
@@ -506,11 +497,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       weight.panoW = pano::compareNCC2(panoA,
         panoB, RA, RB, aToB, bToA);
       adjacencyMatrix(j, i) = weight;
-      postProgress();
     }
   }
-  std::cout << totatlCount / numCalls << std::endl;
-  delete show_progress;
   //Copy the lower tranalge into the upper triangle
   for (int i = 0; i < cols ; ++i)
     for (int j = i + 1; j < rows; ++j)
@@ -639,12 +627,12 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   int numBreaks = 0;
   for (int i = 0; i < cols; ++i) {
     const place::node & nodeA = nodes[i];
-    if (nodeA.color != 5) continue;
+    // if (nodeA.color != 40) continue;
     for (int j = 0; j < rows; ++j) {
       const place::node & nodeB = nodes[j];
 
-      /*if (i > j)
-        continue;*/
+      if (i > j)
+        continue;
       if (adjacencyMatrix(j, i).w == 0)
         continue;
       if (adjacencyMatrix(j, i).panoW == 0)
@@ -698,11 +686,11 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
 
       cvNamedWindow("Preview", CV_WINDOW_NORMAL);
       cv::imshow("Preview", output);
-
-      std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
-      std::cout << adjacencyMatrix(j,i) << std::endl;
-      std::cout << "urnary: " << nodeA.w << "   " << nodeB.w << std::endl;
-
+      if (!FLAGS_quiteMode) {
+        std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
+        std::cout << adjacencyMatrix(j,i) << std::endl;
+        std::cout << "urnary: " << nodeA.w << "   " << nodeB.w << std::endl;
+      }
       cv::waitKey(0);
       ~output;
     }
@@ -800,13 +788,16 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
           localGroup(Bp, BPos[1], BPos[0], 2)))
           ++pointAgreement /*+= Ap(APos[1], APos[0]) + Bp(BPos[1], BPos[0])*/;
 
-        if (Ap(APos[1], APos[0]) && Bf(BPos[1], BPos[0]))
+        if (Ap(APos[1], APos[0]) &&
+          Bf(BPos[1], BPos[0]))
           ++freeSpaceAgreementA/* += Bf(BPos[1], BPos[0])*/;
 
-        if (Bp(BPos[1], BPos[0]) && Af(APos[1], APos[0]))
+        if (Bp(BPos[1], BPos[0]) &&
+          Af(APos[1], APos[0]))
             ++freeSpaceAgreementB /*+= Af(APos[1], APos[0])*/;
 
-        if (Bf(BPos[1], BPos[0]) && Af(APos[1], APos[0]))
+        if (Bf(BPos[1], BPos[0]) &&
+          Af(APos[1], APos[0]))
           ++freeSpaceCross/* += Bf(BPos[1], BPos[0]) + Af(APos[1], APos[0])*/;
 
         if (Bf(BPos[1], BPos[0]))
@@ -825,8 +816,8 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
   }
 
   averageFreeSpace /= 2.0;
-  totalPointA *= 1.0/2.0;
-  totalPointB *= 1.0/2.0;
+  totalPointA /= 2.0;
+  totalPointB /= 2.0;
   double averagePoint = (totalPointA + totalPointB)/2.0;
   if (averageFreeSpace == 0.0 || averagePoint == 0.0 ||
     totalPointA == 0.0 || totalPointB == 0.0) {
@@ -972,6 +963,173 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   }
 }
 
+static void condenseStack(const std::vector<GRBVar> & toStack,
+  std::vector<GRBVar> & stacked,
+  GRBModel & model) {
+  int i = 0
+  for (; i < toStack.size() - 1; i += 2) {
+    GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+    model.update();
+    model.addQConstr(toStack[i] * toStack[i + 1],
+      GRB_EQUAL, newStack);
+    stacked.push_back(newStack);
+  }
+  for (; i < toStack.size(); ++i) {
+    stacked.push_back(toStack[i]);
+  }
+}
+
+static void stackTerms(const std::vector<int> & toStack,
+  const GRBVar * varList, GRBModel & model,
+  std::map<std::pair<int,int>, GRBVar > & preStacked,
+  std::vector<GRBVar> & stacked) {
+  if (toStack.size() < 3) {
+    stacked.assign
+  }
+  int i = 0;
+  for (; i < toStack.size() - 1; i+=2) {
+    std::pair<int, int> key (toStack[i], toStack[i+1]);
+    auto it = preStacked.find(key);
+    if (it == preStacked.end()) {
+      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
+      model.update();
+      model.addQConstr(varList[toStack[i]] * varList[toStack[i + 1]],
+        GRB_EQUAL, newStack);
+      preStacked.emplace(key, newStack);
+      stacked.push_back(newStack);
+    } else {
+      stacked.push_back(it->second);
+    }
+  }
+  for (; i < toStack.size(); ++i) {
+    stacked.push_back(varList[toStack[i]]);
+  }
+  std::vector<GRBVar> toStack;
+  while (stacked.size() > 2) {
+    toStack.assign(stacked);
+    stacked.clear();
+    condenseStack(stacked, tmpStack model);
+  }
+}
+
+void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
+  const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
+  std::vector<const place::node *> & bestNodes) {
+
+  std::vector<int> numberOfLabels;
+  {
+    int i = 0;
+    const place::node * prevNode = &nodes[0];
+    for (auto & n : nodes) {
+      if (n.color == prevNode->color) {
+        prevNode = &n;
+        ++i;
+      } else {
+        numberOfLabels.push_back(i);
+        i = 1;
+        prevNode = &n;
+      }
+    }
+    numberOfLabels.push_back(i);
+  }
+
+  const int numVars = numberOfLabels.size();
+  const int numOpts = nodes.size();
+  try {
+    GRBEnv env = GRBEnv();
+    env.set("TimeLimit", "600");
+
+    GRBModel model = GRBModel(env);
+
+    double * upperBound = new double [numOpts];
+    char * type = new char [numOpts];
+    for (int i = 0; i < numOpts; ++i) {
+      upperBound[i] = 1.0;
+      type[i] = GRB_BINARY;
+    }
+
+    GRBVar * varList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
+    GRBVar * inverseVarList = model.addVars(NULL, upperBound, NULL, type, NULL, numOpts);
+    delete [] upperBound;
+    delete [] type;
+    // Integrate new variables
+    model.update();
+    for (int i = 0; i < numOpts; ++i) {
+      model.addConstr(varList[i] + inverseVarList[i], GRB_EQUAL, 1.0);
+    }
+
+    GRBQuadExpr objective = 0.0;
+    for (int i = 0; i < numOpts; ++i) {
+      for (int j = i + 1; j < numOpts; ++j) {
+        if (adjacencyMatrix(j,i).w == 0.0)
+          continue;
+
+        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).shotW)*varList[i]*varList[j];
+      }
+      const place::posInfo & currentScore = nodes[i].s;
+      double scanExplained =
+        (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
+      double fpExplained =
+      (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
+
+      objective += varList[i]*(fpExplained + scanExplained)/2.0;
+    }
+
+    for (int i = 0, offset = 0; i < numVars; ++i) {
+      GRBLinExpr constr = 0.0;
+      double * coeff = new double [numberOfLabels[i]];
+      for (int a = 0; a < numberOfLabels[i]; ++ a)
+        coeff[a] = 1.0;
+
+      constr.addTerms(coeff, varList + offset, numberOfLabels[i]);
+      model.addConstr(constr, GRB_LESS_EQUAL, 1.0);
+      offset += numberOfLabels[i];
+      delete [] coeff;
+    }
+
+
+    /*for (auto & it : highOrder) {
+      auto & incident = it.first;
+      for (auto & i : incident)
+        objective += varList[i]*it.second;
+    }
+*/
+    std::map<std::pair<int, int>, GRBVar > termCondense;
+    std::vector<GRBQuadExpr> hOrderQs;
+    for (auto & it : highOrder) {
+      auto & incident = it.first;
+      /*if (incident.size() == 2) {
+        objective -= inverseVarList[incident[0]]*inverseVarList[incident[1]]*it.second;
+      } else if (incident.size() == 1) {
+
+      }else*/ if(incident.size() > 3) {
+        std::vector<GRBVar> final;
+        stackTerms(incident, inverseVarList, model, termCondense, final);
+        objective -= final[0]*final[1]*it.second;
+      }
+    }
+    model.update();
+    model.setObjective(objective, GRB_MAXIMIZE);
+    model.optimize();
+
+    for (int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
+      if (varList[i].get(GRB_DoubleAttr_X) == 1.0) {
+        bestNodes.push_back(&(nodes[i]));
+        std::cout << i - offset << "_";
+      }
+      if (numberOfLabels[k] == i + 1 - offset)
+        offset += numberOfLabels[k++];
+    }
+    std::cout << std::endl;
+    std::cout << "Labeling found for " << bestNodes.size() << " out of " << numVars << " options" << std::endl;
+  } catch(GRBException e) {
+    std::cout << "Error code = " << e.getErrorCode() << std::endl;
+    std::cout << e.getMessage() << std::endl;
+  } catch(...) {
+    std::cout << "Exception during optimization" << std::endl;
+  }
+}
+
 bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
 
   const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
@@ -1012,6 +1170,178 @@ void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
   out.close();
 }
 
+template<typename T>
+bool place::localGroup(T & toCheck, const int yOffset,
+  const int xOffset, const int range) {
+  for (int i = -range; i <= range; ++i) {
+    for (int j = -range; j <= range; ++j) {
+      if (yOffset + j < 0 || yOffset + j >= toCheck.rows())
+        continue;
+      if (xOffset + i < 0 || xOffset + i >= toCheck.cols())
+        continue;
+      if (toCheck(yOffset + j, xOffset + i))
+        return true;
+    }
+  }
+
+  return false;
+}
+
+static double harmonic(int stop, double r) {
+  double val = 0.0;
+  for (int i = 1; i <= stop; ++i) {
+    double v = std::pow(static_cast<double>(i), r);
+    val += 0.1/v;
+  }
+  return val;
+}
+
+void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
+  const std::vector<place::node> & nodes, std::unordered_map<std::vector<int>, double> &
+    highOrder) {
+
+  std::vector<int> numberOfLabels;
+  {
+    int i = 0;
+    const place::node * prevNode = &nodes[0];
+    for (auto & n : nodes) {
+      if (n.color == prevNode->color) {
+        prevNode = &n;
+        ++i;
+      } else {
+        numberOfLabels.push_back(i);
+        i = 1;
+        prevNode = &n;
+      }
+    }
+    numberOfLabels.push_back(i);
+  }
+
+  Eigen::ArrayXH hMap (floorPlan.rows, floorPlan.cols);
+  for (int a = 0, offset = 0; a < numberOfLabels.size(); ++a) {
+    for (int b = 0; b < std::min(numberOfLabels[a], 3); ++b) {
+      auto & currentNode = nodes[b + offset];
+      auto & currentScan = scans[currentNode.color][currentNode.s.rotation];
+      auto & zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
+      const int xOffset = currentNode.s.x - zeroZero[0],
+        yOffset = currentNode.s.y - zeroZero[1];
+
+      for (int j = 0; j < currentScan.rows(); ++j) {
+        if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+          continue;
+        const uchar * src = floorPlan.ptr<uchar>(j + yOffset);
+        for (int i = 0; i < currentScan.cols(); ++i) {
+          if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
+            continue;
+          if (src[i + xOffset] != 255) {
+            if (localGroup(currentScan, j, i, 2)) {
+              hMap(j+yOffset, i + xOffset).incident.push_back(b + offset);
+              hMap(j+yOffset, i + xOffset).weight += currentNode.w;
+            }
+          }
+        }
+      }
+    }
+    offset += numberOfLabels[a];
+  }
+
+  place::hOrder * data = hMap.data();
+  for (int i = 0; i < hMap.size(); ++i) {
+    if ((data + i)->incident.size() != 0) {
+      // const double scale = harmonic((data + i)->incident.size(), 0.0);
+      (data + i)->weight /= (data + i)->incident.size();
+      // (data + i)->weight *= scale;
+    }
+  }
+
+  for (int i = 0; i < hMap.size(); ++i) {
+    std::vector<int> & key = (data + i)->incident;
+    if (key.size() != 0 && (data + i)->weight > 0.0) {
+      auto it = highOrder.find(key);
+      if (it != highOrder.end())
+        it->second += (data + i)->weight;
+      else
+        highOrder.emplace(key, (data + i)->weight);
+    }
+  }
+
+  double average = 0.0, aveTerms = 0.0;
+  for (auto & it : highOrder) {
+    average += it.second;
+    aveTerms += it.first.size();
+  }
+  average /= highOrder.size();
+  aveTerms /= highOrder.size();
+
+  double sigma = 0.0, sigTerms = 0.0;
+  for (auto & it : highOrder) {
+    sigma += (it.second - average)*(it.second -average);
+    sigTerms += (it.first.size() - aveTerms) * (it.first.size() - aveTerms);
+  }
+  sigma /= (highOrder.size() - 1);
+  sigma = sqrt(sigma);
+
+  sigTerms /= (highOrder.size() - 1);
+  sigTerms = sqrt(sigTerms);
+
+  std::cout << "average: " << average << "   sigma: " << sigma << std::endl;
+
+  for (auto & it : highOrder) {
+    it.second = std::max(0.0,(((it.second - average)/(sigma) + 1.0)/2.0));
+    const double significance = (it.first.size() - aveTerms)/sigTerms;
+    if(significance < 10000)
+      highOrder.erase(it.first);
+  }
+}
+
+void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> highOrder,
+  const std::vector<place::node> & nodes,
+  const std::vector<std::vector<Eigen::MatrixXb> > & scans,
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
+
+  for (auto & it : highOrder) {
+    auto & key = it.first;
+    cv::Mat output (fpColor.rows, fpColor.cols, CV_8UC3);
+    fpColor.copyTo(output);
+    cv::Mat_<cv::Vec3b> _output = output;
+    for (auto & i : key) {
+      const place::node & nodeA = nodes[i];
+
+      auto & aScan = scans[nodeA.color][nodeA.s.rotation];
+
+      auto & zeroZeroA = zeroZeros[nodeA.color][nodeA.s.rotation];
+
+      int yOffset = nodeA.s.y - zeroZeroA[1];
+      int xOffset = nodeA.s.x - zeroZeroA[0];
+      for (int k = 0; k < aScan.cols(); ++k) {
+        for (int l = 0; l < aScan.rows(); ++l) {
+          if (l + yOffset < 0 || l + yOffset >= output.rows)
+            continue;
+          if (k + xOffset < 0 || k + xOffset >= output.cols)
+            continue;
+
+          if (aScan(l, k) != 0) {
+            _output(l + yOffset, k + xOffset)[0]=0;
+            _output(l + yOffset, k + xOffset)[1]=0;
+            _output(l + yOffset, k + xOffset)[2]=255;
+          }
+        }
+      }
+    }
+    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+    cv::imshow("Preview", output);
+    if (!FLAGS_quiteMode) {
+      std::cout << it.second << std::endl;
+      for (auto & i : key)
+        std::cout << i << "_";
+      std::cout << std::endl;
+    }
+    cv::waitKey(0);
+    ~output;
+  }
+}
+
 void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
   std::vector<place::node> & nodes) {
 
@@ -1045,6 +1375,10 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
           averageW += weight;
           ++countW;
         }
+        if (shot) {
+          averageS += shot;
+          ++countS;
+        }
         if (pano) {
           averageP += pano;
           ++countP;
@@ -1053,15 +1387,20 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     }
 
     averageW /= countW;
+    averageS /= countS;
     averageP /= countP;
 
     double sigmaW = 0, sigmaS = 0, sigmaP = 0;
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
+        const double shot = adjacencyMatrix(j + rowOffset, i).shotW;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
         if(weight)
           sigmaW += (weight - averageW)*(weight - averageW);
+
+        if (shot)
+          sigmaS += (shot - averageS)*(shot - averageS);
 
         if (pano)
           sigmaP += (pano - averageP)*(pano - averageP);
@@ -1070,18 +1409,22 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     sigmaW /= countW;
     sigmaW = sqrt(sigmaW);
 
+    sigmaS /= countS;
+    sigmaS = sqrt(sigmaS);
+
     sigmaP /= countP;
     sigmaP = sqrt(sigmaP);
-
-    averageW = std::max(0.0, averageW);
-    averageP = std::max(0.2, averageP);
 
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
+        const double shot = adjacencyMatrix(j + rowOffset, i).shotW;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
         if (weight && countW > 1 && sigmaW)
           adjacencyMatrix(j + rowOffset, i).w = (weight - averageW)/sigmaW;
+
+        if (shot && countS > 1 && sigmaS)
+          adjacencyMatrix(j + rowOffset, i).shotW = (shot - averageS)/sigmaS;
 
         if (pano && countP > 1 && sigmaP)
           adjacencyMatrix(j + rowOffset, i).panoW = (pano - averageP)/sigmaP;

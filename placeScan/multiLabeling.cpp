@@ -197,7 +197,7 @@ void multi::Labeler::solveTRW() {
 
 void multi::Labeler::solveMIP() {
   place::createHigherOrderTerms(scans, zeroZeros, nodes, highOrder);
-  place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
+  // place::MIPSolver(adjacencyMatrix, highOrder, nodes, bestNodes);
 }
 
 void multi::Labeler::displaySolution() {

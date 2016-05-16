@@ -321,6 +321,17 @@ namespace place {
     int color;
   } node;
 
+  typedef struct SelectedNode {
+    posInfo s;
+    double w, nw, agreement;
+    int color;
+    bool selected;
+    SelectedNode (const node & o, double agreement, bool selected) :
+      s {o.s}, w {o.w}, nw {o.nw}, agreement {agreement},
+      color {o.color}, selected {selected}
+      {};
+  } SelectedNode;
+
   typedef struct {
     int X1;
     int Y1;
@@ -461,7 +472,7 @@ static std::ostream & operator<<(std::ostream & os, const place::cube & print) {
 }
 
 static std::ostream & operator<<(std::ostream & os, const place::edge & print) {
-  os << "edge: " << print.w << " shot: " << print.shotW;
+  os << "edge: " << print.w;
   os << "  pano: " << print.panoW << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
   os << print.fx << "  " << print.feB;
@@ -478,6 +489,14 @@ static std::ostream & operator<<(std::ostream & os, const place::posInfo * print
 
 static std::ostream & operator<<(std::ostream & os, const place::posInfo & print) {
   os << &print;
+  return os;
+}
+
+static std::ostream & operator<<(std::ostream & os,
+                                 const place::SelectedNode & p) {
+  os << "Color: " << p.color << std::endl;
+  os << "Agreement: " << p.agreement << std::endl;
+  os << "Selected: " << p.selected;
   return os;
 }
 

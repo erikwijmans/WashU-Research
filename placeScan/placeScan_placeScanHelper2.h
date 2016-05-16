@@ -20,11 +20,6 @@ namespace place {
 
   void displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan);
 
-  void createGraph(Eigen::MatrixXE & adjacencyMatrix,
-    std::vector<place::node> & nodes,
-    std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
-    std::vector<const place::node *> & bestNodes);
-
   void weightEdges(const std::vector<place::node> & nodes,
     const std::vector<std::vector<place::metaData> > & voxelInfo,
     const std::vector<std::string> & pointVoxelFileNames,
@@ -45,7 +40,7 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans,
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  void displayBest(const std::vector<const place::node *> & bestNodes,
+  void displayBest(const std::vector<place::SelectedNode> & bestNodes,
     const std::vector<std::vector<Eigen::MatrixXb> > & scans,
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
@@ -67,7 +62,7 @@ namespace place {
 
   void TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     const std::vector<place::node> & nodes,
-    std::vector<const place::node * > & bestNodes);
+    std::vector<SelectedNode> & bestNodes);
 
   bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix);
   void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
@@ -85,7 +80,6 @@ namespace place {
           return true;
       }
     }
-
     return false;
   }
 
