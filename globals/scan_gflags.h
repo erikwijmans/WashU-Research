@@ -1,3 +1,4 @@
+#pragma once
 #ifndef SCAN_GFLAGS_H
 #define SCAN_GFLAGS_H
 
@@ -7,7 +8,7 @@ DECLARE_bool(visulization);
 DECLARE_bool(previewIn);
 DECLARE_bool(previewOut);
 DECLARE_bool(redo);
-DECLARE_bool(quiteMode);
+DECLARE_bool(quietMode);
 DECLARE_bool(tinyPreviewIn);
 DECLARE_bool(save);
 DECLARE_bool(debugMode);
@@ -42,5 +43,6 @@ DECLARE_int32(top);
 DECLARE_double(scale);
 
 void prependDataPath();
+void parseFolder(const std::string name, std::vector<std::string> & out);
 
 #endif // SCAN_GFLAGS_H

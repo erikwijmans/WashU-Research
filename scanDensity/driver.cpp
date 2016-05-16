@@ -1,6 +1,8 @@
 #include "scanDensity_scanDensity.h"
 #include "scanDensity_3DInfo.h"
 
+#include <boost/progress.hpp>
+
 void saveImages(const std::vector<cv::Mat> & images,
   const std::vector<std::string> & names);
 void saveZeroZero(const Eigen::Vector2i & zZ, const std::string & name);
@@ -13,6 +15,10 @@ int main(int argc, char *argv[]) {
 
   DensityMapsManager manager (argc, argv);
 
+  boost::progress_display * show_progress = nullptr;
+  if (FLAGS_quietMode)
+    show_progress = new boost::progress_display (FLAGS_numScans);
+
   #pragma omp parallel shared(manager) if(!FLAGS_preview) \
     num_threads(4)
   {
@@ -23,7 +29,7 @@ int main(int argc, char *argv[]) {
       std::vector<std::string> peNames, feNames;
       std::vector<std::string> pointNames, freeNames;
       std::string zerosName, metaDataName;
-      DensityMapsManager::PointsPtr points;
+      DensityMapsManager::PointsPtr $3DPoints, $2DPoints;
       DensityMapsManager::MatPtr R;
       double scale;
       #pragma omp critical
@@ -32,7 +38,8 @@ int main(int argc, char *argv[]) {
           loop = false;
         } else {
           manager.run();
-          points = manager.getPointsWithCenter();
+          $3DPoints = manager.getPointsWithCenter();
+          $2DPoints = manager.getPointsNoCenter();
           R = manager.getR();
           manager.get2DPointNames(peNames);
           manager.get2DFreeNames(feNames);
@@ -46,13 +53,12 @@ int main(int argc, char *argv[]) {
           threeD = FLAGS_3D && (FLAGS_redo || !manager.exists3D());
         }
       }
-      std::cout << points->size();
 
       if (twoD) {
-        auto bBox2D = BoundingBox::Create(points, Eigen::Vector3f (9.0, 9.0, 6.0));
+        auto bBox2D = BoundingBox::Create($2DPoints, Eigen::Vector3f (9.0, 9.0, 6.0));
         bBox2D->run();
 
-        CloudAnalyzer2D analyzer2D (points, R, bBox2D);
+        CloudAnalyzer2D analyzer2D ($2DPoints, R, bBox2D);
         analyzer2D.initalize(scale);
 
         if (FLAGS_pe) {
@@ -72,12 +78,12 @@ int main(int argc, char *argv[]) {
       }
 
       if (threeD) {
-        auto bBox3D = BoundingBox::Create(points, Eigen::Vector3f (10.0, 10.0, 6.0));
+        auto bBox3D = BoundingBox::Create($3DPoints, Eigen::Vector3f (10.0, 10.0, 6.0));
         bBox3D->run();
         Eigen::Vector3f pointMin, pointMax;
         bBox3D->getBoundingBox(pointMin, pointMax);
 
-        voxel::CloudAnalyzer3D analyzer3D (points,
+        voxel::CloudAnalyzer3D analyzer3D ($3DPoints,
           R, bBox3D);
         analyzer3D.run(voxelsPerMeter, scale);
 
@@ -85,8 +91,16 @@ int main(int argc, char *argv[]) {
           analyzer3D.saveVoxelGrids(pointNames, freeNames,
             metaDataName);
       }
+
+      if (show_progress && loop)
+        #pragma omp critical
+        ++(*show_progress);
     }
   }
+  if (show_progress)
+    delete show_progress;
+  std::cout << "leaving" << std::endl;
+  return 0;
 }
 
 void saveImages(const std::vector<cv::Mat> & images,

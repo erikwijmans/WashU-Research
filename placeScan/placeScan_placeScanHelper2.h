@@ -1,3 +1,4 @@
+#pragma once
 #ifndef PLACESCAN_PLACESCANHELPER2_H_
 #define PLACESCAN_PLACESCANHELPER2_H_
 
@@ -73,7 +74,20 @@ namespace place {
 
   template<typename T>
   bool localGroup(T & toCheck, const int yOffset,
-    const int xOffset, const int range);
+    const int xOffset, const int range) {
+    for (int i = -range; i <= range; ++i) {
+      for (int j = -range; j <= range; ++j) {
+        if (yOffset + j < 0 || yOffset + j >= toCheck.rows())
+          continue;
+        if (xOffset + i < 0 || xOffset + i >= toCheck.cols())
+          continue;
+        if (toCheck(yOffset + j, xOffset + i))
+          return true;
+      }
+    }
+
+    return false;
+  }
 
   void normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     std::vector<place::node> & nodes);

@@ -40,8 +40,8 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
     perror ("");
     exit(-1);
   }
-
-  if ((dir = opendir (FLAGS_zerosFolder.data())) != NULL) {
+  const std::string zzFolder = FLAGS_zerosFolder;
+  if ((dir = opendir (zzFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
       if (fileName != ".." && fileName != "." ){
@@ -236,7 +236,7 @@ bool place::reshowPlacement(const std::string & scanName,
   if (!FLAGS_reshow)
     return true;
 
-  if (!FLAGS_quiteMode)
+  if (!FLAGS_quietMode)
     std::cout << placementName << std::endl;
 
   std::vector<cv::Mat> rotatedScans, toTrim;
@@ -255,7 +255,7 @@ bool place::reshowPlacement(const std::string & scanName,
 
   const double initailScore = minScore.score;
   double lastScore = 1.0;
-  if (!FLAGS_quiteMode)
+  if (!FLAGS_quietMode)
     std::cout << "Showing minima: " << num << std::endl;
 
   for (int i = 0; i < num; ++i) {
@@ -298,7 +298,7 @@ bool place::reshowPlacement(const std::string & scanName,
       }
     }
 
-    if (!FLAGS_quiteMode) {
+    if (!FLAGS_quietMode) {
       std::cout << &minScore << std::endl;
       std::cout << "% of scan unexplained: " << minScore.scanFP/minScore.scanPixels << std::endl << std::endl;
     }
@@ -318,7 +318,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
   const int numToDeltas = countNumToDeltas(minima);
   int num = minWrite > numToDeltas ? minWrite : numToDeltas;
   num = num > minima.size() ? minima.size() : num;
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
     std::cout << "Num minima: " << num << std::endl;
     std::cout << "Press a key to begin displaying placement options" << std::endl;
   }
@@ -354,7 +354,7 @@ void place::displayOutput(const std::vector<Eigen::SparseMatrix<double> > & rSSp
     }
 
     cv::imshow("Preview", output);
-    if (!FLAGS_quiteMode) {
+    if (!FLAGS_quietMode) {
       std::cout << min << std::endl << std::endl;
     }
     cv::waitKey(0);
@@ -367,7 +367,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
   const std::vector<Eigen::SparseMatrix<double> > & rSSparseTrimmed,
   const std::vector<const place::posInfo *> & minima) {
   const int num = minima.size() < 20 ? minima.size() : 20;
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
     std::cout << "Num minima: " << num << std::endl;
     std::cout << "Press a key to begin displaying placement options" << std::endl;
   }
@@ -416,7 +416,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
     }
 
     cv::imshow("Preview", output);
-    if (!FLAGS_quiteMode) {
+    if (!FLAGS_quietMode) {
       std::cout << min << std::endl << std::endl;
     }
     cv::waitKey(0);

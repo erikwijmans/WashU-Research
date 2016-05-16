@@ -9,6 +9,8 @@
 #include <opencv2/core.hpp>
 #include <scan_typedefs.hpp>
 
+extern double totatlCount, numCalls;
+
 namespace pano {
 
   double compareSIFT(const cv::Mat & panoA, const cv::Mat & panoB,

@@ -4,7 +4,7 @@
 #include <math.h>
 #include <time.h>
 #include <omp.h>
-
+#include <signal.h>
 
 #include <iostream>
 #include <fstream>
@@ -12,6 +12,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <boost/progress.hpp>
 
 
 int main(int argc, char *argv[]) {
@@ -94,9 +95,12 @@ int main(int argc, char *argv[]) {
   if (FLAGS_numScans == -1 )
     FLAGS_numScans = pointFileNames.size() - FLAGS_startIndex;
 
+  boost::progress_display * show_progress = nullptr;
+  if (FLAGS_quietMode && FLAGS_V1)
+    show_progress = new boost::progress_display (FLAGS_numScans);
+
   if (FLAGS_V1) {
     for (int i = FLAGS_startIndex; i< FLAGS_startIndex + FLAGS_numScans; ++i) {
-      const double startTime = omp_get_wtime();
       const std::string scanName = pointFileNames[i];
       const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
       const std::string maskName = freeFileNames[i];
@@ -110,21 +114,23 @@ int main(int argc, char *argv[]) {
         place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks,
           scanName, zerosFile, maskName);
       }
-      const double endTime = omp_get_wtime();
-      std::cout << "Time: " << endTime - startTime << " seconds" << std::endl << std::endl;
+      if (show_progress)
+        ++(*show_progress);
     }
   }
+  if (show_progress)
+    delete show_progress;
 
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
     // labeler.displayGraph();
     labeler.solveTRW();
-    while (0)
+    while (1)
       labeler.displaySolution();
   }
-
-  return 0;
+  std::cout << "Leaving" << std::endl;
+  kill(-getpid(), SIGINT); //because gflags segfaults on exit....
 }
 
 void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
@@ -133,8 +139,8 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   const std::string & scanName,
   const std::string & zerosFile, const std::string & maskName) {
 
-  std::cout << scanName << std::endl;
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
+    std::cout << scanName << std::endl;
     std::cout << maskName << std::endl;
   }
 
@@ -377,7 +383,7 @@ void place::findLocalMinima(const std::vector<place::posInfo> & scores,
   }
   sigScores /= (scores.size() - 1);
   sigScores = sqrt(sigScores);
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
     std::cout << "Average         Sigma" << std::endl;
     std::cout << averageScore << "         " << sigScores << std::endl;
   }
@@ -419,7 +425,7 @@ void place::findGlobalMinima(const std::vector<place::posInfo> & scores,
     minScore = std::min(info.score, minScore);
   }
 
-  if (!FLAGS_quiteMode)
+  if (!FLAGS_quietMode)
     std::cout << "Min score: " << minScore << std::endl;
 
   const int mapSize = maps.rows * maps.cols;
@@ -661,7 +667,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
   const Eigen::MatrixXb & fpMask, const std::vector<Eigen::Vector3i> & points,
   std::vector<place::posInfo> & scores) {
 
-  if (!FLAGS_quiteMode)
+  if (!FLAGS_quietMode)
     std::cout << "Start: " << points.size() << std::endl;
 
   scores.clear();
@@ -759,7 +765,7 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
     }
   }
 
-  if (!FLAGS_quiteMode)
+  if (!FLAGS_quietMode)
     std::cout << "Done: " << scores.size() << std::endl;
 }
 
@@ -767,9 +773,9 @@ void place::findPlacement(const Eigen::SparseMatrix<double> & fp,
 void place::findPointsToAnalyzeV2(const std::vector<const place::posInfo *> & minima,
   std::vector<Eigen::Vector3i> & pointsToAnalyze) {
   pointsToAnalyze.clear();
-  pointsToAnalyze.reserve(minima.size()*4);
+  pointsToAnalyze.reserve(minima.size()*25);
 
-  for (auto & min : minima) {
+  for (auto min : minima) {
     const int x = 2*min->x;
     const int y = 2*min->y;
     const int rotIndex = min->rotation;
@@ -783,11 +789,8 @@ void place::findPointsToAnalyzeV2(const std::vector<const place::posInfo *> & mi
             Eigen::Vector3i(x + i, y + j, rotIndex));
       }
     }
-
-   /* pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y, rotIndex));
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x,2*y + 1, rotIndex));
-    pointsToAnalyze.push_back(Eigen::Vector3i(2*x + 1,2*y + 1, rotIndex));*/
   }
+  pointsToAnalyze.shrink_to_fit();
 }
 
 void place::createFPPyramids(const cv::Mat & floorPlan,
@@ -994,7 +997,7 @@ void place::analyzePlacementWeighted(const std::vector<Eigen::SparseMatrix<doubl
   const std::string & zerosFile, const std::string & maskName) {
 
   std::cout << scanName << std::endl;
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
     std::cout << rotationFile << std::endl;
     std::cout << maskName << std::endl;
   }

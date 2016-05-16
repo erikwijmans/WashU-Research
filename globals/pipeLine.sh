@@ -10,9 +10,7 @@ mkdir -p ./placementOptions/V1
 mkdir -p ./placementOptions/V2
 mkdir -p ./panoramas/images
 mkdir -p ./panoramas/data
-mkdir -p ./Archives
 mkdir -p ./cloudNormals
-mkdir -p ./descriptors
 mkdir -p ./binaryFiles
 mkdir -p ./densityMaps/R3
 mkdir -p ./densityMaps/R0
@@ -25,15 +23,17 @@ mkdir -p ./voxelGrids/R0
 mkdir -p ./voxelGrids/R1
 mkdir -p ./voxelGrids/R2
 mkdir -p ./voxelGrids/metaData
-mkdir -p ./PTXFiles
-mkdir -p ./SIFT
+
 #run the 3 programs
-cd ~/Projects/c++/preprocessor
-make
-./preprocessor -dataPath=$1 -redo -ptx
-cd ../scanDensity
-make
+# cd ~/Projects/c++/preprocessor
+# echo "Running preprocessor"
+# make || exit 1
+# ./preprocessor -dataPath=$1 -ptx
+echo "Running scanDensity"
+cd ~/Projects/c++/scanDensity
+make || exit 1
 ./scanDensity -dataPath=$1 -redo
-cd ../placeScan
-make
-./placeScan -dataPath=$1 -redo
+echo "Running placeScan"
+cd ~/Projects/c++/placeScan
+make || exit 1
+./placeScan -dataPath=$1 -V1 -redo

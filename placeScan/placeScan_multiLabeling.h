@@ -1,9 +1,11 @@
+#pragma once
 #ifndef PLACE_SCAN_MULTI_LABELING_H
 #define PLACE_SCAN_MULTI_LABELING_H
 
 #include "placeScan_placeScan.h"
 #include "placeScan_placeScanHelper.h"
 #include "placeScan_placeScanHelper2.h"
+#include "highOrder.h"
 
 namespace multi {
 

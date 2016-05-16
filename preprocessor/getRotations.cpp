@@ -31,12 +31,12 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
   for (auto & n : *cloud_normals)
     normals.emplace_back(n.normal_x, n.normal_y, n.normal_z);
 
-  if(!FLAGS_quiteMode)
+  if(!FLAGS_quietMode)
     std::cout << "N size: " << normals.size() << std::endl;
 
   Eigen::Vector3d d1, d2, d3;
   satoshiRansacManhattan1(normals, d1);
-  if (!FLAGS_quiteMode) {
+  if (!FLAGS_quietMode) {
     std::cout << "D1: " << d1 << std::endl << std::endl;
   }
   std::vector<Eigen::Vector3d> N2;
@@ -44,12 +44,12 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
     if(std::asin(n.cross(d1).norm()) > PI/2.0 - 0.02)
       N2.push_back(n);
 
-  if(!FLAGS_quiteMode)
+  if(!FLAGS_quietMode)
     std::cout << "N2 size: " << N2.size() << std::endl;
 
   satoshiRansacManhattan2(N2, d1, d2, d3);
 
-  if(!FLAGS_quiteMode) {
+  if(!FLAGS_quietMode) {
     std::cout << "D2: " << d2 << std::endl << std::endl;
     std::cout << "D3: " << d3 << std::endl << std::endl;
   }

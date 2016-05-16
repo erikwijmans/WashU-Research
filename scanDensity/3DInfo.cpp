@@ -64,7 +64,7 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter,
         unitRay[0] = ray[0]/length;
         unitRay[1] = ray[1]/length;
         unitRay[2] = ray[2]/length;
-        int stop = floor(0.95*length - 3);
+        int stop = floor(0.85*length - 3);
         int voxelHit [3];
         for (int a = 0; a < stop; ++a) {
 

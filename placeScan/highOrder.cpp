@@ -140,7 +140,7 @@ void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> 
     }
     cvNamedWindow("Preview", CV_WINDOW_NORMAL);
     cv::imshow("Preview", output);
-    if (!FLAGS_quiteMode) {
+    if (!FLAGS_quietMode) {
       std::cout << it.second << std::endl;
       for (auto & i : key)
         std::cout << i << "_";

@@ -43,9 +43,7 @@ class DensityMapsManager {
     std::string getMetaDataName();
     PointsPtr getPointsWithCenter() {
       return pointsWithCenter; };
-    PointsPtr getPointsNoCenter() {
-      exit(1);
-      return pointsNoCenter; };
+    PointsPtr getPointsNoCenter() { return pointsNoCenter; };
     MatPtr getR() {
       return R; };
     void setScale(double newScale) { FLAGS_scale = newScale; };

@@ -17,7 +17,6 @@
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
-#include "gurobi_c++.h"
 
 multi::Labeler::Labeler() {
 
@@ -84,33 +83,12 @@ multi::Labeler::Labeler() {
     in.close();
   }
 
-  {
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (metaDataFolder.data())) != NULL) {
-      while ((ent = readdir (dir)) != NULL) {
-        std::string fileName = ent->d_name;
-        if (fileName != ".." && fileName != ".")
-          metaDataFiles.push_back(fileName);
-      }
-      closedir (dir);
-    }  else {
-      /* could not open directory */
-      perror ("");
-      exit(-1);
-    }
-    std::sort(metaDataFiles.begin(), metaDataFiles.end());
-  }
-
-  std::cout << "Done parsing folders" << std::endl;
-  std::cout << "Loading in scans" << std::endl;
   zeroZeros.resize(numScans);
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
 
-  std::cout << "Loading in panoramas and rot mats" << std::endl;
+
   loadInPanosAndRot();
-  std::cout << "Loading in placements" << std::endl;
   const int numToParse = numScans;
   const int nodeStart = 0;
   for (int i = nodeStart; i < std::min(numToParse + nodeStart,
@@ -137,14 +115,14 @@ multi::Labeler::Labeler() {
     }
     numberOfLabels.push_back(i);
   }
-  std::cout << "Leaving labeler init" << std::endl;
 }
 
 void multi::Labeler::loadInPanosAndRot() {
 
   DIR *dir;
   struct dirent *ent;
-  if ((dir = opendir (FLAGS_rotFolder.data())) != NULL) {
+  const std::string rotFolder = FLAGS_rotFolder;
+  if ((dir = opendir (rotFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
       if (fileName != ".." && fileName != ".")
@@ -208,18 +186,9 @@ void multi::Labeler::loadInPanosAndRot() {
 }
 
 void multi::Labeler::weightEdges() {
-  std::cout << "Weighting edges" << std::endl;
-  const double startTime = omp_get_wtime();
   place::weightEdges(nodes, voxelInfo, pointVoxelFileNames,
     freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
   place::normalizeWeights(adjacencyMatrix, nodes);
-  const double endTime = omp_get_wtime();
-  const int totalTime = endTime - startTime;
-  const int seconds = totalTime % 60;
-  const int minutes = (totalTime % 3600)/60;
-  const int hours = totalTime/3600;
-  std::cout << "Time: " << hours << "h " << minutes << "m "
-    << seconds << "s" << std::endl;
 }
 
 void multi::Labeler::solveTRW() {

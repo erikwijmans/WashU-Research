@@ -1,11 +1,16 @@
 #include "scan_gflags.h"
 
+/*#include <string>
+#include <vector>
+#include <boost/filesystem.hpp>
+#include <iostream>
+*/
 DEFINE_bool(visulization, false,
   "Turns on all visualization options that do not impact performance");
 DEFINE_bool(previewIn, false, "Turns on a preview of the scan before it is placed");
 DEFINE_bool(previewOut, false, "Shows a preview of the scans placement before saving");
 DEFINE_bool(redo, false, "Forces the program to redo the placement of all scans given");
-DEFINE_bool(quiteMode, false, "Very minimal status reports");
+DEFINE_bool(quietMode, true, "Very minimal status reports");
 DEFINE_bool(tinyPreviewIn, false, "Shows the input scan before any processing");
 DEFINE_bool(save, true, "Saves the placements to file");
 DEFINE_bool(debugMode, false,
@@ -63,3 +68,27 @@ void prependDataPath() {
   FLAGS_SIFTFolder = FLAGS_dataPath + "/" + FLAGS_SIFTFolder;
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
+
+
+/*void parseFolder(const std::string name, std::vector<std::string> & out) {
+	boost::filesystem::path folder (name);
+  if (boost::filesystem::exists(folder) &&
+    boost::filesystem::is_directory(folder)) {
+    for (auto & file : boost::filesystem::directory_iterator(folder)) {
+    	out.push_back(file.path().string());
+    }
+  } else {
+    std::cout << folder << " does not exists" << std::endl;
+    exit(-1);
+  }
+  std::sort(out.begin(), out.end());
+}*/
+
+/*int main() {
+  prependDataPath();
+  std::vector<std::string> test;
+  parseFolder(FLAGS_zerosFolder, test);
+  for (auto & n : test) {
+    std::cout << n << std::endl;
+  }
+}*/

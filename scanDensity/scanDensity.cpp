@@ -3,7 +3,6 @@
 #include "scanDensity_scanDensity.h"
 
 #include <locale>
-
 #include <sstream>
 
 static std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
@@ -83,30 +82,10 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
   }
   sort(rotationsFiles.begin(), rotationsFiles.end());
 
-  if ((dir = opendir (FLAGS_descriptorsFolder.data())) != NULL) {
-    /* Add all the files and directories to a std::vector */
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != "."){
-        featureNames.push_back(fileName);
-      }
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(EXIT_FAILURE);
-  }
-  sort(featureNames.begin(), featureNames.end());
-
-  /*if (binaryNames.size() != rotationsFiles.size()) {
+  if (binaryNames.size() != rotationsFiles.size()) {
     std::cout << "Not the same number of binaryFiles as rotationsFiles" << std::endl;
     exit(1);
-  }*/
-  /*if (rotationsFiles.size() != featureNames.size()) {
-    std::cout << "Not the same number of rotationsFiles as featureNames" << std::endl;
-    exit(1);
-  }*/
+  }
 
   std::string buildName = rotationsFiles[0].substr(0, 3);
   std::locale loc;
@@ -130,12 +109,15 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
 void DensityMapsManager::run() {
   rotationFile = FLAGS_rotFolder + rotationsFiles[current];
   fileName = FLAGS_binaryFolder + binaryNames[current];
-  // featName = FLAGS_descriptorsFolder + featureNames[current];
 
   scanNumber = fileName.substr(fileName.find(".") - 3, 3);
   buildName = fileName.substr(fileName.rfind("/") + 1, 3);
 
-  std::cout << scanNumber << std::endl;
+  if (!FLAGS_redo && exists2D() && exists3D())
+    return;
+
+  if (!FLAGS_quietMode)
+    std::cout << scanNumber << std::endl;
 
   std::ifstream binaryReader (rotationFile, std::ios::in | std::ios::binary);
   R = std::make_shared<std::vector<Eigen::Matrix3d> > (4);
@@ -151,10 +133,10 @@ void DensityMapsManager::run() {
   binaryReader.read(reinterpret_cast<char *> (& columns), sizeof(int));
   binaryReader.read(reinterpret_cast<char *> (& rows), sizeof(int));
 
-  std::cout << rows << "  " << columns << std::endl;
-
   pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
   pointsWithCenter->reserve(columns*rows);
+  pointsNoCenter = std::make_shared<std::vector<Eigen::Vector3f> > ();
+  pointsNoCenter->reserve(columns*rows);
 
   for (int k = 0; k < columns * rows; ++k) {
     scan::PointXYZRGBA tmp;
@@ -167,17 +149,11 @@ void DensityMapsManager::run() {
       continue;
 
     pointsWithCenter->push_back(point);
+
+    if (point[0]*point[0] + point[1]*point[1] > 1)
+      pointsNoCenter->push_back(point);
   }
   binaryReader.close();
-
-  /*binaryReader.open(featName, std::ios::in | std::ios::binary);
-  int num;
-  binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
-  featureVectors = std::make_shared<std::vector<SPARSE352WithXYZ> > (num);
-  for (auto & v : *featureVectors)
-    v.loadFromFile(binaryReader);
-
-  binaryReader.close();*/
 }
 
 bool DensityMapsManager::hasNext() {
@@ -459,7 +435,6 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
   std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
 
-  const double startTime = omp_get_wtime();
   for (int i = 0; i < numX; ++i) {
     for (int j = 0; j < numY; ++j) {
       auto column = pointsPerVoxel->at(i, j);
@@ -506,13 +481,6 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
       }
     }
   }
-  const double endTime = omp_get_wtime();
-  const int totalTime = endTime - startTime;
-  const int seconds = totalTime % 60;
-  const int minutes = (totalTime % 3600)/60;
-  const int hours = totalTime/3600;
-  std::cout << "Time: " << hours << "h " << minutes << "m "
-    << seconds << "s" << std::endl;
 
   Eigen::MatrixXd collapsedCount = Eigen::MatrixXd::Zero(numY, numX);
 
@@ -582,7 +550,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
         }
       }
     }
-    const double radius = 0.2;
+    const double radius = 0.6;
     for (int j = -sqrt(radius)*FLAGS_scale; j < sqrt(radius)*FLAGS_scale; ++j) {
       uchar * dst = heatMap.ptr<uchar>(j + imageZeroZero[1]);
       for (int i = -sqrt(radius*FLAGS_scale*FLAGS_scale - j*j);

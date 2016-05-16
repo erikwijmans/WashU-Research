@@ -445,21 +445,29 @@ double NCC(const cv::Mat_<cv::Vec3b> & a, const cv::Mat_<cv::Vec3b> & b) {
   aveB /= a.rows*a.cols;
 
 
-  double AB = 0.0, AA = 0.0, BB = 0.0;
+  Eigen::VectorXd AB = Eigen::VectorXd::Zero(a.channels()),
+  	AA = Eigen::VectorXd::Zero(a.channels()),
+  	BB = Eigen::VectorXd::Zero(a.channels());
   for (int j = 0; j < a.rows; ++j) {
     for (int i = 0; i < a.cols; ++i) {
       for (int c = 0; c < a.channels(); ++c) {
-        AA += (a(j, i)[c] - aveA[c])*(a(j, i)[c] - aveA[c]);
-        BB += (b(j, i)[c] - aveB[c])*(b(j, i)[c] - aveB[c]);
-        AB += (b(j, i)[c] - aveB[c])*(a(j, i)[c] - aveA[c]);
+        AA[c] += (a(j, i)[c] - aveA[c])*(a(j, i)[c] - aveA[c]);
+        BB[c] += (b(j, i)[c] - aveB[c])*(b(j, i)[c] - aveB[c]);
+        AB[c] += (b(j, i)[c] - aveB[c])*(a(j, i)[c] - aveA[c]);
       }
     }
   }
-  const double score = AB/sqrt(AA*BB);
+  double score = 0;
+  for (int c = 0; c < a.channels(); ++c) {
+  	score += AB[c]/sqrt(AA[c]*BB[c]);
+  }
+  score /= 3.0;
   return score;
 }
 
 constexpr bool viz = false;
+
+double totatlCount = 0, numCalls = 0;
 
 double pano::compare(const cv::Mat & panoA, const cv::Mat & panoB,
     const Eigen::Matrix3d & RA, const Eigen::Matrix3d & RB,
@@ -613,7 +621,7 @@ double pano::compareNCC2(place::Panorama & panoA,
   const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
   const Eigen::Vector3d & bToA) {
 
-  constexpr double cutoffAngle = degreesToRadians(25);
+  constexpr double cutoffAngle = degreesToRadians(20);
   constexpr double maxDiff = 0.3;
   constexpr double occulisionCutoff = 0.3;
   constexpr double roundingOffset = 0.5;
@@ -661,9 +669,13 @@ double pano::compareNCC2(place::Panorama & panoA,
       const double trueRadiusB = rMapB(coordB[1], coordB[0]);
       const double aveDepthB = aveDepth(rMapB, coordB[0], coordB[1]);
       const double aveDepthA = aveDepth(rMapA, coordA[0], coordA[1]);
-      const double angle = getAngle(aVoxelSpace, bVoxelSpace);
+      const double angle = getAngle(aToBRotMat*aVoxelSpace, bVoxelSpace);
+      Eigen::Vector3d bNormal = panoB.surfaceNormals(coordB[1], coordB[0]).cast<double>();
+      bNormal[1] *= -1.0;
+      bNormal = bToARotMat*bNormal;
+      bNormal[1] *= -1.0;
       const double normalAngle = getAngle(panoA.surfaceNormals(coordA[1], coordA[0]),
-        panoB.surfaceNormals(coordB[1], coordB[0]));
+        bNormal.cast<float>());
       if (angle > cutoffAngle || std::abs(radiusB - trueRadiusB) > occulisionCutoff
         || std::abs(aveDepthA - r) > maxDiff || std::abs(trueRadiusB - aveDepthB) > maxDiff
         || normalAngle > cutoffAngle)
@@ -721,8 +733,10 @@ double pano::compareNCC2(place::Panorama & panoA,
             out2(j - offset + b[1], i - offset + b[0])[2] = 255;
           }
         }
-        std::cout << aLevel << "  " << bLevel << std::endl;
-        std::cout << ncc << std::endl;
+        std::cout << "NA: " << panoA.surfaceNormals(coordA[1], coordA[0]) << std::endl;
+        std::cout << "NB: " << bNormal << std::endl;
+
+        std::cout << "NCC: " << ncc << std::endl;
         cvNamedWindow("A", CV_WINDOW_NORMAL);
         cv::imshow("A", out1);
 
@@ -758,8 +772,12 @@ double pano::compareNCC2(place::Panorama & panoA,
       const double trueRadiusA = rMapA(coordA[1], coordA[0]);
       const double aveDepthB = aveDepth(rMapB, coordB[0], coordB[1]);
       const double aveDepthA = aveDepth(rMapA, coordA[0], coordA[1]);
-      const double angle = getAngle(aVoxelSpace, bVoxelSpace);
-      const double normalAngle = getAngle(panoA.surfaceNormals(coordA[1], coordA[0]),
+      const double angle = getAngle(aVoxelSpace, bToARotMat*bVoxelSpace);
+      Eigen::Vector3d aNormal = panoA.surfaceNormals(coordA[1], coordA[0]).cast<double>();
+      aNormal[1] *= -1.0;
+      aNormal = aToBRotMat*aNormal;
+      aNormal[1] *= -1.0;
+      const double normalAngle = getAngle(aNormal.cast<float>(),
         panoB.surfaceNormals(coordB[1], coordB[0]));
       if (angle > cutoffAngle || std::abs(radiusA - trueRadiusA) > occulisionCutoff
         || std::abs(aveDepthA - trueRadiusA) > maxDiff || std::abs(r- aveDepthB) > maxDiff
@@ -810,8 +828,9 @@ double pano::compareNCC2(place::Panorama & panoA,
             out2(j - offset + b[1], i - offset + b[0])[2] = 255;
           }
         }
-        std::cout << aLevel << "  " << bLevel << std::endl;
-        std::cout << ncc << std::endl;
+        std::cout << "NA: " << aNormal << std::endl;
+        std::cout << "NB: " << panoB.surfaceNormals(coordB[1], coordB[0]) << std::endl;
+        std::cout << "NCC: " << ncc << std::endl;
         cvNamedWindow("A", CV_WINDOW_NORMAL);
         cv::imshow("A", out1);
 
@@ -829,9 +848,9 @@ double pano::compareNCC2(place::Panorama & panoA,
     }
   }
   score /= count;
-
-  if (count < 0.005*(panoA.keypoints.size() + panoB.keypoints.size()))
-    count = 0;
-
-  return count > 0 && Eigen::numext::isfinite(score) ? score : 0;
+  if (count > 0) {
+  	totatlCount += count;
+  	++numCalls;
+  }
+  return Eigen::numext::isfinite(score) ? score : 0;
 }
