@@ -10,7 +10,7 @@ find_package( OpenCV REQUIRED )
 find_package( gflags REQUIRED )
 find_package( GUROBI REQUIRED )
 find_package( Boost COMPONENTS system filesystem REQUIRED )
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
+include_directories( ${Boost_INCLUDE_DIRS} )
 include_directories(${GUROBI_INCLUDE_DIRS})
 file( GLOB place_SRC
    "place*.cpp"

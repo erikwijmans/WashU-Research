@@ -7,19 +7,8 @@
 
 #include <math.h>
 #include <dirent.h>
-#include <omp.h>
-
-#include <opencv2/core/eigen.hpp>
-
-#include <opengm/graphicalmodel/graphicalmodel.hxx>
-#include <opengm/graphicalmodel/space/discretespace.hxx>
-#include <opengm/functions/explicit_function.hxx>
-#include <opengm/operations/adder.hxx>
-#include <opengm/operations/maximizer.hxx>
-#include <opengm/inference/trws/trws_trws.hxx>
 
 multi::Labeler::Labeler() {
-
   place::parseFolders(pointFileNames,
     zerosFileNames, &freeFileNames);
 

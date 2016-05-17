@@ -9,12 +9,15 @@
 #include <eigen3/Eigen/Sparse>
 #include <fstream>
 #include <memory>
+#include <unordered_map>
+
 #include <omp.h>
 
 #define NUM_ROTS 4
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double maxPhi = 2.61946;
+std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
 namespace place {
   class edge {

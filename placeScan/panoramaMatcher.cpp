@@ -848,9 +848,11 @@ double pano::compareNCC2(place::Panorama & panoA,
     }
   }
   score /= count;
+  double significance = count/(count +
+          0.1*(truePointsInA.size() + truePointsInB.size())/2.0);
   if (count > 0) {
   	totatlCount += count;
   	++numCalls;
   }
-  return Eigen::numext::isfinite(score) ? score : 0;
+  return Eigen::numext::isfinite(score) ? significance*score : 0;
 }

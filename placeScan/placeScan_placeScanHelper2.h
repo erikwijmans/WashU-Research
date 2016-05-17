@@ -9,8 +9,6 @@
 
 extern const int minScans;
 
-
-
 namespace place {
 
   void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);

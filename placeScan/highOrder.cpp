@@ -4,6 +4,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <iostream>
+#include <list>
 
 void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
@@ -151,17 +152,47 @@ void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> 
   }
 }
 
+namespace std {
+  template <>
+  struct hash<std::pair<GRBVar *, GRBVar *> >
+  {
+    std::size_t operator()(const std::pair<GRBVar *, GRBVar *> & k) const {
+      size_t seed = reinterpret_cast<size_t>(k.first);
+      seed ^= reinterpret_cast<size_t>(k.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      return seed;
+    }
+  };
 
-static void condenseStack(const std::vector<GRBVar> & toStack,
-  std::vector<GRBVar> & stacked,
-  GRBModel & model) {
-  int i = 0
+  template <typename T, typename K>
+  struct hash<std::pair<T, K> >
+  {
+    std::size_t operator()(const std::pair<T, K> & k) const {
+      size_t seed = k.first;
+      seed ^= k.second + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      return seed;
+    }
+  };
+} // std
+
+static void condenseStack(std::vector<GRBVar *> & toStack,
+  std::vector<GRBVar *> & stacked,
+  std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs,
+  GRBModel & model,
+  std::list<GRBVar> & hOrderVars,
+  std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> & H2toH) {
+  int i = 0;
   for (; i < toStack.size() - 1; i += 2) {
-    GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
-    model.update();
-    model.addQConstr(toStack[i] * toStack[i + 1],
-      GRB_EQUAL, newStack);
-    stacked.push_back(newStack);
+    std::pair<GRBVar *, GRBVar *> key (toStack[i], toStack[i + 1]);
+    auto it = H2toH.find(key);
+    if (it == H2toH.end()) {
+      hOrderVars.emplace_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY));
+      GRBVar * newStack = &hOrderVars.back();
+      hOrderQs.emplace_back((*toStack[i])*(*toStack[i + 1]), *newStack);
+      H2toH.emplace(key, newStack);
+      stacked.push_back(newStack);
+    } else {
+      stacked.push_back(it->second);
+    }
   }
   for (; i < toStack.size(); ++i) {
     stacked.push_back(toStack[i]);
@@ -169,11 +200,15 @@ static void condenseStack(const std::vector<GRBVar> & toStack,
 }
 
 static void stackTerms(const std::vector<int> & toStack,
-  const GRBVar * varList, GRBModel & model,
-  std::map<std::pair<int,int>, GRBVar > & preStacked,
-  std::vector<GRBVar> & stacked) {
+  GRBVar * varList, GRBModel & model,
+  std::unordered_map<std::pair<int,int>, GRBVar * > & preStacked,
+  std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs,
+  std::list<GRBVar> & hOrderVars,
+  std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> & H2toH,
+  std::vector<GRBVar *> & stacked) {
   if (toStack.size() < 3) {
-    stacked.assign(toStack);
+    for (auto & i : toStack)
+      stacked.push_back(varList + i);
     return;
   }
   int i = 0;
@@ -181,10 +216,9 @@ static void stackTerms(const std::vector<int> & toStack,
     std::pair<int, int> key (toStack[i], toStack[i+1]);
     auto it = preStacked.find(key);
     if (it == preStacked.end()) {
-      GRBVar newStack = model.addVar(0.0, 1.0, 0.0, GRB_BINARY);
-      model.update();
-      model.addQConstr(varList[toStack[i]] * varList[toStack[i + 1]],
-        GRB_EQUAL, newStack);
+      hOrderVars.emplace_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY));
+      GRBVar * newStack = &hOrderVars.back();
+      hOrderQs.emplace_back(varList[toStack[i]] * varList[toStack[i + 1]], *newStack);
       preStacked.emplace(key, newStack);
       stacked.push_back(newStack);
     } else {
@@ -192,13 +226,13 @@ static void stackTerms(const std::vector<int> & toStack,
     }
   }
   for (; i < toStack.size(); ++i) {
-    stacked.push_back(varList[toStack[i]]);
+    stacked.push_back(varList + toStack[i]);
   }
-  std::vector<GRBVar> toStack;
+
   while (stacked.size() > 2) {
-    toStack.assign(stacked);
+    std::vector<GRBVar *> tmpStack (stacked);
     stacked.clear();
-    condenseStack(stacked, tmpStack model);
+    condenseStack(stacked, tmpStack, hOrderQs, model, hOrderVars, H2toH);
   }
 }
 
@@ -277,22 +311,22 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
       delete [] coeff;
     }
 
-
-    /*for (auto & it : highOrder) {
-      auto & incident = it.first;
-      for (auto & i : incident)
-        objective += varList[i]*it.second;
-    }
-*/
-    std::map<std::pair<int, int>, GRBVar > termCondense;
-    std::vector<GRBQuadExpr> hOrderQs;
+    std::unordered_map<std::pair<int, int>, GRBVar *> termCondense;
+    std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > hOrderQs;
+    std::list<GRBVar> hOrderVars;
+    std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> H2toH;
     for (auto & it : highOrder) {
       auto & incident = it.first;
-      std::vector<GRBVar> final;
-      stackTerms(incident, inverseVarList, model, termCondense, final);
-      objective -= final[0]*final[1]*it.second;
+      std::vector<GRBVar *> final;
+      stackTerms(incident, inverseVarList, model, termCondense, hOrderQs,
+                  hOrderVars, H2toH,
+                  final);
+      objective -= (*final[0])*(*final[1])*it.second;
     }
     model.update();
+    for (auto & q : hOrderQs)
+      model.addQConstr(q.first, GRB_EQUAL, q.second);
+
     model.setObjective(objective, GRB_MAXIMIZE);
     model.optimize();
 

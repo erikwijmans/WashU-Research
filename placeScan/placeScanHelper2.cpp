@@ -21,7 +21,6 @@
 #include <opengm/inference/trws/trws_trws.hxx>
 #include <boost/progress.hpp>
 
-
 const int minScans = 2;
 const int maxScans = 30;
 constexpr double nccOffset = 0.2;
@@ -330,7 +329,7 @@ static bool orderPairs(int x1, int y1, int x2, int y2) {
 
 boost::progress_display * show_progress;
 static void postProgress() {
-  ++*(show_progress);
+  ++(*show_progress);
 }
 
 void place::weightEdges(const std::vector<place::node> & nodes,
@@ -512,6 +511,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   std::cout << totatlCount / numCalls << std::endl;
   delete show_progress;
   //Copy the lower tranalge into the upper triangle
+  // adjacencyMatrix.triangluarView<Upper>() = adjacencyMatrix.transpose();
   for (int i = 0; i < cols ; ++i)
     for (int j = i + 1; j < rows; ++j)
       adjacencyMatrix(i, j) = adjacencyMatrix(j, i);
@@ -774,8 +774,8 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
   double pointAgreement = 0.0, freeSpaceAgreementA = 0.0,
     freeSpaceAgreementB = 0.0, freeSpaceCross = 0.0;
 
-  double totalPointA = aPoint.c,
-    totalPointB = bPoint.c,
+  double totalPointA = 0,
+    totalPointB = 0,
     averageFreeSpace = (aFree.c + bFree.c)/2.0;
 
   #pragma omp parallel for shared(aPoint, bPoint, aFree, bFree, aRect, bRect) \
@@ -825,8 +825,6 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
   }
 
   averageFreeSpace /= 2.0;
-  totalPointA *= 1.0/2.0;
-  totalPointB *= 1.0/2.0;
   double averagePoint = (totalPointA + totalPointB)/2.0;
   if (averageFreeSpace == 0.0 || averagePoint == 0.0 ||
     totalPointA == 0.0 || totalPointB == 0.0) {
@@ -836,9 +834,12 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
   double weight = pointAgreement/averagePoint
     - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA);
 
+  double significance = averagePoint/(averagePoint +
+      0.1*(aPoint.c + bPoint.c)/2.0);
+
   return place::edge (pointAgreement/averagePoint,
     freeSpaceAgreementA/totalPointA, freeSpaceAgreementB/totalPointB,
-    freeSpaceCross/averageFreeSpace, weight, 0);
+    freeSpaceCross/averageFreeSpace, significance*weight, 0);
 }
 
 inline void place::loadInVoxel(const std::string & name,
@@ -1091,135 +1092,3 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     rowOffset += numberOfLabels[a];
   }
 }
-
-/*void place::createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan) {
-  std::vector<std::string> pointFileNames;
-  std::vector<std::string> rotationFileNames;
-  std::vector<std::string> zerosFileNames;
-
-  place::parseFolders(pointFileNames, rotationFileNames, zerosFileNames, NULL);
-  const int numScans = pointFileNames.size();
-
-  std::vector<std::vector<place::moreInfo> > scoreInfo;
-  scoreInfo.resize(numScans);
-
-  for (int i = 0; i < numScans; ++i) {
-    const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
-    place::loadInPlacement(imageName, scoreInfo[i], i);
-  }
-
-
-  Eigen::MatrixXd weightedFp = Eigen::MatrixXd(place::scanToSparse(floorPlan));
-
-
-  for (auto & vec : scoreInfo) {
-    const std::string scanName = FLAGS_dmFolder + pointFileNames[vec[0].scanNum];
-    const std::string rotationFile = FLAGS_rotFolder + rotationFileNames[vec[0].scanNum];
-    const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[vec[0].scanNum];
-
-    std::vector<cv::Mat> rotatedScans, toTrim;
-    std::vector<Eigen::Vector2i> zeroZero;
-    place::loadInScans(scanName, rotationFile, zerosFile, toTrim, zeroZero);
-    place::trimScans(toTrim, rotatedScans, zeroZero);
-    std::vector<Eigen::SparseMatrix<double> > rSSparse;
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
-
-    for (auto & scan : rotatedScans) {
-      cv::Mat dst;
-      cv::erode(scan, dst, element);
-      rSSparse.push_back(scanToSparse(dst));
-    }
-    toTrim.clear();
-    rotatedScans.clear();
-
-    for (auto & m : vec) {
-      const Eigen::SparseMatrix<double> & currentScan = rSSparse[m.s.rotation];
-      const int xOffset = m.s.x - zeroZero[m.s.rotation][0];
-      const int yOffset = m.s.y - zeroZero[m.s.rotation][1];
-
-      for (int i = 0; i < currentScan.outerSize(); ++i) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it (currentScan, i); it; ++it) {
-          if (yOffset + it.row() >= weightedFp.rows() || yOffset + it.row() < 0)
-            continue;
-          if (xOffset + it.col() >= weightedFp.cols() || xOffset + it.col() < 0)
-            continue;
-
-          if (weightedFp(yOffset + it.row(), xOffset + it.col()) != 0)
-            weightedFp(yOffset + it.row(), xOffset + it.col()) += it.value();
-        }
-      }
-    }
-  }
-
-  weightedFloorPlan = weightedFp.sparseView();
-}
-
-
-void place::loadInPlacement(const std::string & scanName,
-  std::vector<place::moreInfo> & scoreVec, const int scanNum) {
-  const std::string placementName = FLAGS_preDone +
-  scanName.substr(scanName.find("_")-3, 3)
-  + "_placement_" + scanName.substr(scanName.find(".")-3, 3) + ".dat";
-  std::ifstream in(placementName, std::ios::in | std::ios::binary);
-
-  int num;
-  in.read(reinterpret_cast<char *>(&num), sizeof(num));
-  std::vector<place::posInfo> scoretmp;
-  for (int i = 0; i < num; ++i) {
-    place::posInfo tmp;
-    in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-    scoretmp.push_back(tmp);
-  }
-
-  double minScore = 2e20;
-  for (auto & s : scoretmp) {
-    minScore = std::min(s.score, minScore);
-  }
-
-  for (auto s : scoretmp)
-    if (s.score == minScore)
-      scoreVec.push_back({s, scanNum});
-}
-
-
-void place::displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan) {
-  if (!FLAGS_previewOut)
-    return;
-  double maxV = 0;
-
-  for (int i = 0; i < weightedFloorPlan.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it (weightedFloorPlan, i); it; ++it ) {
-      maxV = std::max(maxV, it.value());
-    }
-  }
-
-  cv::Mat out (weightedFloorPlan.rows(), weightedFloorPlan.cols(), CV_8UC3, cv::Scalar::all(255));
-  cv::Mat_<cv::Vec3b> _out = out;
-
-  for (int i = 0; i < weightedFloorPlan.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it (weightedFloorPlan, i); it; ++it ) {
-      if (it.value() > 0) {
-        const int gray = cv::saturate_cast<uchar>(255*it.value()/maxV);
-        int red, green, blue;
-        if (gray < 128) {
-          red = 0;
-          green = 2 * gray;
-          blue = 255 - blue;
-        } else {
-          blue = 0;
-          red = 2 * (gray - 128);
-          green = 255 - red;
-        }
-        _out(it.row(), it.col())[0] = blue;
-        _out(it.row(), it.col())[1] = green;
-        _out(it.row(), it.col())[2] = red;
-      }
-
-    }
-  }
-  out = _out;
-
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", out);
-  cv::waitKey(0);
-}*/

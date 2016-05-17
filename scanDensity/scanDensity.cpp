@@ -5,8 +5,6 @@
 #include <locale>
 #include <sstream>
 
-static std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
-
 DensityMapsManager::DensityMapsManager (const std::string & commandLine):
   R {NULL},
   pointsWithCenter {NULL},
