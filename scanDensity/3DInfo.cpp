@@ -339,7 +339,7 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
   std::ofstream metaDataWriter (metaData, std::ios::out | std::ios::binary);
   for (int r = 0; r < NUM_ROTS; ++r) {
 
-    place::voxelGrid rotatedFree, rotatedPoint;
+    place::VoxelGrid rotatedFree, rotatedPoint;
     rotatedFree.v = std::vector<Eigen::MatrixXb> (z, Eigen::MatrixXb::Zero(newRows, newCols));
     rotatedFree.c = numNonZeros;
     /*FeatureVoxel<float> rotatedFeatures (
@@ -400,7 +400,7 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     const int newY = maxRow - minRow + 1;
     const int newX = maxCol - minCol + 1;
 
-    place::voxelGrid trimmedFree, trimmedPoint;
+    place::VoxelGrid trimmedFree, trimmedPoint;
     trimmedFree.v = std::vector<Eigen::MatrixXb> (newZ);
     trimmedFree.c = rotatedFree.c;
    /* FeatureVoxel<float> trimmedFeatures
@@ -423,7 +423,7 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     std::cout << trimmedFeatures.getNumFeatures() << " has been reduced to " << minimalFeatures.getNumFeatures() << std::endl;
     trimmedFeatures.clear();*/
 
-    place::metaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, pixelsPerMeter};
+    place::MetaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, pixelsPerMeter};
     meta.zZ[0] += dX;
     meta.zZ[1] += dY;
     meta.zZ[0] -= minCol;
