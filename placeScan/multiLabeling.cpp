@@ -61,7 +61,7 @@ multi::Labeler::Labeler() {
 
   const int numScans = pointFileNames.size();
 
-  voxelInfo.assign(metaDataFiles.size(), std::vector<place::metaData> (NUM_ROTS));
+  voxelInfo.assign(metaDataFiles.size(), std::vector<place::MetaData> (NUM_ROTS));
   for (int i = 0; i < metaDataFiles.size(); ++i) {
     const std::string metaName = metaDataFolder + metaDataFiles[i];
     std::ifstream in (metaName, std::ios::in | std::ios::binary);

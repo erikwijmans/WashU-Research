@@ -1,9 +1,9 @@
 #include "scan_gflags.h"
 
-#include <string>
+/*#include <string>
 #include <vector>
 #include <boost/filesystem.hpp>
-#include <iostream>
+#include <iostream>*/
 
 DEFINE_bool(visulization, false,
   "Turns on all visualization options that do not impact performance");
@@ -69,7 +69,7 @@ void prependDataPath() {
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
 
-void parseFolder(const std::string name, std::vector<std::string> & out) {
+/*void parseFolder(const std::string name, std::vector<std::string> & out) {
 	boost::filesystem::path folder (name);
   if (boost::filesystem::exists(folder) &&
     boost::filesystem::is_directory(folder)) {
@@ -90,4 +90,4 @@ int main() {
   for (auto & n : test) {
     std::cout << n << std::endl;
   }
-}
+}*/

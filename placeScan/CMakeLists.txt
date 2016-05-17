@@ -22,7 +22,8 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lgurobi_c++ -lgurobi65 -l
 set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
 include_directories(${globals_dir})
 file(GLOB scan_globals
-  ${globals_dir}/scan_gflags.cpp)
+  ${globals_dir}/scan_gflags.cpp
+  ${globals_dir}/scan_typedefs.cpp)
 
 add_executable( placeScan ${place_SRC} ${scan_globals})
 target_link_libraries( placeScan ${OpenCV_LIBS}

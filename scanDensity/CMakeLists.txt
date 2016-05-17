@@ -14,7 +14,8 @@ include_directories( ${Boost_INCLUDE_DIRS} )
 set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
 include_directories(${globals_dir})
 file(GLOB scan_globals
-	${globals_dir}/scan_gflags.cpp)
+	${globals_dir}/scan_gflags.cpp
+  ${globals_dir}/scan_typedefs.cpp)
 
 file( GLOB scan_SRC
     "scanDensity*.cpp"

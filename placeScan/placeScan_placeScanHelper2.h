@@ -19,7 +19,7 @@ namespace place {
   void displayWeightedFloorPlan(Eigen::SparseMatrix<double> & weightedFloorPlan);
 
   void weightEdges(const std::vector<place::node> & nodes,
-    const std::vector<std::vector<place::metaData> > & voxelInfo,
+    const std::vector<std::vector<place::MetaData> > & voxelInfo,
     const std::vector<std::string> & pointVoxelFileNames,
     const std::vector<std::string> & freeVoxelFileNames,
     const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
@@ -42,14 +42,14 @@ namespace place {
     const std::vector<std::vector<Eigen::MatrixXb> > & scans,
     const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros);
 
-  place::edge compare3D(const place::voxelGrid & aPoint,
-    const place::voxelGrid & bPoint,
-    const place::voxelGrid & aFree,
-    const place::voxelGrid & bFree,
+  place::edge compare3D(const place::VoxelGrid & aPoint,
+    const place::VoxelGrid & bPoint,
+    const place::VoxelGrid & aFree,
+    const place::VoxelGrid & bFree,
     const place::cube & aRect, const place::cube & bRect);
 
   void loadInVoxel(const std::string & name,
-    place::voxelGrid & dst);
+    place::VoxelGrid & dst);
 
   void loadInScansGraph(const std::vector<std::string> & pointFileNames,
     const std::vector<std::string> & freeFileNames,

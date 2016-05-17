@@ -333,7 +333,7 @@ static void postProgress() {
 }
 
 void place::weightEdges(const std::vector<place::node> & nodes,
-  const std::vector<std::vector<place::metaData> > & voxelInfo,
+  const std::vector<std::vector<place::MetaData> > & voxelInfo,
   const std::vector<std::string> & pointVoxelFileNames,
   const std::vector<std::string> & freeVoxelFileNames,
   const std::vector<std::vector<Eigen::Matrix3d> > & rotationMatricies,
@@ -438,8 +438,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   {
     int voxelAColor = -1, voxelARot = -1;
     int voxelBcolor = -1, voxelBRot = -1;
-    place::voxelGrid aPoint, bPoint;
-    place::voxelGrid aFree, bFree;
+    place::VoxelGrid aPoint, bPoint;
+    place::VoxelGrid aFree, bFree;
     #pragma omp distribute
     for (int k = 0; k < tracker.size(); ++k) {
       const later & current = tracker[k];
@@ -761,10 +761,10 @@ static inline double getAngle (const Eigen::Vector3i & A,
   (merge : std::vector<Eigen::Vector3d> : omp_out.insert(omp_out.end(),\
    omp_in.begin(), omp_in.end()))
 
-place::edge place::compare3D(const place::voxelGrid & aPoint,
-  const place::voxelGrid & bPoint,
-  const place::voxelGrid & aFree,
-  const place::voxelGrid & bFree,
+place::edge place::compare3D(const place::VoxelGrid & aPoint,
+  const place::VoxelGrid & bPoint,
+  const place::VoxelGrid & aFree,
+  const place::VoxelGrid & bFree,
   const place::cube & aRect, const place::cube & bRect) {
 
   const int z = aRect.Z2 - aRect.Z1 + 1;
@@ -843,7 +843,7 @@ place::edge place::compare3D(const place::voxelGrid & aPoint,
 }
 
 inline void place::loadInVoxel(const std::string & name,
-  place::voxelGrid & dst) {
+  place::VoxelGrid & dst) {
 
   std::ifstream in (name, std::ios::in | std::ios::binary);
   dst.loadFromFile(in);

@@ -8,6 +8,10 @@ find_package(PCL REQUIRED)
 find_package( Boost COMPONENTS system filesystem REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
 
+file(GLOB globals
+    ${globals_dir}/scan_gflags.cpp
+    ${globals_dir}/scan_typedefs.cpp)
+
 file(GLOB src
 	"preprocessor.cpp"
 	"getRotations.cpp")
@@ -18,7 +22,7 @@ include_directories(${globals_dir})
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
-add_executable( preprocessor ${src} ${globals_dir}/scan_gflags.cpp)
+add_executable( preprocessor ${src} ${globals})
 target_link_libraries( preprocessor ${OpenCV_LIBS} ${PCL_LIBRARIES}
                       ${Boost_FILESYSTEM_LIBRARY}
                       ${Boost_SYSTEM_LIBRARY} gflags)
