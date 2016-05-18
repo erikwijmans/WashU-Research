@@ -30,11 +30,11 @@ mkdir -p voxelGrids/metaData
 # echo "Running preprocessor"
 # make || exit 1
 # ./preprocessor -dataPath=$1 -ptx
-# echo "Running scanDensity"
-# cd ~/Projects/c++/scanDensity
-# make || exit 1
-# ./scanDensity -dataPath=$1 -redo
-# echo "Running placeScan"
-# cd ~/Projects/c++/placeScan
-# make || exit 1
-# ./placeScan -dataPath=$1 -V1 -redo
+echo "Running scanDensity"
+cd ~/Projects/c++/scanDensity
+make || exit 1
+./scanDensity -dataPath=$1 -redo
+echo "Running placeScan"
+cd ~/Projects/c++/placeScan
+make || exit 1
+./placeScan -dataPath=$1 -V1 -redo

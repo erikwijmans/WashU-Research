@@ -8,6 +8,8 @@ find_package(PCL REQUIRED)
 find_package( Boost COMPONENTS system filesystem REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
 
+set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
+include_directories(${globals_dir})
 file(GLOB globals
     ${globals_dir}/scan_gflags.cpp
     ${globals_dir}/scan_typedefs.cpp)
@@ -15,9 +17,6 @@ file(GLOB globals
 file(GLOB src
 	"preprocessor.cpp"
 	"getRotations.cpp")
-
-set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
-include_directories(${globals_dir})
 
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})

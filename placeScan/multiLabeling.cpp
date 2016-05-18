@@ -78,7 +78,7 @@ multi::Labeler::Labeler() {
 
 
   loadInPanosAndRot();
-  const int numToParse = numScans;
+  const int numToParse = 20;
   const int nodeStart = 0;
   for (int i = nodeStart; i < std::min(numToParse + nodeStart,
     (int)pointFileNames.size()); ++i) {
