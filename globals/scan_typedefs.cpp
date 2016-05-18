@@ -297,10 +297,8 @@ const cv::Mat & place::Panorama::operator[](int n) {
       if (imgs.size() <= n)
         imgs.resize(n + 1);
 
-      if (!imgs[n].data) {
         const double scale = pow(2, -n/2.0);
         cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
-      }
     }
   }
   return imgs[n];
