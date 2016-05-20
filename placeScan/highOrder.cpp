@@ -288,7 +288,7 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
         if (adjacencyMatrix(j,i).w == 0.0)
           continue;
 
-        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).shotW)*varList[i]*varList[j];
+        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).panoW)*varList[i]*varList[j];
       }
       const place::posInfo & currentScore = nodes[i].s;
       double scanExplained =

@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
-    // labeler.displayGraph();
+    labeler.displayGraph();
     labeler.solveTRW();
     while (1)
       labeler.displaySolution();

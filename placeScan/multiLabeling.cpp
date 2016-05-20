@@ -8,6 +8,30 @@
 #include <math.h>
 #include <dirent.h>
 
+const int minScans = 20;
+
+static void selectR1Nodes(std::vector<place::node> & nodes,
+                          std::vector<place::node> & r1Nodes) {
+  constexpr int maxR1 = 20;
+  int currentColor = nodes[0].color;
+  double lastScore = 1.0;
+  double initailScore = nodes[0].s.score;
+  int count = 0;
+  for (auto & n : nodes) {
+    if (n.color != currentColor) {
+      currentColor = n.color;
+      count = 0;
+      lastScore = 1.0;
+      initailScore = n.s.score;
+    }
+    if (count++ > maxR1) continue;
+    if (n.s.score - lastScore > maxDelta) continue;
+    if (n.s.score - initailScore > maxTotal) continue;
+    lastScore = n.s.score;
+    r1Nodes.push_back(n);
+  }
+}
+
 multi::Labeler::Labeler() {
   place::parseFolders(pointFileNames,
     zerosFileNames, &freeFileNames);
@@ -76,7 +100,6 @@ multi::Labeler::Labeler() {
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
 
-
   loadInPanosAndRot();
   const int numToParse = 20;
   const int nodeStart = 0;
@@ -85,9 +108,6 @@ multi::Labeler::Labeler() {
     const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
     place::loadInPlacementGraph(imageName, nodes, i);
   }
-
-  const int numNodes = nodes.size();
-  adjacencyMatrix = Eigen::MatrixXE (numNodes, numNodes);
 
   {
     size_t i = 0;
@@ -104,6 +124,9 @@ multi::Labeler::Labeler() {
     }
     numberOfLabels.push_back(i);
   }
+
+  currentNodes.clear();
+  selectR1Nodes(nodes, currentNodes);
 }
 
 void multi::Labeler::loadInPanosAndRot() {
@@ -175,13 +198,13 @@ void multi::Labeler::loadInPanosAndRot() {
 }
 
 void multi::Labeler::weightEdges() {
-  place::weightEdges(nodes, voxelInfo, pointVoxelFileNames,
+  place::weightEdges(currentNodes, voxelInfo, pointVoxelFileNames,
     freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
-  place::normalizeWeights(adjacencyMatrix, nodes);
+  // place::normalizeWeights(adjacencyMatrix, currentNodes);
 }
 
 void multi::Labeler::solveTRW() {
-  place::TRWSolver(adjacencyMatrix, nodes, bestNodes);
+  place::TRWSolver(adjacencyMatrix, currentNodes, bestNodes);
 }
 
 void multi::Labeler::solveMIP() {
@@ -194,5 +217,5 @@ void multi::Labeler::displaySolution() {
 }
 
 void multi::Labeler::displayGraph() {
-  place::displayGraph(adjacencyMatrix, nodes, scans, zeroZeros);
+  place::displayGraph(adjacencyMatrix, currentNodes, scans, zeroZeros);
 }

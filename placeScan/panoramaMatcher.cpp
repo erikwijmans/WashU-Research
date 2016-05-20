@@ -431,7 +431,6 @@ double NCC(const cv::Mat_<cv::Vec3b> & a, const cv::Mat_<cv::Vec3b> & b) {
 
   Eigen::VectorXd aveA = Eigen::VectorXd::Zero(a.channels()),
     aveB = Eigen::VectorXd::Zero(b.channels());
-
   for (int j = 0; j < a.rows; ++j) {
     for (int i = 0; i < a.cols; ++i) {
       for (int c = 0; c < a.channels(); ++c) {
@@ -440,29 +439,20 @@ double NCC(const cv::Mat_<cv::Vec3b> & a, const cv::Mat_<cv::Vec3b> & b) {
       }
     }
   }
-
   aveA /= a.rows*a.cols;
   aveB /= a.rows*a.cols;
 
-
-  Eigen::VectorXd AB = Eigen::VectorXd::Zero(a.channels()),
-  	AA = Eigen::VectorXd::Zero(a.channels()),
-  	BB = Eigen::VectorXd::Zero(a.channels());
+  double AB = 0, AA = 0, BB = 0;
   for (int j = 0; j < a.rows; ++j) {
     for (int i = 0; i < a.cols; ++i) {
       for (int c = 0; c < a.channels(); ++c) {
-        AA[c] += (a(j, i)[c] - aveA[c])*(a(j, i)[c] - aveA[c]);
-        BB[c] += (b(j, i)[c] - aveB[c])*(b(j, i)[c] - aveB[c]);
-        AB[c] += (b(j, i)[c] - aveB[c])*(a(j, i)[c] - aveA[c]);
+        AA += (a(j, i)[c] - aveA[c])*(a(j, i)[c] - aveA[c]);
+        BB += (b(j, i)[c] - aveB[c])*(b(j, i)[c] - aveB[c]);
+        AB += (b(j, i)[c] - aveB[c])*(a(j, i)[c] - aveA[c]);
       }
     }
   }
-  double score = 0;
-  for (int c = 0; c < a.channels(); ++c) {
-  	score += AB[c]/sqrt(AA[c]*BB[c]);
-  }
-  score /= 3.0;
-  return score;
+  return AB/sqrt(AA*BB);
 }
 
 constexpr bool viz = false;
@@ -616,16 +606,17 @@ void pano::voxelGridToWorld(std::vector<Eigen::Vector3d> & points,
   }
 }
 
-double pano::compareNCC2(place::Panorama & panoA,
+void pano::compareNCC2(place::Panorama & panoA,
   place::Panorama & panoB, const Eigen::Matrix3d & RA,
   const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
-  const Eigen::Vector3d & bToA) {
+  const Eigen::Vector3d & bToA, place::edge & e) {
 
   constexpr double cutoffAngle = degreesToRadians(20);
   constexpr double maxDiff = 0.3;
   constexpr double occulisionCutoff = 0.3;
   constexpr double roundingOffset = 0.5;
   constexpr int offset = NCCSize/2;
+  constexpr double simThreshold = 0.4;
   static_assert(offset*2 + 1 == NCCSize, "offset isn't correct");
 
   const Eigen::Matrix3d aToBRotMat = RB*RA.inverse();
@@ -715,6 +706,11 @@ double pano::compareNCC2(place::Panorama & panoA,
       if (!Eigen::numext::isfinite(ncc)) continue;
       score += ncc;
       ++count;
+
+      if (ncc > simThreshold)
+        ++e.numSim;
+      else
+        ++e.numDiff;
 
       if (viz) {
         cv::Mat_<cv::Vec3b> out1 (aLvlImg.size());
@@ -811,6 +807,11 @@ double pano::compareNCC2(place::Panorama & panoA,
       score += ncc;
       ++count;
 
+      if (ncc > simThreshold)
+        ++e.numSim;
+      else
+        ++e.numDiff;
+
       if (viz) {
         cv::Mat_<cv::Vec3b> out1 (aLvlImg.rows, aLvlImg.cols);
         aLvlImg.copyTo(out1);
@@ -848,11 +849,14 @@ double pano::compareNCC2(place::Panorama & panoA,
     }
   }
   score /= count;
-  double significance = count/(count +
-          0.1*(truePointsInA.size() + truePointsInB.size())/2.0);
+  if (!Eigen::numext::isfinite(score)) return;
+  constexpr double precent = 0.025;
+  const double significance = (1.0+precent)*count/(count +
+          precent*(truePointsInA.size() + truePointsInB.size())/2.0);
   if (count > 0) {
   	totatlCount += count;
   	++numCalls;
   }
-  return Eigen::numext::isfinite(score) ? significance*score : 0;
+  e.panoW = score;
+  e.panoSignificance = significance;
 }

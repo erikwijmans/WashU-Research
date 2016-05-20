@@ -33,10 +33,10 @@ namespace pano {
     const Eigen::Matrix3d & R, const Eigen::Vector3i & zeroZero,
     const double metersPerVoxel);
 
-  double compareNCC2(place::Panorama & panoA,
+  void compareNCC2(place::Panorama & panoA,
     place::Panorama & panoB, const Eigen::Matrix3d & RA,
     const Eigen::Matrix3d & RB, const Eigen::Vector3d & aToB,
-    const Eigen::Vector3d & bToA);
+    const Eigen::Vector3d & bToA, place::edge & e);
 
 } // pano
 

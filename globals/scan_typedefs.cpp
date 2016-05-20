@@ -311,8 +311,9 @@ std::ostream & operator<<(std::ostream & os, const place::cube & print) {
 }
 
 std::ostream & operator<<(std::ostream & os, const place::edge & print) {
-  os << "edge: " << print.w;
-  os << "  pano: " << print.panoW << std::endl;
+  os << "edge: " << print.w << "  " << print.wSignificance;
+  os << "  pano: " << print.panoW << "  " << print.panoSignificance;
+  os << "  " << print.numSim << "  " << print.numDiff << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
   os << print.fx << "  " << print.feB;
   return os;

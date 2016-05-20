@@ -1,11 +1,11 @@
 #include "placeScan_placeScanHelper2.h"
 #include "placeScan_panoramaMatcher.h"
+#include "placeScan_multiLabeling.h"
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <fstream>
 #include <iostream>
-
 
 #include <math.h>
 #include <dirent.h>
@@ -20,11 +20,6 @@
 #include <opengm/operations/maximizer.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
 #include <boost/progress.hpp>
-
-const int minScans = 2;
-const int maxScans = 30;
-constexpr double nccOffset = 0.2;
-constexpr double geometryOffset = 0.5;
 
 template<typename T>
 static void displayCollapsed(T & collapsed, const std::string & windowName) {
@@ -340,6 +335,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   std::vector<place::Panorama> & panoramas,
   Eigen::MatrixXE & adjacencyMatrix) {
 
+  adjacencyMatrix = Eigen::MatrixXE(nodes.size(), nodes.size());
+
   typedef struct {
     int i, j;
     place::cube crossWRTA, crossWRTB;
@@ -448,8 +445,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
 
-     /*if (j != 89) continue;
-     if (i != 30) continue;*/
+     /*if (j != 52) continue;
+     if (i != 27) continue;*/
 
       if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
         std::string name = FLAGS_voxelFolder + "R"
@@ -502,8 +499,8 @@ void place::weightEdges(const std::vector<place::node> & nodes,
         displayVoxelGridS(aPoint.v, bPoint.v,
           current.crossWRTA, current.crossWRTB);
       }
-      weight.panoW = pano::compareNCC2(panoA,
-        panoB, RA, RB, aToB, bToA);
+      pano::compareNCC2(panoA,
+        panoB, RA, RB, aToB, bToA, weight);
       adjacencyMatrix(j, i) = weight;
       postProgress();
     }
@@ -549,8 +546,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
 
     lastScore = tmp.score;
   }
-  if(!final) final = numToLoad - 1;
-  if (final > maxScans - 1) final = maxScans - 1;
+  /*if(!final)*/ final = numToLoad - 1;
   std::vector<place::node> nodestmp;
   for (auto & s : scoretmp)
     nodestmp.push_back({s, 0.0, 0.0, num});
@@ -601,7 +597,7 @@ void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans,
     for (int i = 0; i < currentScan.rows; ++i) {
       const uchar * src = currentScan.ptr<uchar>(i);
       for (int j = 0; j < currentScan.cols; ++j) {
-        if (src[j]!=255) {
+        if (src[j] != 255) {
           minRow = std::min(i, minRow);
           minCol = std::min(j, minCol);
           maxRow = std::max(i, maxRow);
@@ -639,7 +635,7 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
   int numBreaks = 0;
   for (int i = 0; i < cols; ++i) {
     const place::node & nodeA = nodes[i];
-    if (nodeA.color != 5) continue;
+    // if (nodeA.color != 5) continue;
     for (int j = 0; j < rows; ++j) {
       const place::node & nodeB = nodes[j];
 
@@ -697,6 +693,7 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
       }
 
       cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+
       cv::imshow("Preview", output);
 
       std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color << std::endl;
@@ -743,6 +740,7 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
     }
 
     cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+
     cv::imshow("Preview", output);
     cv::waitKey(0);
   }
@@ -831,15 +829,15 @@ place::edge place::compare3D(const place::VoxelGrid & aPoint,
     return place::edge();
   }
 
-  double weight = pointAgreement/averagePoint
+  const double weight = pointAgreement/averagePoint
     - (freeSpaceAgreementB/totalPointB + freeSpaceAgreementA/totalPointA);
-
-  double significance = averagePoint/(averagePoint +
-      0.1*(aPoint.c + bPoint.c)/2.0);
+  constexpr double precent = 0.8;
+  const double significance = (1.0 + precent)*averagePoint/(averagePoint +
+      precent*(aPoint.c + bPoint.c)/2.0);
 
   return place::edge (pointAgreement/averagePoint,
     freeSpaceAgreementA/totalPointA, freeSpaceAgreementB/totalPointB,
-    freeSpaceCross/averageFreeSpace, significance*weight, 0);
+    freeSpaceCross/averageFreeSpace, weight, significance);
 }
 
 inline void place::loadInVoxel(const std::string & name,
@@ -884,16 +882,16 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   const int numVars = numberOfLabels.size();
 
   //Construct the model
-  size_t * noLabelSpace = new size_t [numVars];
+  size_t * labelSize = new size_t [numVars];
   for (int i = 0; i < numVars; ++i) {
     // The "+1" adds a special "no label" label
-    noLabelSpace[i] = numberOfLabels[i] + 1;
+    labelSize[i] = numberOfLabels[i] + 1;
   }
-  Model gm (Space (noLabelSpace, noLabelSpace + numVars));
+  Model gm (Space (labelSize, labelSize + numVars));
 
   //Add urnary terms
   for (size_t i = 0, offset = 0; i < numVars; ++i) {
-    const size_t shape [] = {numberOfLabels[i]};
+    const size_t shape [] = {labelSize[i]};
     Function f(shape, shape + 1);
     for (int j = 0; j < numberOfLabels[i]; ++j) {
       f(j) = nodes[offset + j].w;
@@ -914,7 +912,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
       Eigen::MatrixXE currentMat = adjacencyMatrix.block(currentRow, colOffset,
         numberOfLabels[j], numberOfLabels[i]);
 
-      const size_t shape [] = {numberOfLabels[i], numberOfLabels[j]};
+      const size_t shape [] = {labelSize[i], labelSize[j]};
       Function f(shape, shape + 2);
       for (int a = 0; a < currentMat.cols(); ++a) {
         for (int b = 0; b < currentMat.rows(); ++b) {
@@ -971,6 +969,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     }
     offset += numberOfLabels[i];
   }
+  delete [] labelSize;
 }
 
 bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
@@ -1040,7 +1039,6 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
-        const double shot = adjacencyMatrix(j + rowOffset, i).shotW;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
         if(weight) {
           averageW += weight;

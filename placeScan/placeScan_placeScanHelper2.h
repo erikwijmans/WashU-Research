@@ -7,8 +7,6 @@
 #include <scan_typedefs.hpp>
 #include <FeatureVoxel.hpp>
 
-extern const int minScans;
-
 namespace place {
 
   void createWeightedFloorPlan (Eigen::SparseMatrix<double> & weightedFloorPlan);

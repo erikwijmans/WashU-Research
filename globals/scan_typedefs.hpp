@@ -23,13 +23,15 @@ namespace place {
   class edge {
     public:
       double pA, feA, feB, fx;
-      double w, shotW;
-      double panoW;
-      edge () : pA {0}, feA {0}, feB {0}, fx {0}, w {0}, shotW {0}, panoW{0}
+      double w, wSignificance;
+      double panoW, panoSignificance;
+      int numSim = 0, numDiff = 0;
+      edge () : pA {0}, feA {0}, feB {0}, fx {0}, w {0},
+      wSignificance {0}, panoW{0}, panoSignificance {0}
       {};
       edge (double pA, double feA, double feB, double fx, double w,
-        double shotW) : pA {pA}, feA {feA}, feB {feB}, w {w}, shotW {shotW},
-        panoW {0}
+        double wSignificance) : pA {pA}, feA {feA}, feB {feB}, w {w}, wSignificance {wSignificance},
+        panoW {0}, panoSignificance {0}
       {};
   };
 

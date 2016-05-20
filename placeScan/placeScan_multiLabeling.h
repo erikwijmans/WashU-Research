@@ -7,12 +7,14 @@
 #include "placeScan_placeScanHelper2.h"
 #include "highOrder.h"
 
+extern const int minScans;
+
 namespace multi {
 
   class Labeler {
     private:
       Eigen::MatrixXE adjacencyMatrix;
-      std::vector<place::node> nodes;
+      std::vector<place::node> nodes, currentNodes;
       std::vector<std::vector<Eigen::Vector2i> > zeroZeros;
       std::vector<place::SelectedNode> bestNodes;
       std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
