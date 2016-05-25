@@ -129,7 +129,6 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> & N, const Eigen
   Eigen::Vector3d & M1, Eigen::Vector3d & M2) {
   const int m = N.size();
 
-
   volatile double maxInliers = 0, K = 1.0e5;
   volatile int k = 0;
 
