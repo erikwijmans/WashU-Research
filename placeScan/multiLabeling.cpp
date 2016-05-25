@@ -200,7 +200,7 @@ void multi::Labeler::loadInPanosAndRot() {
 void multi::Labeler::weightEdges() {
   place::weightEdges(currentNodes, voxelInfo, pointVoxelFileNames,
     freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
-  // place::normalizeWeights(adjacencyMatrix, currentNodes);
+  place::normalizeWeights(adjacencyMatrix, currentNodes);
 }
 
 void multi::Labeler::solveTRW() {

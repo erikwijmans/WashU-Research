@@ -517,7 +517,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> & pointCloud,
     }
   }*/
 
-  constexpr double scale = pow(2, -3.0/2);
+  constexpr double scale = pow(2, -5.0/2);
   cv::Mat scaledTracking, scaledPTX;
   cv::resize(trackingPanorama, scaledTracking, cv::Size(), scale, scale, CV_INTER_AREA);
   cv::resize(PTXPanorama, scaledPTX, cv::Size(), scale, scale, CV_INTER_AREA);

@@ -580,7 +580,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
     n.w = n.nw;
 
   nodes.insert(nodes.end(), nodestmp.begin(),
-    nodestmp.begin() + (final + 1));
+    nodestmp.end());
 }
 
 void place::trimScansAndMasks(const std::vector<cv::Mat> & toTrimScans,
@@ -638,7 +638,9 @@ void place::displayGraph(const Eigen::MatrixXE & adjacencyMatrix,
     // if (nodeA.color != 5) continue;
     for (int j = 0; j < rows; ++j) {
       const place::node & nodeB = nodes[j];
-
+      if (Eigen::numext::isfinite(adjacencyMatrix(j, i).w) &&
+          Eigen::numext::isfinite(adjacencyMatrix(j, i).panoW))
+        continue;
       /*if (i > j)
         continue;*/
       if (adjacencyMatrix(j, i).w == 0)
@@ -895,6 +897,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     Function f(shape, shape + 1);
     for (int j = 0; j < numberOfLabels[i]; ++j) {
       f(j) = nodes[offset + j].w;
+      f(j) = 1;
     }
     f(shape[0] - 1) = 0;
     Model::FunctionIdentifier fid = gm.addFunction(f);
@@ -916,7 +919,9 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
       Function f(shape, shape + 2);
       for (int a = 0; a < currentMat.cols(); ++a) {
         for (int b = 0; b < currentMat.rows(); ++b) {
-          f(a, b) = currentMat(b, a).w + currentMat(b, a).panoW;
+          place::edge & e = currentMat(b, a);
+          f(a, b) = e.w*e.wSignificance +
+            e.panoW*e.panoSignificance;
         }
       }
       for (int a = 0; a < shape[1]; ++a) {
