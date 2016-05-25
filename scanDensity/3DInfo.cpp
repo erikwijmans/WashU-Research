@@ -1,5 +1,10 @@
+/**
+  Implements the CloudAnalyzer3D which is responsible for analyzing
+  3D point and free space evidence.  Due to the increased complexity
+  of this data, it is also responsible for saving it
+*/
+
 #include "scanDensity_3DInfo.h"
-#include <list>
 
 voxel::CloudAnalyzer3D::CloudAnalyzer3D(const std::shared_ptr<const std::vector<Eigen::Vector3f> > & points,
   const std::shared_ptr<const std::vector<Eigen::Matrix3d> > & R,
@@ -90,35 +95,6 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter,
     -pointMin[1]*voxelsPerMeter, 0);
   zeroZero = Eigen::Vector3i(-pointMin[0]*voxelsPerMeter,
     -pointMin[1]*voxelsPerMeter, -pointMin[2]*zScale);
-
-  /*std::unordered_map<Eigen::Vector3i, int> xyzToCount;
-  for (auto& feature : *featureVectors) {
-    auto point = feature.position;
-    point[1] *= -1.0;
-    const int x = voxelsPerMeter*(point[0] - pointMin[0]);
-    const int y = voxelsPerMeter*(point[1] - pointMin[1]);
-    const int z = zScale*(point[2] -pointMin[2]);
-
-    if(x <0 || x >= numX)
-      continue;
-    if(y < 0 || y >= numY)
-      continue;
-    if( z < 0 || z >= numZ)
-      continue;
-
-    Eigen::Vector3i position (x, y, z);
-    auto it = xyzToSHOT.find(position);
-    if (it == xyzToSHOT.end()) {
-      xyzToSHOT.emplace(position, feature.descriptor);
-      xyzToCount.emplace(position, 1);
-    } else {
-      *it->second += *feature.descriptor;
-      ++xyzToCount.find(position)->second;
-    }
-  }
-  for (auto feat : xyzToSHOT) {
-    *feat.second /= xyzToCount.find(feat.first)->second;
-  }*/
 }
 
 static void displayVoxelGrid(const auto & voxelB) {
@@ -177,65 +153,6 @@ static void displayVoxelGrid(const auto & voxelB) {
 
   cv::imshow("Preview", heatMap);
   cv::waitKey(0);
-}
-
-template<typename Scalar>
-static void labelNeigbors(const voxel::FeatureVoxel<Scalar> & features,
-  typename voxel::FeatureVoxel<Scalar>::DescripPtr & currentDescrip,
-  int ID, std::list<Eigen::Vector3i> & toLabel,
-  voxel::FeatureVoxel<Scalar> & minimalFeatures, int & numCondensed) {
-
-  if (toLabel.empty()) return;
-
-  auto current = toLabel.front();
-  toLabel.pop_front();
-  int x = current[0];
-  int y = current[1];
-  int z = current[2];
-  for (int k = -1; k <= 1; ++k) {
-    for (int i = -1; i <= 1; ++i) {
-      for (int j = -1; j <= 1; ++j) {
-        auto descriptor = features.getFeatureVector(x + i, y + j, z + k);
-        if (descriptor && !minimalFeatures[z + k](y + j, x + i)) {
-          if (acos(currentDescrip->dot(*descriptor)/
-              (currentDescrip->norm()*descriptor->norm())) < 0.2) {
-            minimalFeatures[z + k](y + j, x + i) = ID;
-            toLabel.push_front(Eigen::Vector3i(x + i, y + j, z + k));
-            *currentDescrip += *descriptor;
-            ++numCondensed;
-          }
-        }
-      }
-    }
-  }
-
-  labelNeigbors(features, currentDescrip, ID, toLabel, minimalFeatures, numCondensed);
-}
-
-static void createMinimalFeatures(const voxel::FeatureVoxel<auto> & features,
-  voxel::FeatureVoxel<auto> & minimalFeatures) {
-
-  minimalFeatures.setVoxelGrid(std::vector<Eigen::MatrixXi> (features.getNumZ(),
-    Eigen::MatrixXi::Zero(features.getNumY(), features.getNumX())));
-
-  std::list<Eigen::Vector3i> toLabel;
-
-  for (int k = 0; k < features.getNumZ(); ++k) {
-    for (int i = 0; i < features.getNumX(); ++i) {
-      for (int j = 0; j < features.getNumY(); ++j) {
-        auto currentDescrip = features.getFeatureVector(i, j, k);
-        if (currentDescrip && !minimalFeatures[k](j,i)) {
-          int currentID = minimalFeatures.addFeatureVector(i, j, k,
-            currentDescrip);
-          int numCondensed = 1;
-          toLabel.push_front(Eigen::Vector3i (i, j, k));
-          labelNeigbors(features, currentDescrip, currentID, toLabel, minimalFeatures, numCondensed);
-          *currentDescrip /= numCondensed;
-        } else if (features[k](j, i) && !minimalFeatures[k](j, i))
-          minimalFeatures[k](j, i) = features[k](j, i);
-      }
-    }
-  }
 }
 
 /* This method is destructive to the things created by run */
@@ -312,22 +229,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
   pointGrid.clear();
   freeSpace.clear();
 
-  /*FeatureVoxel<float> features (threshHoldedPoint);
-  for(int k = 0; k < z; ++k) {
-    for(int i = 0; i < x; ++i) {
-      for(int j = 0; j < y; ++j) {
-        if (threshHoldedPoint[k](j,i)) {
-          Eigen::Vector3i pos (i, j, k);
-          auto it = xyzToSHOT.find(pos);
-          if (it != xyzToSHOT.end()) {
-            features.addFeatureVector(i, j, k, it->second);
-          }
-        }
-      }
-    }
-  }
-  threshHoldedPoint.clear();*/
-
   int newRows = sqrt(2)*std::max(y, x);
   int newCols = newRows;
   int dX = (newCols - x)/2.0;
@@ -342,8 +243,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     place::VoxelGrid rotatedFree, rotatedPoint;
     rotatedFree.v = std::vector<Eigen::MatrixXb> (z, Eigen::MatrixXb::Zero(newRows, newCols));
     rotatedFree.c = numNonZeros;
-    /*FeatureVoxel<float> rotatedFeatures (
-      std::vector<Eigen::MatrixXi> (z, Eigen::MatrixXi::Zero(newRows, newCols)));*/
 
     rotatedPoint.v = std::vector<Eigen::MatrixXb> (z, Eigen::MatrixXb::Zero(newRows, newCols));
     rotatedPoint.c = nonZeroPoint;
@@ -359,14 +258,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
           if(src[1] < 0 || src[1] >= y)
             continue;
 
-          /*int ID = features[k](src[1], src[0]);
-          if(ID != 0) {
-            auto v = features.getFeatureVector(ID);
-            if (v)
-              rotatedFeatures.addFeatureVector(i, j, k, v);
-            else
-              rotatedFeatures[k](j,i) = ID;
-          }*/
           rotatedFree.v[k](j, i) = threshHoldedFree[k](src[1], src[0]);
           rotatedPoint.v[k](j, i) = threshHoldedPoint[k](src[1], src[0]);
         }
@@ -403,9 +294,7 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     place::VoxelGrid trimmedFree, trimmedPoint;
     trimmedFree.v = std::vector<Eigen::MatrixXb> (newZ);
     trimmedFree.c = rotatedFree.c;
-   /* FeatureVoxel<float> trimmedFeatures
-      (std::vector<Eigen::MatrixXi> (newZ, Eigen::MatrixXi ()),
-        rotatedFeatures.getAllFeatureVectors());*/
+
 
     trimmedPoint.v = std::vector<Eigen::MatrixXb> (newZ);
     trimmedPoint.c = rotatedPoint.c;
@@ -416,12 +305,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(const std::vector<std::string> & poi
     }
     rotatedFree.v.clear();
     rotatedPoint.v.clear();
-
-    /*FeatureVoxel<float> minimalFeatures;
-    createMinimalFeatures(trimmedFeatures, minimalFeatures);
-
-    std::cout << trimmedFeatures.getNumFeatures() << " has been reduced to " << minimalFeatures.getNumFeatures() << std::endl;
-    trimmedFeatures.clear();*/
 
     place::MetaData meta {zeroZero, newX, newY, newZ, voxelsPerMeter, pixelsPerMeter};
     meta.zZ[0] += dX;

@@ -16,10 +16,11 @@ namespace std {
   template <>
   struct hash<std::vector<int> >
   {
-    std::size_t operator()(const std::vector<int> & k) const {
+    size_t operator()(const std::vector<int> & k) const {
+      constexpr double A = 1.6180339887498948482*1e5;
       size_t seed = 0;
       for (auto v : k) {
-        seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= static_cast<size_t>(v*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       }
       return seed;
     }

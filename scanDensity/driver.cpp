@@ -1,3 +1,10 @@
+/**
+  The scanDensity system is responsible for analyzing the pointclouds
+  and creating the files needed by the placeScan system.
+  Two types of evidence are examined in both 2D and 3D: point evidence
+  and free space evidence
+*/
+
 #include "scanDensity_scanDensity.h"
 #include "scanDensity_3DInfo.h"
 
@@ -99,12 +106,13 @@ int main(int argc, char *argv[]) {
   }
   if (show_progress)
     delete show_progress;
-  std::cout << "leaving" << std::endl;
+
   return 0;
 }
 
 void saveImages(const std::vector<cv::Mat> & images,
   const std::vector<std::string> & names) {
+  assert(names.size() == images.size());
   for (int i = 0; i < names.size(); ++i)
     cv::imwrite(names[i], images[i]);
 }

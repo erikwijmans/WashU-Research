@@ -316,7 +316,7 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
     const int newCols = std::ceil(fpPyramid[k].cols()/exclusionX);
     place::exclusionMap maps {NULL, exclusionX, exclusionY, newRows, newCols};
 
-    findLocalMinima(scores, 0.5, maps);
+    findLocalMinima(scores, 0.2, maps);
     findGlobalMinima(scores, maps, minima);
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
 

@@ -1,4 +1,14 @@
-/*Scanner units are proabaly in meters */
+/**
+  Implenets the DensityMapsManager which is responsible for
+  loading in data, figuring out what type of analysis still
+  needs to be done for each scan, and getting the names for
+  files to be saved as.
+  Also implements CloudAnalyzer2D, which is responsible for
+  examing the 2D free space and point evidence. Due to the simplicity
+  of this data, it is not responsible for saving it
+  Implements BoundingBox which is used to remove points
+  that are outliers from the pointcloud
+*/
 
 #include "scanDensity_scanDensity.h"
 
@@ -33,7 +43,8 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
     argv[i] = &v[i][0];
   }
   argv[v.size()] = NULL;
-  resetFlags(v.size(), argv);
+  resetFlags(v.size() + 1, argv);
+  delete argv;
 }
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
@@ -206,21 +217,10 @@ static bool fexists(const std::string & name) {
 
 bool DensityMapsManager::exists2D() {
   std::vector<std::string> names;
-  if (!FLAGS_pe) {
-    get2DFreeNames(names);
-    for (auto & n : names)
-      if (!fexists(n)) return false;
-    return true;
-  }
-  if (!FLAGS_fe) {
+  if (FLAGS_pe)
     get2DPointNames(names);
-    for (auto & n : names)
-      if (!fexists(n)) return false;
-    return true;
-  }
-
-  get2DPointNames(names);
-  get2DFreeNames(names);
+  if (FLAGS_fe)
+    get2DFreeNames(names);
   for (auto & n : names)
     if (!fexists(n)) return false;
   return true;
@@ -228,21 +228,11 @@ bool DensityMapsManager::exists2D() {
 
 bool DensityMapsManager::exists3D() {
   std::vector<std::string> names;
-  if (!FLAGS_pe) {
-    get3DFreeNames(names);
-    for (auto & n : names)
-      if (!fexists(n)) return false;
-    return true;
-  }
-  if (!FLAGS_fe) {
+  if (FLAGS_pe)
     get3DPointNames(names);
-    for (auto & n : names)
-      if (!fexists(n)) return false;
-    return true;
-  }
+  if (FLAGS_fe)
+    get3DFreeNames(names);
 
-  get3DPointNames(names);
-  get3DFreeNames(names);
   for (auto & n : names)
     if (!fexists(n)) return false;
   return true;
@@ -399,7 +389,6 @@ void CloudAnalyzer2D::examinePointEvidence() {
       for (int i = 0; i < heatMap.cols; ++i) {
         const Eigen::Vector3d pixel (i, j, 0);
         const Eigen::Vector3d src = R->at(r)*(pixel - newZZ) + zeroZero;
-        // const Eigen::Vector3d & src = pixel;
 
         if (src[0] < 0 || src[0] >= total.cols())
           continue;

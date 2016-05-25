@@ -205,7 +205,6 @@ void place::savePlacement(const std::vector<const place::posInfo *> & minima,
   const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero){
   std::ofstream out (outName, std::ios::out);
   std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
-
   const int numToDeltas = countNumToDeltas(minima);
   int num = minWrite > numToDeltas ? minWrite : numToDeltas;
   num = num > minima.size() ? minima.size() : num;

@@ -526,27 +526,11 @@ void place::loadInPlacementGraph(const std::string & imageName,
 
   int numToLoad;
   in.read(reinterpret_cast<char *>(&numToLoad), sizeof(numToLoad));
-  place::posInfo tmp;
-  in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-  in.seekg(sizeof(numToLoad));
 
-  std::vector<place::posInfo> scoretmp;
-  double lastScore = 1.0;
-  const double initailScore = tmp.score;
-  bool deltaExceeded = false;
-  int final = 0;
-  for (int i = 0; i < numToLoad; ++i) {
-    in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-    scoretmp.push_back(tmp);
+  std::vector<place::posInfo> scoretmp (numToLoad);
+  in.read(reinterpret_cast<char *>(scoretmp.data()),
+          sizeof(place::posInfo)*numToLoad);
 
-    if (tmp.score - lastScore > maxDelta) deltaExceeded = true;
-    if (tmp.score - initailScore > maxTotal) deltaExceeded = true;
-    if (!final && i + 1 >= minScans && deltaExceeded)
-      final = i;
-
-    lastScore = tmp.score;
-  }
-  /*if(!final)*/ final = numToLoad - 1;
   std::vector<place::node> nodestmp;
   for (auto & s : scoretmp)
     nodestmp.push_back({s, 0.0, 0.0, num});
@@ -576,8 +560,14 @@ void place::loadInPlacementGraph(const std::string & imageName,
   for (auto & n : nodestmp)
     n.nw = (n.w - average)/sigma;
 
-  for (auto & n : nodestmp)
+  for (auto & n : nodestmp) {
     n.w = n.nw;
+    if (!Eigen::numext::isfinite(n.w)) {
+      std::cout << n.color << std::endl;
+      std::cout << average << "  " << sigma << std::endl;
+    }
+    assert(Eigen::numext::isfinite(n.w));
+  }
 
   nodes.insert(nodes.end(), nodestmp.begin(),
     nodestmp.end());
@@ -882,6 +872,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     numberOfLabels.push_back(i);
   }
   const int numVars = numberOfLabels.size();
+  std::cout << numVars << std::endl;
 
   //Construct the model
   size_t * labelSize = new size_t [numVars];
@@ -896,8 +887,9 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     const size_t shape [] = {labelSize[i]};
     Function f(shape, shape + 1);
     for (int j = 0; j < numberOfLabels[i]; ++j) {
+      assert(offset + j < nodes.size());
+      assert(Eigen::numext::isfinite(nodes[offset + j].w));
       f(j) = nodes[offset + j].w;
-      f(j) = 1;
     }
     f(shape[0] - 1) = 0;
     Model::FunctionIdentifier fid = gm.addFunction(f);

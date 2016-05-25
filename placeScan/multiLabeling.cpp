@@ -82,7 +82,6 @@ multi::Labeler::Labeler() {
     std::sort(metaDataFiles.begin(), metaDataFiles.end());
   }
 
-
   const int numScans = pointFileNames.size();
 
   voxelInfo.assign(metaDataFiles.size(), std::vector<place::MetaData> (NUM_ROTS));
@@ -124,9 +123,12 @@ multi::Labeler::Labeler() {
     }
     numberOfLabels.push_back(i);
   }
-
+  for (auto & n : nodes)
+    assert(Eigen::numext::isfinite(n.w));
   currentNodes.clear();
   selectR1Nodes(nodes, currentNodes);
+  for (auto & n : currentNodes)
+    assert(Eigen::numext::isfinite(n.w));
 }
 
 void multi::Labeler::loadInPanosAndRot() {

@@ -35,7 +35,6 @@ void saveMatrixAsSparse(const MatrixType & mat, std::ofstream & out) {
   }
 }
 
-
 template<typename MatrixType>
 void loadMatrixFromSparse(MatrixType & mat, std::ifstream & in) {
   typedef typename MatrixType::Scalar Scalar;
@@ -333,8 +332,8 @@ std::ostream & place::operator<<(std::ostream & os, const place::posInfo & print
 
 std::ostream & place::operator<<(std::ostream & os,
                                  const place::SelectedNode & p) {
-  os << "Color: " << p.color << std::endl;
-  os << "Agreement: " << p.agreement << std::endl;
+  os << "Color: " << p.color << "  ";
+  os << "Agreement: " << p.agreement << "  ";
   os << "Selected: " << p.selected;
   return os;
 }

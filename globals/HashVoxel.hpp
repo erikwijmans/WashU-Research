@@ -1,3 +1,20 @@
+/**
+  Implements a hashmap based voxelgrid.  This has the benefit of
+  being significantly less memory intensive than a direct-mapped
+  voxel grid, however, it has the disadvantage of being slightly slower.
+
+  This classes uses awful looking variardic templating so that it is
+  really easy to interact with:
+
+    HashVoxel<Eigen::Vector3i, double> myVoxel
+    myVoxel.insert(value, x, y, z)
+    value == *myVoxel(x, y, z)
+
+  The K (key) must be a Eigen Matrix type.  If you know how many
+  dimensions the key will be, something like Eigen::Vector2i is
+  preferable, otherwise Eigen::VectorXi will work.
+*/
+
 #pragma once
 #ifndef HASH_VOXEL_HPP
 #define HASH_VOXEL_HPP
@@ -6,16 +23,21 @@
 #include <eigen3/Eigen/Eigen>
 #include <memory>
 
+// Defines a hasher that is capable of hasing an arbitrary Eigen Matrix
 namespace std {
   template<>
   template<typename _Scalar, int _Rows, int _Cols, int _Options, int _MaxRows, int _MaxCols>
   struct hash<Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > >
   {
-    std::size_t operator()(const Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > & k) const {
+    //NB:: More than likely, indicies into the HashVoxel will be in
+    // the range [0, 10000] which doesn't satisfy the uniform hashing
+    // assumption very well, so A is used to spread those out.
+    constexpr double A = 1.6180339887498948482*1e5;
+    size_t operator()(const Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > & k) const {
       size_t seed = 0;
       auto dataPtr = k.data();
       for (int i = 0; i < k.size(); ++i) {
-        seed ^= *(dataPtr + i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= static_cast<size_t>(*(dataPtr + i)*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       }
       return seed;
     }
@@ -88,6 +110,7 @@ namespace voxel {
           assert(*(keyPtr + i) < *(maxPtr + i));
         }
       }
+      HashVoxel();
   };
 } // voxel
 
