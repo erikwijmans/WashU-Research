@@ -24,8 +24,6 @@
 
 #include <dirent.h>
 
-DEFINE_bool(ptx, false, "Tells the preprocessor to read from ptx file and convert it to binary.  Otherwise, a binary file will be read");
-
 int PTXrows, PTXcols;
 
 void convertToBinary(const std::string & fileNameIn,
@@ -69,15 +67,9 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::string> csvFileNames;
 
-  std::string * inFolder;
-  if (FLAGS_ptx)
-    inFolder = &FLAGS_PTXFolder;
-  else
-    inFolder = &FLAGS_binaryFolder;
-
   DIR *dir;
   struct dirent *ent;
-  if ((dir = opendir (inFolder->data())) != NULL) {
+  if ((dir = opendir (FLAGS_PTXFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
       if(fileName != ".." && fileName != "."){
@@ -236,7 +228,7 @@ void convertToBinary(const std::string & fileNameIn,
 
   std::ifstream in (outName, std::ios::in | std::ios::binary);
 
-  if (FLAGS_ptx || !in.is_open()) {
+  if (!in.is_open()) {
   	in.close();
     std::ifstream scanFile (fileNameIn, std::ios::in);
     int columns, rows;

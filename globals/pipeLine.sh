@@ -29,7 +29,7 @@ mkdir -p voxelGrids/metaData
 cd ~/Projects/c++/preprocessor
 echo "Running preprocessor"
 make || exit 1
-./preprocessor -dataPath=$1 -ptx
+./preprocessor -dataPath=$1
 # echo "Running scanDensity"
 # cd ~/Projects/c++/scanDensity
 # make || exit 1
