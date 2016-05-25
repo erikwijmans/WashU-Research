@@ -17,7 +17,7 @@
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double maxPhi = 2.61946;
-extern std::unordered_map<std::string, double> buildingToScale;
+extern const std::unordered_map<std::string, double> buildingToScale;
 
 namespace place {
   class edge {
@@ -33,6 +33,7 @@ namespace place {
         double wSignificance) : pA {pA}, feA {feA}, feB {feB}, w {w}, wSignificance {wSignificance},
         panoW {0}, panoSignificance {0}
       {};
+      friend std::ostream & operator<<(std::ostream & os, const place::edge & print);
   };
 
   typedef struct {
@@ -99,7 +100,7 @@ namespace scan {
 } // scan
 
 namespace place {
-  typedef struct {
+  typedef struct posInfo {
     double score = 0;
     double scanFP = 0;
     double fpScan = 0;
@@ -108,6 +109,9 @@ namespace place {
     int scanPixels = 0;
     int x = 0;
     int y = 0;
+
+    friend std::ostream & operator<<(std::ostream & os, const place::posInfo * print);
+    friend std::ostream & operator<<(std::ostream & os, const place::posInfo & print);
   } posInfo;
 
   typedef struct {
@@ -146,6 +150,9 @@ namespace place {
       s {o.s}, w {o.w}, nw {o.nw}, agreement {agreement},
       color {o.color}, selected {selected}
       {};
+
+    friend std::ostream & operator<<(std::ostream & os,
+                          const place::SelectedNode & p);
   } SelectedNode;
 
   typedef struct {
@@ -176,6 +183,8 @@ namespace place {
         const int height = this->Z2 - this->Z1;
         return width*length*height;
       };
+
+      friend std::ostream & operator<<(std::ostream & os, const place::cube & print);
   };
 
   typedef struct Panorama {
@@ -191,14 +200,5 @@ namespace place {
     const cv::Mat & operator[](int n);
   } Panorama;
 } // place
-
-std::ostream & operator<<(std::ostream & os, const place::cube & print);
-std::ostream & operator<<(std::ostream & os, const place::edge & print);
-
-std::ostream & operator<<(std::ostream & os, const place::posInfo * print);
-
-std::ostream & operator<<(std::ostream & os, const place::posInfo & print);
-std::ostream & operator<<(std::ostream & os,
-                          const place::SelectedNode & p);
 
 #endif // SCAN_TYPEDEFS_HPP

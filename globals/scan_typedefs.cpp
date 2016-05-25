@@ -1,7 +1,6 @@
 #include <scan_typedefs.hpp>
 
-
-std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
+const std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
 
 typedef struct SHOT1344WithXYZ {
   std::shared_ptr<Eigen::VectorXf> descriptor;
@@ -304,13 +303,13 @@ const cv::Mat & place::Panorama::operator[](int n) {
   return imgs[n];
 }
 
-std::ostream & operator<<(std::ostream & os, const place::cube & print) {
+std::ostream & place::operator<<(std::ostream & os, const place::cube & print) {
   os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")" << std::endl;
   os << "      " << "(" << print.X2 << ", " << print.Y2 << ", " << print.Z2 <<  ")";
   return os;
 }
 
-std::ostream & operator<<(std::ostream & os, const place::edge & print) {
+std::ostream & place::operator<<(std::ostream & os, const place::edge & print) {
   os << "edge: " << print.w << "  " << print.wSignificance;
   os << "  pano: " << print.panoW << "  " << print.panoSignificance;
   os << "  " << print.numSim << "  " << print.numDiff << std::endl;
@@ -319,7 +318,7 @@ std::ostream & operator<<(std::ostream & os, const place::edge & print) {
   return os;
 }
 
-std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
+std::ostream & place::operator<<(std::ostream & os, const place::posInfo * print) {
   os << print->score <<"      " << print->x << "      "
     << print->y << "      " << print->rotation << std::endl;
   os << print->scanFP << "      " << print->fpScan << std::endl;
@@ -327,12 +326,12 @@ std::ostream & operator<<(std::ostream & os, const place::posInfo * print) {
   return os;
 }
 
-std::ostream & operator<<(std::ostream & os, const place::posInfo & print) {
+std::ostream & place::operator<<(std::ostream & os, const place::posInfo & print) {
   os << &print;
   return os;
 }
 
-std::ostream & operator<<(std::ostream & os,
+std::ostream & place::operator<<(std::ostream & os,
                                  const place::SelectedNode & p) {
   os << "Color: " << p.color << std::endl;
   os << "Agreement: " << p.agreement << std::endl;
