@@ -342,9 +342,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
     place::cube crossWRTA, crossWRTB;
   } later;
 
-  if (!FLAGS_redo && place::reloadGraph(adjacencyMatrix))
-    return;
-
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
   std::vector<later> tracker;
@@ -706,7 +703,7 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
 
   for (auto & n : bestNodes) {
     std::cout << n << std::endl;
-    if (!n.selected) continue;
+    if (n.agreement == 0) continue;
 
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
@@ -723,16 +720,20 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
             continue;
           if (i + xOffset < 0 || i + xOffset >= output.cols)
             continue;
-
-          _output(yOffset + j, xOffset + i)[0] = 0;
-          _output(yOffset + j, xOffset + i)[1] = 0;
-          _output(yOffset + j, xOffset + i)[2] = 255;
+          if (!n.selected) {
+            _output(yOffset + j, xOffset + i)[0] = 0;
+            _output(yOffset + j, xOffset + i)[1] = 0;
+            _output(yOffset + j, xOffset + i)[2] = 255;
+          } else {
+            _output(yOffset + j, xOffset + i)[0] = 255;
+            _output(yOffset + j, xOffset + i)[1] = 0;
+            _output(yOffset + j, xOffset + i)[2] = 0;
+          }
         }
       }
     }
 
     cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-
     cv::imshow("Preview", output);
     cv::waitKey(0);
   }
@@ -953,16 +954,24 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   for (int i = 0, offset = 0; i < numVars; ++i) {
     const int index = offset + labeling[i];
     if (labeling[i] >= numVars) {
-      bestNodes.emplace_back(nodes[index], 0, false);
+      bestNodes.emplace_back(nodes[index], 0, true);
     } else {
-      double agreement = nodes[index].w;
+      double agreement = 0;
+      int count = 0;
       for (int j = 0, rowOffset = 0; j < numVars; ++j) {
         const int row = rowOffset + labeling[j];
-        agreement += adjacencyMatrix(row, index).w
-          + adjacencyMatrix(row, index).panoW;
+        const place::edge & e = adjacencyMatrix(row, index);
+        const double w = e.w*e.wSignificance +
+          e.panoW*e.panoSignificance;
+        if (w != 0) {
+          agreement += w;
+          ++count;
+        }
         rowOffset += numberOfLabels[j];
       }
-      bestNodes.emplace_back(nodes[index], agreement, true);
+      agreement /= count ? count : 1;
+      agreement += nodes[index].w;
+      bestNodes.emplace_back(nodes[index], agreement, false);
     }
     offset += numberOfLabels[i];
   }

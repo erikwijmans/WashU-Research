@@ -334,6 +334,10 @@ std::ostream & place::operator<<(std::ostream & os,
                                  const place::SelectedNode & p) {
   os << "Color: " << p.color << "  ";
   os << "Agreement: " << p.agreement << "  ";
-  os << "Selected: " << p.selected;
+  if (p.selected)
+    os << "Selected for relabeling";
+  else
+    os << "Finalized";
+  os << std::endl;
   return os;
 }

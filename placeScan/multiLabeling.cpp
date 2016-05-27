@@ -32,6 +32,26 @@ static void selectR1Nodes(std::vector<place::node> & nodes,
   }
 }
 
+static void markNodes(std::vector<place::SelectedNode> & nodes) {
+  double average = 0;
+  for (auto & n : nodes)
+    average += n.agreement;
+  average /= nodes.size();
+
+  double sigma = 0;
+  for (auto & n : nodes)
+    sigma += (n.agreement - average)*(n.agreement - average);
+
+  sigma /= nodes.size() - 1;
+  sigma = sqrt(sigma);
+
+  for (auto & n : nodes) {
+    const double norm = (n.agreement - average)/sigma;
+    if (norm < -1.0)
+      n.selected = true;
+  }
+}
+
 multi::Labeler::Labeler() {
   place::parseFolders(pointFileNames,
     zerosFileNames, &freeFileNames);
@@ -84,23 +104,11 @@ multi::Labeler::Labeler() {
 
   const int numScans = pointFileNames.size();
 
-  voxelInfo.assign(metaDataFiles.size(), std::vector<place::MetaData> (NUM_ROTS));
-  for (int i = 0; i < metaDataFiles.size(); ++i) {
-    const std::string metaName = metaDataFolder + metaDataFiles[i];
-    std::ifstream in (metaName, std::ios::in | std::ios::binary);
-
-    for (int j = 0; j < NUM_ROTS; ++j) {
-      voxelInfo[i][j].loadFromFile(in);
-    }
-    in.close();
-  }
-
   zeroZeros.resize(numScans);
   place::loadInScansGraph(pointFileNames, freeFileNames,
     zerosFileNames, scans, masks, zeroZeros);
 
-  loadInPanosAndRot();
-  const int numToParse = 20;
+  const int numToParse = numScans;
   const int nodeStart = 0;
   for (int i = nodeStart; i < std::min(numToParse + nodeStart,
     (int)pointFileNames.size()); ++i) {
@@ -123,12 +131,8 @@ multi::Labeler::Labeler() {
     }
     numberOfLabels.push_back(i);
   }
-  for (auto & n : nodes)
-    assert(Eigen::numext::isfinite(n.w));
   currentNodes.clear();
   selectR1Nodes(nodes, currentNodes);
-  for (auto & n : currentNodes)
-    assert(Eigen::numext::isfinite(n.w));
 }
 
 void multi::Labeler::loadInPanosAndRot() {
@@ -200,13 +204,29 @@ void multi::Labeler::loadInPanosAndRot() {
 }
 
 void multi::Labeler::weightEdges() {
-  place::weightEdges(currentNodes, voxelInfo, pointVoxelFileNames,
-    freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
+  if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix)) {
+    const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
+    voxelInfo.assign(metaDataFiles.size(), std::vector<place::MetaData> (NUM_ROTS));
+    for (int i = 0; i < metaDataFiles.size(); ++i) {
+      const std::string metaName = metaDataFolder + metaDataFiles[i];
+      std::ifstream in (metaName, std::ios::in | std::ios::binary);
+      for (int j = 0; j < NUM_ROTS; ++j) {
+        voxelInfo[i][j].loadFromFile(in);
+      }
+      in.close();
+    }
+
+    loadInPanosAndRot();
+
+    place::weightEdges(currentNodes, voxelInfo, pointVoxelFileNames,
+      freeVoxelFileNames, rotationMatricies, panoramas, adjacencyMatrix);
+  }
   place::normalizeWeights(adjacencyMatrix, currentNodes);
 }
 
 void multi::Labeler::solveTRW() {
   place::TRWSolver(adjacencyMatrix, currentNodes, bestNodes);
+  markNodes(bestNodes);
 }
 
 void multi::Labeler::solveMIP() {
