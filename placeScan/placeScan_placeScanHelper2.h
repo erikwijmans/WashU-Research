@@ -60,8 +60,8 @@ namespace place {
     const std::vector<place::node> & nodes,
     std::vector<SelectedNode> & bestNodes);
 
-  bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix);
-  void saveGraph(Eigen::MatrixXE & adjacencyMatrix);
+  bool reloadGraph(Eigen::MatrixXE & adjacencyMatrix, int level);
+  void saveGraph(Eigen::MatrixXE & adjacencyMatrix, int level);
 
   template<typename T>
   bool localGroup(T & toCheck, const int yOffset,

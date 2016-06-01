@@ -17,7 +17,26 @@
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double maxPhi = 2.61946;
-extern const std::unordered_map<std::string, double> buildingToScale;
+
+typedef struct no_case_hash {
+  std::hash<std::string> hasher;
+  std::locale loc;
+  size_t operator()(const std::string & s) const;
+  std::string lower_case (const std::string & s) const;
+} no_case_hash;
+
+extern const std::unordered_map<std::string, double,
+  no_case_hash> buildingToScale;
+
+namespace std {
+  template <>
+  struct hash<std::vector<int> >
+  {
+    static constexpr double A = 1.6180339887498948482*1e5;
+    hash<double> h;
+    size_t operator()(const std::vector<int> & k) const;
+  };
+} // std
 
 namespace place {
   class edge {
@@ -37,8 +56,9 @@ namespace place {
   };
 
   typedef struct {
-    double weight = 0.0;
     std::vector<int> incident;
+    double weight = 0.0;
+    int count = 0;
   } hOrder;
 } // place
 
@@ -52,6 +72,19 @@ namespace Eigen {
   typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
   typedef Matrix<float, Dynamic, Dynamic, RowMajor> RowMatrixXf;
 } // Eigen
+
+typedef struct SHOT1344WithXYZ {
+  std::shared_ptr<Eigen::VectorXf> descriptor;
+  Eigen::Vector3d position;
+
+  SHOT1344WithXYZ() : descriptor {std::make_shared<Eigen::VectorXf> (1344)}
+  {
+  };
+
+  void writeToFile(std::ofstream & out);
+  void loadFromFile(std::ifstream & in);
+
+} SHOT1344WithXYZ;
 
 typedef struct SPARSE352WithXYZ {
   typedef Eigen::SparseVector<float> VecType;
@@ -134,26 +167,45 @@ namespace place {
     int scanNum;
   } moreInfo;
 
-  typedef struct {
+  typedef struct node {
     posInfo s;
     double w;
     double nw;
-    int color;
+    int color, pos, groupSize;
+    node (const posInfo & s, double w, double nw, int color, int pos) :
+      s {s}, w {w}, nw {nw}, color {color}, pos {pos}
+      {};
   } node;
 
-  typedef struct SelectedNode {
-    posInfo s;
-    double w, nw, agreement;
-    int color;
-    bool selected;
-    SelectedNode (const node & o, double agreement, bool selected) :
-      s {o.s}, w {o.w}, nw {o.nw}, agreement {agreement},
-      color {o.color}, selected {selected}
+  typedef struct SelectedNode : public node {
+    double agreement;
+    int label;
+    bool locked;
+    SelectedNode (const node & o, double agreement,
+      int label, bool locked) :
+      node {o}, agreement {agreement}, locked {locked},
+      label {label}
       {};
 
     friend std::ostream & operator<<(std::ostream & os,
                           const place::SelectedNode & p);
   } SelectedNode;
+
+  typedef struct R2Node : public node {
+    bool locked;
+    R2Node (const node & o, bool locked) :
+      node {o}, locked {locked}
+      {};
+
+    R2Node (const posInfo & s, double w, double nw, int color,
+            int pos, bool locked) :
+      node {s, w, nw, color, pos}, locked {locked}
+      {};
+    R2Node (const SelectedNode & s) :
+      node {s.s, s.w, s.nw, s.color, s.pos},
+        locked {s.locked}
+      {};
+  } R2Node;
 
   typedef struct {
     int X1;

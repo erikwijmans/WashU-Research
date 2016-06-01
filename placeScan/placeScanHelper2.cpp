@@ -509,9 +509,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   for (int i = 0; i < cols ; ++i)
     for (int j = i + 1; j < rows; ++j)
       adjacencyMatrix(i, j) = adjacencyMatrix(j, i);
-
-  if (FLAGS_save)
-    place::saveGraph(adjacencyMatrix);
 }
 
 void place::loadInPlacementGraph(const std::string & imageName,
@@ -530,7 +527,7 @@ void place::loadInPlacementGraph(const std::string & imageName,
 
   std::vector<place::node> nodestmp;
   for (auto & s : scoretmp)
-    nodestmp.push_back({s, 0.0, 0.0, num});
+    nodestmp.push_back({s, 0.0, 0.0, num, 0});
 
   for (auto & n : nodestmp) {
     const place::posInfo & currentScore = n.s;
@@ -720,7 +717,7 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
             continue;
           if (i + xOffset < 0 || i + xOffset >= output.cols)
             continue;
-          if (!n.selected) {
+          if (!n.locked) {
             _output(yOffset + j, xOffset + i)[0] = 0;
             _output(yOffset + j, xOffset + i)[1] = 0;
             _output(yOffset + j, xOffset + i)[2] = 255;
@@ -873,7 +870,6 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     numberOfLabels.push_back(i);
   }
   const int numVars = numberOfLabels.size();
-  std::cout << numVars << std::endl;
 
   //Construct the model
   size_t * labelSize = new size_t [numVars];
@@ -905,14 +901,13 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
     startRow += numberOfLabels[i];
     int currentRow = startRow;
     for (size_t j = i + 1; j < numVars; ++j) {
-      Eigen::MatrixXE currentMat = adjacencyMatrix.block(currentRow, colOffset,
-        numberOfLabels[j], numberOfLabels[i]);
-
       const size_t shape [] = {labelSize[i], labelSize[j]};
       Function f(shape, shape + 2);
-      for (int a = 0; a < currentMat.cols(); ++a) {
-        for (int b = 0; b < currentMat.rows(); ++b) {
-          place::edge & e = currentMat(b, a);
+      for (int a = 0; a < numberOfLabels[i]; ++a) {
+        for (int b = 0; b < numberOfLabels[j]; ++b) {
+          const int row = nodes[currentRow + b].pos;
+          const int col = nodes[colOffset + a].pos;
+          auto & e = adjacencyMatrix(row, col);
           f(a, b) = e.w*e.wSignificance +
             e.panoW*e.panoSignificance;
         }
@@ -954,7 +949,7 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
   for (int i = 0, offset = 0; i < numVars; ++i) {
     const int index = offset + labeling[i];
     if (labeling[i] >= numVars) {
-      bestNodes.emplace_back(nodes[index], 0, true);
+      bestNodes.emplace_back(nodes[index], 0, labeling[i], false);
     } else {
       double agreement = 0;
       int count = 0;
@@ -971,16 +966,19 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
       }
       agreement /= count ? count : 1;
       agreement += nodes[index].w;
-      bestNodes.emplace_back(nodes[index], agreement, false);
+      bestNodes.emplace_back(nodes[index], agreement, labeling[i], true);
     }
     offset += numberOfLabels[i];
   }
   delete [] labelSize;
+  assert(bestNodes.size() == numVars);
 }
 
-bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
+bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix,
+                        int level) {
 
-  const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
+  const std::string graphName = FLAGS_preDoneV2 + "graph"
+    + std::to_string(level) + ".dat";
   std::ifstream in (graphName, std::ios::in | std::ios::binary);
 
   if (!in.is_open())
@@ -999,8 +997,10 @@ bool place::reloadGraph(Eigen::MatrixXE & adjacencyMatrix) {
   return true;
 }
 
-void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix) {
-  const std::string graphName = FLAGS_preDoneV2 + "graph.dat";
+void place::saveGraph(Eigen::MatrixXE & adjacencyMatrix,
+                      int level) {
+  const std::string graphName = FLAGS_preDoneV2 + "graph"
+    + std::to_string(level) + ".dat";
   std::ofstream out (graphName, std::ios::out | std::ios::binary);
 
   if (!FLAGS_save)
@@ -1072,10 +1072,10 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
           sigmaP += (pano - averageP)*(pano - averageP);
       }
     }
-    sigmaW /= countW;
+    sigmaW /= countW - 1;
     sigmaW = sqrt(sigmaW);
 
-    sigmaP /= countP;
+    sigmaP /= countP - 1;
     sigmaP = sqrt(sigmaP);
 
     averageW = std::max(0.0, averageW);
@@ -1085,10 +1085,10 @@ void place::normalizeWeights(Eigen::MatrixXE & adjacencyMatrix,
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
-        if (weight && countW > 1 && sigmaW)
+        if (weight && countW > 1 && Eigen::numext::isfinite(sigmaW))
           adjacencyMatrix(j + rowOffset, i).w = (weight - averageW)/sigmaW;
 
-        if (pano && countP > 1 && sigmaP)
+        if (pano && countP > 1 && Eigen::numext::isfinite(sigmaP))
           adjacencyMatrix(j + rowOffset, i).panoW = (pano - averageP)/sigmaP;
 
       }

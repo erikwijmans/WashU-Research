@@ -1,19 +1,28 @@
 #include <scan_typedefs.hpp>
+#include <locale>
 
-const std::unordered_map<std::string, double> buildingToScale = {{"duc", 73.5}, {"cse", 98.0}};
+std::string no_case_hash::lower_case (const std::string & s) const {
+  std::string a (s);
+  std::locale loc;
+  for (auto & c : a)
+    c = std::tolower(c, loc);
+  return a;
+}
 
-typedef struct SHOT1344WithXYZ {
-  std::shared_ptr<Eigen::VectorXf> descriptor;
-  Eigen::Vector3d position;
+size_t no_case_hash::operator()(const std::string & s) const {
+  return hasher(lower_case(s));
+}
 
-  SHOT1344WithXYZ() : descriptor {std::make_shared<Eigen::VectorXf> (1344)}
-  {
-  };
+size_t std::hash<std::vector<int> >::operator()(const std::vector<int> & k) const {
+  size_t seed = 0;
+  for (auto v : k) {
+    seed ^= h(v*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  }
+  return seed;
+}
 
-  void writeToFile(std::ofstream & out);
-  void loadFromFile(std::ifstream & in);
-
-} SHOT1344WithXYZ;
+const std::unordered_map<std::string, double,
+  no_case_hash> buildingToScale = {{"DUC", 73.5}, {"cse", 98.0}};
 
 template<typename MatrixType>
 void saveMatrixAsSparse(const MatrixType & mat, std::ofstream & out) {
@@ -132,7 +141,6 @@ void loadSparseVetor(SparseVectorType & vec, std::ifstream & in) {
   }
 }
 
-
 void SHOT1344WithXYZ::writeToFile(std::ofstream & out) {
   out.write(reinterpret_cast<const char *>(descriptor->data()),
     descriptor->size()*sizeof(float));
@@ -234,8 +242,8 @@ void place::Panorama::writeToFile(const std::string & imgName,
   out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
   out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
   const float * dataPtr = rMap.data();
-  for (int i = 0; i < rMap.size(); ++i)
-    out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(float));
+  out.write(reinterpret_cast<const char *>(dataPtr),
+            sizeof(float)*rMap.size());
 
   const int numKeypoints = keypoints.size();
   out.write(reinterpret_cast<const char *>(&numKeypoints), sizeof(numKeypoints));
@@ -268,8 +276,8 @@ void place::Panorama::loadFromFile(const std::string & imgName,
   in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
   rMap.resize(rows, cols);
   float * dataPtr = rMap.data();
-  for (int i = 0; i < rMap.size(); ++i)
-    in.read(reinterpret_cast<char *>(dataPtr + i), sizeof(float));
+  in.read(reinterpret_cast<char *>(dataPtr),
+          sizeof(float)*rMap.size());
 
   in.read(reinterpret_cast<char *>(&numKeypoints), sizeof(numKeypoints));
   keypoints.resize(numKeypoints);
@@ -331,13 +339,14 @@ std::ostream & place::operator<<(std::ostream & os, const place::posInfo & print
 }
 
 std::ostream & place::operator<<(std::ostream & os,
-                                 const place::SelectedNode & p) {
+    const place::SelectedNode & p) {
   os << "Color: " << p.color << "  ";
   os << "Agreement: " << p.agreement << "  ";
-  if (p.selected)
+  os << "Label #: " << p.label << "  ";
+  if (!p.locked)
     os << "Selected for relabeling";
   else
-    os << "Finalized";
+    os << "Locked";
   os << std::endl;
   return os;
 }

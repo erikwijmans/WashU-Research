@@ -6,79 +6,119 @@
 #include <iostream>
 #include <list>
 
-void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
-  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
-  const std::vector<place::node> & nodes, std::unordered_map<std::vector<int>, double> &
-    highOrder) {
+static void dispHMap(const Eigen::ArrayXH & hMap,
+  const multi::Labeler::map & highOrder) {
+  double average = 0;
+  size_t count = 0;
+  auto dataPtr = hMap.data();
+  for (int i = 0; i < hMap.size(); ++i) {
+    auto it = highOrder.find((dataPtr + i)->incident);
+    if (it != highOrder.cend()) {
+      average += it->second.w;
+      ++count;
+    }
+  }
+  average /= count;
 
-  std::vector<int> numberOfLabels;
-  {
-    int i = 0;
-    const place::node * prevNode = &nodes[0];
-    for (auto & n : nodes) {
-      if (n.color == prevNode->color) {
-        prevNode = &n;
-        ++i;
-      } else {
-        numberOfLabels.push_back(i);
-        i = 1;
-        prevNode = &n;
+  double sigma = 0;
+  for (int i = 0; i < hMap.size(); ++i) {
+    auto it = highOrder.find((dataPtr + i)->incident);
+    if (it != highOrder.cend())
+      sigma += (it->second.w - average)*(it->second.w - average);
+  }
+  sigma /= count - 1;
+  sigma = sqrt(sigma);
+
+  std::cout << average << "  " << sigma << std::endl;
+
+  cv::Mat heatMap (hMap.rows(), hMap.cols(), CV_8UC3, cv::Scalar::all(255));
+  for (int j = 0; j < heatMap.rows; ++j) {
+    uchar * dst = heatMap.ptr<uchar>(j);
+    for (int i = 0; i < heatMap.cols; ++i) {
+      auto it = highOrder.find(hMap(j, i).incident);
+      if (it != highOrder.cend()) {
+        const int gray = cv::saturate_cast<uchar>(
+          255.0*((it->second.w - average)/sigma + 1.0)/2.0);
+        int r, g, b;
+        if (gray < 128) {
+          r = 0;
+          g = 2*gray;
+          b = 255 - g;
+        } else {
+          r = 2*(gray - 128);
+          g = 255 - r;
+          b = 0;
+        }
+        dst[3*i + 0] = b;
+        dst[3*i + 1] = g;
+        dst[3*i + 2] = r;
       }
     }
-    numberOfLabels.push_back(i);
   }
 
-  Eigen::ArrayXH hMap (floorPlan.rows, floorPlan.cols);
-  for (int a = 0, offset = 0; a < numberOfLabels.size(); ++a) {
-    for (int b = 0; b < std::min(numberOfLabels[a], 3); ++b) {
-      auto & currentNode = nodes[b + offset];
-      auto & currentScan = scans[currentNode.color][currentNode.s.rotation];
-      auto & zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
-      const int xOffset = currentNode.s.x - zeroZero[0],
-        yOffset = currentNode.s.y - zeroZero[1];
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  cv::imshow("Preview", heatMap);
+  cv::waitKey(0);
+}
 
-      for (int j = 0; j < currentScan.rows(); ++j) {
-        if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb> > & scans,
+  const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros,
+  const std::vector<place::R2Node> & nodes, multi::Labeler::map &
+    highOrder) {
+
+  Eigen::ArrayXH hMap (floorPlan.rows, floorPlan.cols);
+  for (int a = 0; a < nodes.size(); ++a) {
+    auto & currentNode = nodes[a];
+    auto & currentScan = scans[currentNode.color][currentNode.s.rotation];
+    auto & zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
+    const int xOffset = currentNode.s.x - zeroZero[0],
+      yOffset = currentNode.s.y - zeroZero[1];
+
+    for (int j = 0; j < currentScan.rows(); ++j) {
+      if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+        continue;
+      const uchar * src = floorPlan.ptr<uchar>(j + yOffset);
+      for (int i = 0; i < currentScan.cols(); ++i) {
+        if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
           continue;
-        const uchar * src = floorPlan.ptr<uchar>(j + yOffset);
-        for (int i = 0; i < currentScan.cols(); ++i) {
-          if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
-            continue;
-          if (src[i + xOffset] != 255) {
-            if (localGroup(currentScan, j, i, 2)) {
-              hMap(j+yOffset, i + xOffset).incident.push_back(b + offset);
-              hMap(j+yOffset, i + xOffset).weight += currentNode.w;
-            }
+        if (src[i + xOffset] != 255) {
+          if (localGroup(currentScan, j, i, 2)) {
+            auto & h = hMap(j + yOffset, i + xOffset);
+            if (currentNode.locked) {
+              h.weight += currentNode.w;
+              ++h.count;
+            } else
+              h.incident.push_back(a);
           }
         }
       }
     }
-    offset += numberOfLabels[a];
   }
 
-  place::hOrder * data = hMap.data();
+  auto const data = hMap.data();
   for (int i = 0; i < hMap.size(); ++i) {
-    if ((data + i)->incident.size() != 0) {
-      // const double scale = harmonic((data + i)->incident.size(), 0.0);
-      (data + i)->weight /= (data + i)->incident.size();
-      // (data + i)->weight *= scale;
+    auto h = data + i;
+    if (h->count) {
+      h->weight /= h->count;
     }
   }
 
   for (int i = 0; i < hMap.size(); ++i) {
     std::vector<int> & key = (data + i)->incident;
-    if (key.size() != 0 && (data + i)->weight > 0.0) {
+    const double weight = (data + i)->weight;
+    if (key.size() != 0 && weight > 0.0) {
       auto it = highOrder.find(key);
-      if (it != highOrder.end())
-        it->second += (data + i)->weight;
-      else
-        highOrder.emplace(key, (data + i)->weight);
+      if (it != highOrder.cend()) {
+        it->second.w += weight;
+        ++it->second.c;
+      } else
+        highOrder.emplace(key, multi::Labeler::s (weight, 1));
     }
   }
 
   double average = 0.0, aveTerms = 0.0;
   for (auto & it : highOrder) {
-    average += it.second;
+    average += it.second.w;
     aveTerms += it.first.size();
   }
   average /= highOrder.size();
@@ -86,7 +126,7 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
 
   double sigma = 0.0, sigTerms = 0.0;
   for (auto & it : highOrder) {
-    sigma += (it.second - average)*(it.second -average);
+    sigma += (it.second.w - average)*(it.second.w - average);
     sigTerms += (it.first.size() - aveTerms) * (it.first.size() - aveTerms);
   }
   sigma /= (highOrder.size() - 1);
@@ -97,16 +137,17 @@ void place::createHigherOrderTerms(const std::vector<std::vector<Eigen::MatrixXb
 
   std::cout << "average: " << average << "   sigma: " << sigma << std::endl;
 
-  for (auto & it : highOrder) {
-    it.second = std::max(0.0,(((it.second - average)/(sigma) + 1.0)/2.0));
-    const double significance = (it.first.size() - aveTerms)/sigTerms;
-    if(significance < 10000)
-      highOrder.erase(it.first);
+  for (auto & pair : highOrder) {
+    pair.second.w = std::max(0.0, ((pair.second.w - average)/(sigma) + 1.0)/2.0);
+    if (pair.second.w == 0)
+      highOrder.erase(pair.first);
   }
+
+  dispHMap(hMap, highOrder);
 }
 
-void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> highOrder,
-  const std::vector<place::node> & nodes,
+void place::displayHighOrder(const multi::Labeler::map highOrder,
+  const std::vector<place::R2Node> & nodes,
   const std::vector<std::vector<Eigen::MatrixXb> > & scans,
   const std::vector<std::vector<Eigen::Vector2i> > & zeroZeros) {
 
@@ -142,7 +183,7 @@ void place::displayHighOrder(const std::unordered_map<std::vector<int>, double> 
     cvNamedWindow("Preview", CV_WINDOW_NORMAL);
     cv::imshow("Preview", output);
     if (!FLAGS_quietMode) {
-      std::cout << it.second << std::endl;
+      std::cout << it.second.w << ":  ";
       for (auto & i : key)
         std::cout << i << "_";
       std::cout << std::endl;
@@ -156,9 +197,10 @@ namespace std {
   template <>
   struct hash<std::pair<GRBVar *, GRBVar *> >
   {
+    std::hash<GRBVar *> h;
     std::size_t operator()(const std::pair<GRBVar *, GRBVar *> & k) const {
-      size_t seed = reinterpret_cast<size_t>(k.first);
-      seed ^= reinterpret_cast<size_t>(k.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      size_t seed = h(k.first);
+      seed ^= h(k.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       return seed;
     }
   };
@@ -166,28 +208,29 @@ namespace std {
   template <typename T, typename K>
   struct hash<std::pair<T, K> >
   {
+    hash<T> a;
+    hash<K> b;
     std::size_t operator()(const std::pair<T, K> & k) const {
-      size_t seed = k.first;
-      seed ^= k.second + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      size_t seed = a(k.first);
+      seed ^= b(k.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       return seed;
     }
   };
 } // std
 
-static void condenseStack(std::vector<GRBVar *> & toStack,
-  std::vector<GRBVar *> & stacked,
-  std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs,
-  GRBModel & model,
+static std::vector<GRBVar *> condenseStack(const std::vector<GRBVar *> & toStack,
+  GRBModel & model, std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> & H2toH,
   std::list<GRBVar> & hOrderVars,
-  std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> & H2toH) {
+  std::list<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs, int level) {
+  std::vector<GRBVar *> stacked;
   int i = 0;
-  for (; i < toStack.size() - 1; i += 2) {
+  for (; i + 1 < toStack.size(); i += 2) {
     std::pair<GRBVar *, GRBVar *> key (toStack[i], toStack[i + 1]);
     auto it = H2toH.find(key);
     if (it == H2toH.end()) {
       hOrderVars.emplace_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY));
       GRBVar * newStack = &hOrderVars.back();
-      hOrderQs.emplace_back((*toStack[i])*(*toStack[i + 1]), *newStack);
+      hOrderQs.emplace_back((*key.first)*(*key.second), *newStack);
       H2toH.emplace(key, newStack);
       stacked.push_back(newStack);
     } else {
@@ -197,48 +240,36 @@ static void condenseStack(std::vector<GRBVar *> & toStack,
   for (; i < toStack.size(); ++i) {
     stacked.push_back(toStack[i]);
   }
+
+  return stacked;
 }
 
 static void stackTerms(const std::vector<int> & toStack,
   GRBVar * varList, GRBModel & model,
-  std::unordered_map<std::pair<int,int>, GRBVar * > & preStacked,
-  std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs,
-  std::list<GRBVar> & hOrderVars,
   std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> & H2toH,
+  std::list<GRBVar> & hOrderVars,
+  std::list<std::pair<GRBQuadExpr, GRBQuadExpr> > & hOrderQs,
   std::vector<GRBVar *> & stacked) {
-  if (toStack.size() < 3) {
-    for (auto & i : toStack)
-      stacked.push_back(varList + i);
-    return;
-  }
-  int i = 0;
-  for (; i < toStack.size() - 1; i+=2) {
-    std::pair<int, int> key (toStack[i], toStack[i+1]);
-    auto it = preStacked.find(key);
-    if (it == preStacked.end()) {
-      hOrderVars.emplace_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY));
-      GRBVar * newStack = &hOrderVars.back();
-      hOrderQs.emplace_back(varList[toStack[i]] * varList[toStack[i + 1]], *newStack);
-      preStacked.emplace(key, newStack);
-      stacked.push_back(newStack);
-    } else {
-      stacked.push_back(it->second);
-    }
-  }
-  for (; i < toStack.size(); ++i) {
-    stacked.push_back(varList + toStack[i]);
-  }
+
+  for (auto & i : toStack)
+    stacked.push_back(varList + i);
 
   while (stacked.size() > 2) {
-    std::vector<GRBVar *> tmpStack (stacked);
-    stacked.clear();
-    condenseStack(stacked, tmpStack, hOrderQs, model, hOrderVars, H2toH);
+    stacked = condenseStack(stacked, model, H2toH, hOrderVars, hOrderQs, 0);
   }
 }
 
 void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
-  const std::unordered_map<std::vector<int>, double> & highOrder, const std::vector<place::node> & nodes,
-  std::vector<const place::node *> & bestNodes) {
+  const std::vector<place::R2Node> & nodes,
+  std::vector<place::SelectedNode> & bestNodes) {
+  multi::Labeler::map tmp;
+  MIPSolver(adjacencyMatrix, tmp, nodes, bestNodes);
+}
+
+void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
+  const multi::Labeler::map & highOrder,
+  const std::vector<place::R2Node> & nodes,
+  std::vector<place::SelectedNode> & bestNodes) {
 
   std::vector<int> numberOfLabels;
   {
@@ -256,7 +287,9 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
     }
     numberOfLabels.push_back(i);
   }
-
+  for (auto & i : numberOfLabels)
+    std::cout << i << "_";
+  std::cout << std::endl;
   const int numVars = numberOfLabels.size();
   const int numOpts = nodes.size();
   try {
@@ -283,20 +316,18 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
     }
 
     GRBQuadExpr objective = 0.0;
-    for (int i = 0; i < numOpts; ++i) {
-      for (int j = i + 1; j < numOpts; ++j) {
-        if (adjacencyMatrix(j,i).w == 0.0)
+    for (int a = 0; a < numOpts; ++a) {
+      for (int b = a + 1; b < numOpts; ++b) {
+        const int i = nodes[a].pos;
+        const int j = nodes[b].pos;
+        if (adjacencyMatrix(j, i).w == 0.0)
           continue;
-
-        objective += (adjacencyMatrix(j,i).w + adjacencyMatrix(j,i).panoW)*varList[i]*varList[j];
+        auto & e = adjacencyMatrix(j, i);
+        const double weight = e.w*e.wSignificance +
+            e.panoW*e.panoSignificance;
+        objective += weight*varList[a]*varList[b];
       }
-      const place::posInfo & currentScore = nodes[i].s;
-      double scanExplained =
-        (currentScore.scanPixels - currentScore.scanFP)/(currentScore.scanPixels);
-      double fpExplained =
-      (currentScore.fpPixels - currentScore.fpScan)/(currentScore.fpPixels);
-
-      objective += varList[i]*(fpExplained + scanExplained)/2.0;
+      objective += varList[a]*nodes[a].w;
     }
 
     for (int i = 0, offset = 0; i < numVars; ++i) {
@@ -310,29 +341,29 @@ void place::MIPSolver(const Eigen::MatrixXE & adjacencyMatrix,
       offset += numberOfLabels[i];
       delete [] coeff;
     }
-
-    std::unordered_map<std::pair<int, int>, GRBVar *> termCondense;
-    std::vector<std::pair<GRBQuadExpr, GRBQuadExpr> > hOrderQs;
+    std::list<std::pair<GRBQuadExpr, GRBQuadExpr> > hOrderQs;
     std::list<GRBVar> hOrderVars;
     std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> H2toH;
-    for (auto & it : highOrder) {
-      auto & incident = it.first;
+    for (auto & pair : highOrder) {
+      auto & incident = pair.first;
+      const double weight = 0.1*pair.second.w;
       std::vector<GRBVar *> final;
-      stackTerms(incident, inverseVarList, model, termCondense, hOrderQs,
-                  hOrderVars, H2toH,
-                  final);
-      objective -= (*final[0])*(*final[1])*it.second;
+      stackTerms(incident, inverseVarList, model,
+                  H2toH, hOrderVars, hOrderQs, final);
+      if (final.size() == 1)
+        objective -= (*final[0])*weight;
+      else
+        objective -= (*final[0])*(*final[1])*weight;
     }
     model.update();
     for (auto & q : hOrderQs)
       model.addQConstr(q.first, GRB_EQUAL, q.second);
-
     model.setObjective(objective, GRB_MAXIMIZE);
     model.optimize();
 
     for (int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
       if (varList[i].get(GRB_DoubleAttr_X) == 1.0) {
-        bestNodes.push_back(&(nodes[i]));
+        bestNodes.emplace_back(nodes[i], 1.0, i, nodes[i].locked);
         std::cout << i - offset << "_";
       }
       if (numberOfLabels[k] == i + 1 - offset)

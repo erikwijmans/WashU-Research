@@ -44,7 +44,7 @@ void DensityMapsManager::resetFlags(const std::string & commandLine) {
   }
   argv[v.size()] = NULL;
   resetFlags(v.size() + 1, argv);
-  delete argv;
+  delete [] argv;
 }
 
 void DensityMapsManager::resetFlags(int argc, char * argv[]) {
@@ -97,9 +97,6 @@ void DensityMapsManager::resetFlags(int argc, char * argv[]) {
   }
 
   std::string buildName = rotationsFiles[0].substr(0, 3);
-  std::locale loc;
-  for (auto & c : buildName)
-    c = std::tolower(c, loc);
 
   if (FLAGS_scale == -1) {
     auto it = buildingToScale.find(buildName);
@@ -417,11 +414,11 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
   freeSpaceEvidence.clear();
   Eigen::Vector3f cameraCenter = -1.0*pointMin;
 
-  /*voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi> numTimesSeen (
-    Eigen::Vector2i(0, 0), Eigen::Vector2i(numX, numY));*/
+  voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi> numTimesSeen (
+    Eigen::Vector2i(0, 0), Eigen::Vector2i(numX, numY));
 
-  std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
-
+  // std::vector<Eigen::MatrixXi> numTimesSeen (numX, Eigen::MatrixXi::Zero(numZ, numY));
+  const double startTime = omp_get_wtime();
   for (int i = 0; i < numX; ++i) {
     for (int j = 0; j < numY; ++j) {
       auto column = pointsPerVoxel->at(i, j);
@@ -453,31 +450,36 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
             continue;
           if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
             continue;
-          /*auto n = numTimesSeen(voxelHit[0], voxelHit[1]);
+          auto n = numTimesSeen(voxelHit[0], voxelHit[1]);
           if (!n) {
             n = numTimesSeen.insert(std::make_shared<Eigen::VectorXi>
               (Eigen::VectorXi::Zero(numZ)), voxelHit[0], voxelHit[1]);
           }
 
           (*n)[voxelHit[2]] +=
-            (*column)[k];*/
+            (*column)[k];
 
-          numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1])
-            += (*column)[k];
+          /*numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1])
+            += (*column)[k];*/
         }
       }
     }
   }
+  const long seconds = omp_get_wtime() - startTime;
+
+  std::cout << "Hours: " << seconds/3600 <<
+    "  minutes: " << seconds/60 % 60 <<
+    "  seconds: " << seconds % 60 << std::endl;
 
   Eigen::MatrixXd collapsedCount = Eigen::MatrixXd::Zero(numY, numX);
 
   for (int i = 0; i < numX; ++i) {
     for (int j = 0; j < numY; ++j) {
-      // auto column = numTimesSeen(i, j);
-      bool column = true;
+      auto column = numTimesSeen(i, j);
+      // bool column = true;
       if (column) {
         for (int k = 0; k < numZ; ++k) {
-          if (numTimesSeen[i](k,j)) {
+          if (/*numTimesSeen[i](k,j)*/ (*column)[k]) {
             ++collapsedCount(j, i);
           }
         }

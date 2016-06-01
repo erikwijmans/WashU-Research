@@ -25,19 +25,19 @@
 
 // Defines a hasher that is capable of hasing an arbitrary Eigen Matrix
 namespace std {
-  template<>
   template<typename _Scalar, int _Rows, int _Cols, int _Options, int _MaxRows, int _MaxCols>
   struct hash<Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > >
   {
     //NB:: More than likely, indicies into the HashVoxel will be in
     // the range [0, 10000] which doesn't satisfy the uniform hashing
     // assumption very well, so A is used to spread those out.
-    constexpr double A = 1.6180339887498948482*1e5;
+    static constexpr double A = 1.6180339887498948482*1e5;
+    hash<double> h;
     size_t operator()(const Eigen::Matrix< _Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols > & k) const {
       size_t seed = 0;
       auto dataPtr = k.data();
       for (int i = 0; i < k.size(); ++i) {
-        seed ^= static_cast<size_t>(*(dataPtr + i)*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= h(*(dataPtr + i)*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       }
       return seed;
     }

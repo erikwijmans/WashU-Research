@@ -9,7 +9,7 @@ project( placeScan )
 find_package( OpenCV REQUIRED )
 find_package( gflags REQUIRED )
 find_package( GUROBI REQUIRED )
-find_package( Boost COMPONENTS system filesystem REQUIRED )
+find_package( Boost COMPONENTS timer REQUIRED )
 include_directories( ${Boost_INCLUDE_DIRS} )
 include_directories(${GUROBI_INCLUDE_DIRS})
 file( GLOB place_SRC
@@ -28,6 +28,4 @@ file(GLOB scan_globals
 add_executable( placeScan ${place_SRC} ${scan_globals})
 target_link_libraries( placeScan ${OpenCV_LIBS}
                       ${GUROBI_LIBS}
-                      ${Boost_FILESYSTEM_LIBRARY}
-                      ${Boost_SYSTEM_LIBRARY}
                       gflags)

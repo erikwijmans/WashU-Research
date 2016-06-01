@@ -3,8 +3,6 @@
 
 #include "placeScan_placeScanHelper.h"
 
-
-
 namespace confidence{
   typedef struct{
     place::posInfo s;

@@ -11,10 +11,9 @@
 
 cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
-const double maxDelta = 0.10, maxTotal = 0.20;
+const double maxDelta = 0.10, maxTotal = 0.15;
 
 static const int minWrite = 20;
-
 
 void place::parseFolders(std::vector<std::string> & pointFileNames,
   std::vector<std::string> & zerosFileNames,
@@ -193,7 +192,7 @@ static int countNumToDeltas(const std::vector<const place::posInfo *> & minima) 
   const double initailScore = minima[0]->score;
   for (auto & min : minima) {
     if (min->score - lastScore < maxDelta
-      && min->score - initailScore < maxTotal)
+      && min->score - initailScore < (maxTotal + 0.05))
       ++num;
     else
       break;
@@ -201,8 +200,10 @@ static int countNumToDeltas(const std::vector<const place::posInfo *> & minima) 
   return num;
 }
 
-void place::savePlacement(const std::vector<const place::posInfo *> & minima,
-  const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero){
+void place::savePlacement (const std::vector<const place::posInfo *> & minima,
+  const std::string & outName, const std::vector<Eigen::Vector2i> & zeroZero) {
+
+  assert (minima.size() > 2);
   std::ofstream out (outName, std::ios::out);
   std::ofstream outB (outName.substr(0, outName.find(".")) + ".dat", std::ios::out | std::ios::binary);
   const int numToDeltas = countNumToDeltas(minima);

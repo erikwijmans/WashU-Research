@@ -6,7 +6,6 @@
 
 #include <scan_typedefs.hpp>
 
-
 namespace place {
   void analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & fpPyramid,
     const std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid,
@@ -73,9 +72,5 @@ namespace place {
     std::vector<Eigen::SparseMatrix<double> > & erodedFpPyramid);
 
 } //namespace place
-
-
-
-
 
 #endif
