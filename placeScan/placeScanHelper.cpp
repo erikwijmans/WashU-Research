@@ -41,8 +41,7 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
     exit(-1);
   }
   const std::string zzFolder = FLAGS_zerosFolder;
-  parseFolder(zzFolder, zerosFileNames);
-  /*if ((dir = opendir (zzFolder.data())) != NULL) {
+  if ((dir = opendir (zzFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
       if (fileName != ".." && fileName != "." ){
@@ -54,7 +53,7 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
     // could not open directory
     perror ("");
     exit(1);
-  }*/
+  }
 
   if (pointFileNames.size() != zerosFileNames.size()){
     perror("Not the same number of scans as zeros!");

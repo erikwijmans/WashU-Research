@@ -66,7 +66,7 @@ void prependDataPath() {
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
 
-void parseFolder(const std::string name, std::vector<std::string> & out) {
+/*void parseFolder(const std::string name, std::vector<std::string> & out) {
   for (auto & file : nameToIterator(name))
   	out.push_back(file.path().string());
 
@@ -81,7 +81,7 @@ boost::filesystem::directory_iterator nameToIterator(const std::string name) {
     exit(1);
   }
   return boost::filesystem::directory_iterator(folder);
-}
+}*/
 
 /*int main() {
   prependDataPath();
