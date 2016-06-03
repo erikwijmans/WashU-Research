@@ -3,6 +3,9 @@
 #define SCAN_GFLAGS_H
 
 #include <gflags/gflags.h>
+#include <string>
+#include <vector>
+#include <boost/filesystem.hpp>
 
 DECLARE_bool(visulization);
 DECLARE_bool(previewIn);
@@ -44,5 +47,6 @@ DECLARE_double(scale);
 
 void prependDataPath();
 void parseFolder(const std::string name, std::vector<std::string> & out);
+boost::filesystem::directory_iterator nameToIterator(const std::string name);
 
 #endif // SCAN_GFLAGS_H

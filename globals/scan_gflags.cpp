@@ -1,9 +1,6 @@
 #include "scan_gflags.h"
 
-/*#include <string>
-#include <vector>
-#include <boost/filesystem.hpp>
-#include <iostream>*/
+#include <iostream>
 
 DEFINE_bool(visulization, false,
   "Turns on all visualization options that do not impact performance");
@@ -69,21 +66,24 @@ void prependDataPath() {
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
 
-/*void parseFolder(const std::string name, std::vector<std::string> & out) {
-	boost::filesystem::path folder (name);
-  if (boost::filesystem::exists(folder) &&
-    boost::filesystem::is_directory(folder)) {
-    for (auto & file : boost::filesystem::directory_iterator(folder)) {
-    	out.push_back(file.path().string());
-    }
-  } else {
-    std::cout << folder << " does not exists" << std::endl;
-    exit(-1);
-  }
+void parseFolder(const std::string name, std::vector<std::string> & out) {
+  for (auto & file : nameToIterator(name))
+  	out.push_back(file.path().string());
+
   std::sort(out.begin(), out.end());
 }
 
-int main() {
+boost::filesystem::directory_iterator nameToIterator(const std::string name) {
+  boost::filesystem::path folder (name);
+  if (!boost::filesystem::exists(folder) ||
+    !boost::filesystem::is_directory(folder)) {
+    std::cout << folder << " does not exists" << std::endl;
+    exit(1);
+  }
+  return boost::filesystem::directory_iterator(folder);
+}
+
+/*int main() {
   prependDataPath();
   std::vector<std::string> test;
   parseFolder(FLAGS_zerosFolder, test);
