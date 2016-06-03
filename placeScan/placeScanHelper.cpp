@@ -17,11 +17,12 @@ static const int minWrite = 20;
 
 void place::parseFolders(std::vector<std::string> & pointFileNames,
   std::vector<std::string> & zerosFileNames,
-  std::vector<std::string> * freeFileNames){
+  std::vector<std::string> * freeFileNames) {
+
+  const std::string newDmFolder = FLAGS_dmFolder + "R0/";
 
   DIR *dir;
   struct dirent *ent;
-  const std::string newDmFolder = FLAGS_dmFolder + "R0/";
   if ((dir = opendir (newDmFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
@@ -35,12 +36,13 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
     }
     closedir (dir);
   }  else {
-    /* could not open directory */
+    // could not open directory
     perror ("");
     exit(-1);
   }
   const std::string zzFolder = FLAGS_zerosFolder;
-  if ((dir = opendir (zzFolder.data())) != NULL) {
+  parseFolder(zzFolder, zerosFileNames);
+  /*if ((dir = opendir (zzFolder.data())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
       std::string fileName = ent->d_name;
       if (fileName != ".." && fileName != "." ){
@@ -49,10 +51,10 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
     }
     closedir (dir);
   }  else {
-    /* could not open directory */
+    // could not open directory
     perror ("");
-    exit(-1);
-  }
+    exit(1);
+  }*/
 
   if (pointFileNames.size() != zerosFileNames.size()){
     perror("Not the same number of scans as zeros!");
