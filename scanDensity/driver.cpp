@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
           manager.get2DPointNames($2DPointNames);
           manager.get2DFreeNames($2DFreeNames);
           manager.get3DPointNames($3DPointNames);
-          manager.get3DFreeNames($2DFreeNames);
+          manager.get3DFreeNames($3DFreeNames);
           zerosName = manager.getZerosName();
           metaDataName = manager.getMetaDataName();
           scale = manager.getScale();
