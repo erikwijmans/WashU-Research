@@ -31,7 +31,7 @@ mkdir -p $1/voxelGrids/metaData
 # echo "Running scanDensity"
 cd $2/scanDensity
 make || exit 1
-./scanDensity -dataPath=$1 -redo -2D
+./scanDensity -dataPath=$1 -redo -2D -pe
 # echo "Running placeScan"
 # cd $2/placeScan
 # make || exit 1

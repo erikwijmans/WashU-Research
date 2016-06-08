@@ -395,8 +395,8 @@ void CloudAnalyzer2D::examinePointEvidence() {
         const double count = total(src[1], src[0]);
         if (count > 0) {
           const int gray = cv::saturate_cast<uchar>(
-            255.0 * (count - average - sigma)
-              / (3.0 * sigma));
+            255.0 * ((count - average - sigma)
+              / (3.0*sigma) - 0.0*sigma));
           dst[i] = 255 - gray;
         }
       }

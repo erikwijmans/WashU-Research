@@ -25,9 +25,11 @@ int main(int argc, char *argv[]) {
   boost::progress_display * show_progress = nullptr;
   if (FLAGS_quietMode)
     show_progress = new boost::progress_display (FLAGS_numScans);
+  if (FLAGS_threads == -1)
+    FLAGS_threads = 4;
 
   #pragma omp parallel shared(manager) if(!FLAGS_preview) \
-    num_threads(4)
+    num_threads(FLAGS_threads)
   {
     bool loop = true;
     while(loop) {
@@ -55,9 +57,9 @@ int main(int argc, char *argv[]) {
           zerosName = manager.getZerosName();
           metaDataName = manager.getMetaDataName();
           scale = manager.getScale();
-          manager.setNext();
           twoD = FLAGS_2D && (FLAGS_redo || !manager.exists2D());
           threeD = FLAGS_3D && (FLAGS_redo || !manager.exists3D());
+          manager.setNext();
         }
       }
 

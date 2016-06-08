@@ -1,7 +1,8 @@
 #!/bin/bash
 # usage: ./driver.sh <root dir> <root progs>
-# echo "Starting pipline with dataPath=$1/DUC/Floor1"
-# ./pipeLine.sh $1/DUC/Floor1
+
+echo "Starting pipline with dataPath=$1/DUC/Floor1"
+./pipeLine.sh $1/DUC/Floor1 $2
 echo "Starting pipline with dataPath=$1/DUC/Floor2"
 ./pipeLine.sh $1/DUC/Floor2 $2
 echo "Starting pipline with dataPath=$1/CSE/Floor3"
