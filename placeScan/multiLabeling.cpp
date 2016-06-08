@@ -75,7 +75,7 @@ static void exclusionLite(std::vector<place::SelectedNode> & nodes,
       const Eigen::Vector2d a (nodes[i].s.x, nodes[i].s.y);
       const Eigen::Vector2d b(nodes[j].s.x, nodes[j].s.y);
       const double dist = (a-b).norm()/scale;
-      if (dist < 1.5) {
+      if (dist < 1.0) {
         nodes[i].locked = false;
         nodes[j].locked = false;
       }
@@ -111,47 +111,24 @@ multi::Labeler::Labeler() {
 
   {
     std::string folder = FLAGS_voxelFolder + "R0/";
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (folder.data())) != NULL) {
-      while ((ent = readdir (dir)) != NULL) {
-        std::string fileName = ent->d_name;
-        if (fileName != ".." && fileName != "."
-          && fileName.find("point") != std::string::npos){
-          pointVoxelFileNames.push_back(fileName);
-        } else if (fileName != ".." && fileName != "."
-          && fileName.find("freeSpace") != std::string::npos) {
-          freeVoxelFileNames.push_back(fileName);
-        }
+    for (auto & file : folderToIterator(folder)) {
+      std::string fileName = file.path().filename().string();
+      if (fileName != ".." && fileName != "."
+        && fileName.find("point") != std::string::npos){
+        pointVoxelFileNames.push_back(fileName);
+      } else if (fileName != ".." && fileName != "."
+        && fileName.find("freeSpace") != std::string::npos) {
+        freeVoxelFileNames.push_back(fileName);
       }
-      closedir (dir);
-    }  else {
-      /* could not open directory */
-      perror ("");
-      exit(-1);
     }
+
     std::sort(pointVoxelFileNames.begin(), pointVoxelFileNames.end());
     std::sort(freeVoxelFileNames.begin(), freeVoxelFileNames.end());
   }
 
   const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
-  {
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (metaDataFolder.data())) != NULL) {
-      while ((ent = readdir (dir)) != NULL) {
-        std::string fileName = ent->d_name;
-        if (fileName != ".." && fileName != ".")
-          metaDataFiles.push_back(fileName);
-      }
-      closedir (dir);
-    }  else {
-      /* could not open directory */
-      perror ("");
-      exit(-1);
-    }
-    std::sort(metaDataFiles.begin(), metaDataFiles.end());
-  }
+  parseFolder(metaDataFolder, metaDataFiles);
+  std::sort(metaDataFiles.begin(), metaDataFiles.end());
 
   const int numScans = pointFileNames.size();
 
@@ -188,50 +165,16 @@ multi::Labeler::Labeler() {
 
 void multi::Labeler::load() {
   if (loaded) return;
-  DIR *dir;
-  struct dirent *ent;
+
   const std::string rotFolder = FLAGS_rotFolder;
-  if ((dir = opendir (rotFolder.data())) != NULL) {
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".")
-        rotationsFiles.push_back(fileName);
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(-1);
-  }
+  parseFolder(rotFolder, rotationsFiles);
 
   std::string panoImagesFolder = FLAGS_panoFolder + "images/";
-  std::string panoDataFolder = FLAGS_panoFolder + "data/";
-  if ((dir = opendir (panoImagesFolder.data())) != NULL) {
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".")
-        panoFiles.push_back(fileName);
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(-1);
-  }
+  parseFolder(panoImagesFolder, panoFiles);
 
   std::vector<std::string> panoDataNames;
-  if ((dir = opendir (panoDataFolder.data())) != NULL) {
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".")
-        panoDataNames.push_back(fileName);
-    }
-    closedir (dir);
-  }  else {
-    /* could not open directory */
-    perror ("");
-    exit(-1);
-  }
+  std::string panoDataFolder = FLAGS_panoFolder + "data/";
+  parseFolder(panoDataFolder, panoDataNames);
 
   std::sort(rotationsFiles.begin(), rotationsFiles.end());
   std::sort(panoFiles.begin(), panoFiles.end());

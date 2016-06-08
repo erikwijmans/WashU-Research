@@ -20,40 +20,19 @@ void place::parseFolders(std::vector<std::string> & pointFileNames,
   std::vector<std::string> * freeFileNames) {
 
   const std::string newDmFolder = FLAGS_dmFolder + "R0/";
+  for (auto & file : folderToIterator(newDmFolder)) {
+    std::string fileName = file.path().filename().string();
+    if (fileName != ".." && fileName != "."
+      && fileName.find("point") != std::string::npos){
+      pointFileNames.push_back(fileName);
+    } else if (freeFileNames && fileName != ".." && fileName != "."
+      && fileName.find("freeSpace") != std::string::npos) {
+      freeFileNames->push_back(fileName);
+    }
+  }
 
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir (newDmFolder.data())) != NULL) {
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != "."
-        && fileName.find("point") != std::string::npos){
-        pointFileNames.push_back(fileName);
-      } else if (freeFileNames && fileName != ".." && fileName != "."
-        && fileName.find("freeSpace") != std::string::npos) {
-        freeFileNames->push_back(fileName);
-      }
-    }
-    closedir (dir);
-  }  else {
-    // could not open directory
-    perror ("");
-    exit(-1);
-  }
   const std::string zzFolder = FLAGS_zerosFolder;
-  if ((dir = opendir (zzFolder.data())) != NULL) {
-    while ((ent = readdir (dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != "." ){
-        zerosFileNames.push_back(fileName);
-      }
-    }
-    closedir (dir);
-  }  else {
-    // could not open directory
-    perror ("");
-    exit(1);
-  }
+  parseFolder(zzFolder, zerosFileNames);
 
   if (pointFileNames.size() != zerosFileNames.size()){
     perror("Not the same number of scans as zeros!");
@@ -156,7 +135,7 @@ void place::trimScans(const std::vector<cv::Mat> & toTrim,
       const uchar * src = scan.ptr<uchar>(i);
       uchar * dst = trimmedScan.ptr<uchar>(i-minRow);
       for (int j = minCol; j < maxCol + 1; ++j) {
-        dst[j-minCol] = src[j];
+        dst[j - minCol] = src[j];
       }
     }
 
@@ -379,7 +358,7 @@ void place::displayOutput(const Eigen::SparseMatrix<double> & fp,
     uchar * dst = tmpColor.ptr<uchar>(i);
     const uchar * src = fpImg.ptr<uchar>(i);
     for (int j = 0; j < tmpColor.cols; ++j) {
-      if (src[j]!=255) {
+      if (src[j] != 255) {
         dst[j*3] = 128;
         dst[j*3+1] = 128;
         dst[j*3+2] = 128;

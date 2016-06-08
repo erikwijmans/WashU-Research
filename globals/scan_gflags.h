@@ -43,10 +43,11 @@ DECLARE_int32(numLevels);
 DECLARE_int32(metricNumber);
 DECLARE_int32(stopNumber);
 DECLARE_int32(top);
+DECLARE_int32(threads);
 DECLARE_double(scale);
 
 void prependDataPath();
-void parseFolder(const std::string name, std::vector<std::string> & out);
-boost::filesystem::directory_iterator nameToIterator(const std::string name);
+void parseFolder(const std::string & name, std::vector<std::string> & out);
+boost::filesystem::directory_iterator folderToIterator(const std::string & name);
 
 #endif // SCAN_GFLAGS_H

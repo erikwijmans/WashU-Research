@@ -27,6 +27,9 @@ int main(int argc, char *argv[]) {
     FLAGS_quietMode = false;
   }
 
+  if (FLAGS_threads != -1)
+    omp_set_num_threads(FLAGS_threads);
+
   cv::Mat inFP = cv::imread(FLAGS_floorPlan, 0);
   if (!inFP.data) {
     std::cout << "Error reading floorPlan" << std::endl;
@@ -58,29 +61,32 @@ int main(int argc, char *argv[]) {
       }
     }
   }
+  if (false) {
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/cse_point_017.png", 0);
+    std::vector<Eigen::Vector2i> tmp (4);
+    std::vector<cv::Mat> toTrim = {image}, trimmed;
+    place::trimScans(toTrim, trimmed, tmp);
+    image = trimmed[0];
 
-  cv::Mat image = cv::imread(FLAGS_dmFolder + "R3/DUC_point_083.png", 0);
-  std::vector<Eigen::Vector2i> tmp (4);
-  std::vector<cv::Mat> toTrim = {image}, trimmed;
-  place::trimScans(toTrim, trimmed, tmp);
-  image = trimmed[0];
-
-  /*const int yOffset = 2900;
-  const int xOffset = 100;
-  for (int i = 0; i < image.rows; ++i) {
-    uchar * src = image.ptr<uchar>(i);
-    uchar * dst = fpColor.ptr<uchar>(i + yOffset);
-    for (int j = 0; j < image.cols; ++j) {
-      if (src[j] != 255) {
-        dst[3*(j+xOffset) + 0] = 0;
-        dst[3*(j+xOffset) + 1] = 0;
-        dst[3*(j+xOffset) + 2] = 255;
+    const int xOffset = 3500;
+    const int yOffset = 2820;
+    for (int i = 0; i < image.rows; ++i) {
+      uchar * src = image.ptr<uchar>(i);
+      uchar * dst = fpColor.ptr<uchar>(i + yOffset);
+      for (int j = 0; j < image.cols; ++j) {
+        if (src[j] != 255) {
+          dst[3*(j+xOffset) + 0] = 0;
+          dst[3*(j+xOffset) + 1] = 0;
+          dst[3*(j+xOffset) + 2] = 255;
+        }
       }
     }
+    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+    cv::imshow("Preview", fpColor);
+    cv::waitKey(0);
+    return 0;
   }
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", fpColor);
-  cv::waitKey(0);*/
+
 
   std::vector<Eigen::SparseMatrix<double> > fpPyramid, erodedFpPyramid;
   std::vector<Eigen::MatrixXb> fpMasks;
@@ -238,12 +244,12 @@ void place::analyzePlacement(const std::vector<Eigen::SparseMatrix<double> > & f
   std::vector<place::posInfo> scores;
   std::vector<const posInfo *> minima;
 
-  if (false && FLAGS_debugMode) {
-    for (int k = FLAGS_numLevels; k >= 0; --k) {
+  if (true && FLAGS_debugMode) {
+    for (int k = 0; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp (110, 2919, 3);
+      Eigen::Vector3i tmp (3500, 2820, 2);
       tmp[0] /= pow(2,k);
       tmp[1] /= pow(2,k);
 

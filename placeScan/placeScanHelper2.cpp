@@ -314,7 +314,7 @@ void place::loadInScansGraph(const std::vector<std::string> & pointFileNames,
   }
 }
 
-static std::string encapPair(int x, int y) {
+static std::string printPair(int x, int y) {
   return "(" + std::to_string(x) + "," + std::to_string(y) + ")";
 }
 
@@ -442,9 +442,6 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       const place::node & nodeA = nodes[i];
       const place::node & nodeB = nodes[j];
 
-     /*if (j != 52) continue;
-     if (i != 27) continue;*/
-
       if (nodeA.color != voxelAColor || nodeA.s.rotation != voxelARot) {
         std::string name = FLAGS_voxelFolder + "R"
           + std::to_string(nodeA.s.rotation) + "/" + pointVoxelFileNames[nodeA.color];
@@ -504,7 +501,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
   }
   std::cout << totatlCount / numCalls << std::endl;
   delete show_progress;
-  //Copy the lower tranalge into the upper triangle
+  // Copy the lower tranalge into the upper triangle
   // adjacencyMatrix.triangluarView<Upper>() = adjacencyMatrix.transpose();
   for (int i = 0; i < cols ; ++i)
     for (int j = i + 1; j < rows; ++j)
@@ -698,13 +695,15 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
 
   std::cout << "Displaying solution" << std::endl;
 
+  cv::Mat all(fpColor.rows, fpColor.cols, CV_8UC3);
+  fpColor.copyTo(all);
+
   for (auto & n : bestNodes) {
     std::cout << n << std::endl;
-    if (n.agreement == 0) continue;
 
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
-    cv::Mat_<cv::Vec3b> _output = output;
+    cv::Mat_<cv::Vec3b> _output = output, _all = all;
     const Eigen::MatrixXb & scan = scans[n.color][n.s.rotation];
     const Eigen::Vector2i zeroZero = zeroZeros[n.color][n.s.rotation];
     const int xOffset = n.s.x - zeroZero[0];
@@ -721,10 +720,18 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
             _output(yOffset + j, xOffset + i)[0] = 0;
             _output(yOffset + j, xOffset + i)[1] = 0;
             _output(yOffset + j, xOffset + i)[2] = 255;
+
+            _all(yOffset + j, xOffset + i)[0] = 0;
+            _all(yOffset + j, xOffset + i)[1] = 0;
+            _all(yOffset + j, xOffset + i)[2] = 255;
           } else {
             _output(yOffset + j, xOffset + i)[0] = 255;
             _output(yOffset + j, xOffset + i)[1] = 0;
             _output(yOffset + j, xOffset + i)[2] = 0;
+
+            _all(yOffset + j, xOffset + i)[0] = 255;
+            _all(yOffset + j, xOffset + i)[1] = 0;
+            _all(yOffset + j, xOffset + i)[2] = 0;
           }
         }
       }
@@ -734,6 +741,10 @@ void place::displayBest(const std::vector<place::SelectedNode> & bestNodes,
     cv::imshow("Preview", output);
     cv::waitKey(0);
   }
+
+  cvNamedWindow("All", CV_WINDOW_NORMAL);
+  cv::imshow("All", all);
+  cv::waitKey(0);
 }
 
 static inline double getAngle (const Eigen::Vector3i & A,
@@ -965,7 +976,6 @@ void place::TRWSolver(const Eigen::MatrixXE & adjacencyMatrix,
         rowOffset += numberOfLabels[j];
       }
       agreement /= count ? count : 1;
-      agreement += nodes[index].w;
       bestNodes.emplace_back(nodes[index], agreement, labeling[i], true);
     }
     offset += numberOfLabels[i];

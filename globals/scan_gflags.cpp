@@ -48,6 +48,7 @@ DEFINE_int32(numScans, -1,
 DEFINE_int32(numLevels, 5, "Number of levels in the pyramid");
 DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for placement");
 DEFINE_int32(top, -1, "Only shows the top x placements, -1=ALL");
+DEFINE_int32(threads, -1, "Number of threads to use");
 DEFINE_double(scale, -1, "Scale used to size the density maps.  If -1, it will be looked up");
 
 void prependDataPath() {
@@ -66,14 +67,12 @@ void prependDataPath() {
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
 
-/*void parseFolder(const std::string name, std::vector<std::string> & out) {
-  for (auto & file : nameToIterator(name))
-  	out.push_back(file.path().string());
-
-  std::sort(out.begin(), out.end());
+void parseFolder(const std::string & name, std::vector<std::string> & out) {
+  for (auto & file : folderToIterator(name))
+  	out.push_back(file.path().filename().string());
 }
 
-boost::filesystem::directory_iterator nameToIterator(const std::string name) {
+boost::filesystem::directory_iterator folderToIterator(const std::string & name) {
   boost::filesystem::path folder (name);
   if (!boost::filesystem::exists(folder) ||
     !boost::filesystem::is_directory(folder)) {
@@ -81,7 +80,7 @@ boost::filesystem::directory_iterator nameToIterator(const std::string name) {
     exit(1);
   }
   return boost::filesystem::directory_iterator(folder);
-}*/
+}
 
 /*int main() {
   prependDataPath();
