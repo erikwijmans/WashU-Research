@@ -25,11 +25,10 @@ int main(int argc, char *argv[]) {
   boost::progress_display * show_progress = nullptr;
   if (FLAGS_quietMode)
     show_progress = new boost::progress_display (FLAGS_numScans);
-  if (FLAGS_threads == -1)
+  if (FLAGS_threads)
     FLAGS_threads = 4;
-
-  #pragma omp parallel shared(manager) if(!FLAGS_preview) \
-    num_threads(FLAGS_threads)
+  omp_set_num_threads(FLAGS_threads);
+  #pragma omp parallel shared(manager) if(!FLAGS_preview)
   {
     bool loop = true;
     while(loop) {

@@ -99,6 +99,8 @@ int main(int argc, char *argv[]) {
 
   if (FLAGS_numScans == -1 )
     FLAGS_numScans = csvFileNames.size() - FLAGS_startIndex;
+  if (FLAGS_threads)
+    omp_set_num_threads(FLAGS_threads);
 
   boost::progress_display * show_progress = nullptr;
   if (FLAGS_quietMode)

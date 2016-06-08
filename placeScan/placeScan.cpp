@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     FLAGS_quietMode = false;
   }
 
-  if (FLAGS_threads != -1)
+  if (FLAGS_threads)
     omp_set_num_threads(FLAGS_threads);
 
   cv::Mat inFP = cv::imread(FLAGS_floorPlan, 0);

@@ -48,7 +48,7 @@ DEFINE_int32(numScans, -1,
 DEFINE_int32(numLevels, 5, "Number of levels in the pyramid");
 DEFINE_int32(metricNumber, 3, "Which metric version the algorithm uses for placement");
 DEFINE_int32(top, -1, "Only shows the top x placements, -1=ALL");
-DEFINE_int32(threads, -1, "Number of threads to use");
+DEFINE_int32(threads, 0, "Number of threads to use.  If 0 OMP runtime will decide");
 DEFINE_double(scale, -1, "Scale used to size the density maps.  If -1, it will be looked up");
 
 void prependDataPath() {
