@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
     while(loop) {
       bool twoD = false;
       bool threeD = false;
-      std::vector<std::string> peNames, feNames;
-      std::vector<std::string> pointNames, freeNames;
+      std::vector<std::string> $2DPointNames, $2DFreeNames;
+      std::vector<std::string> $3DPointNames, $3DFreeNames;
       std::string zerosName, metaDataName;
       DensityMapsManager::PointsPtr $3DPoints, $2DPoints;
       DensityMapsManager::MatPtr R;
@@ -48,10 +48,10 @@ int main(int argc, char *argv[]) {
           $3DPoints = manager.getPointsWithCenter();
           $2DPoints = manager.getPointsNoCenter();
           R = manager.getR();
-          manager.get2DPointNames(peNames);
-          manager.get2DFreeNames(feNames);
-          manager.get3DPointNames(pointNames);
-          manager.get3DFreeNames(freeNames);
+          manager.get2DPointNames($2DPointNames);
+          manager.get2DFreeNames($2DFreeNames);
+          manager.get3DPointNames($3DPointNames);
+          manager.get3DFreeNames($2DFreeNames);
           zerosName = manager.getZerosName();
           metaDataName = manager.getMetaDataName();
           scale = manager.getScale();
@@ -65,13 +65,13 @@ int main(int argc, char *argv[]) {
         auto bBox2D = BoundingBox::Create($2DPoints, Eigen::Vector3f (9.0, 9.0, 6.0));
         bBox2D->run();
 
-        CloudAnalyzer2D analyzer2D ($2DPoints, R, bBox2D);
+        CloudAnalyzer2D analyzer2D ($3DPoints, R, bBox2D);
         analyzer2D.initalize(scale);
 
         if (FLAGS_pe) {
           analyzer2D.examinePointEvidence();
           if (FLAGS_save) {
-            saveImages(analyzer2D.getPointEvidence(), peNames);
+            saveImages(analyzer2D.getPointEvidence(), $2DPointNames);
             saveZeroZero(analyzer2D.getImageZeroZero(),
               zerosName);
           }
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
           analyzer2D.examineFreeSpaceEvidence();
 
           if (FLAGS_save)
-            saveImages(analyzer2D.getFreeSpaceEvidence(), feNames);
+            saveImages(analyzer2D.getFreeSpaceEvidence(), $2DFreeNames);
         }
       }
 
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
         analyzer3D.run(voxelsPerMeter, scale);
 
         if (FLAGS_save)
-          analyzer3D.saveVoxelGrids(pointNames, freeNames,
+          analyzer3D.saveVoxelGrids($3DPointNames, $3DFreeNames,
             metaDataName);
       }
 
