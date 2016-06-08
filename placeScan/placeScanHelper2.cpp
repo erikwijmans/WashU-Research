@@ -342,10 +342,15 @@ void place::weightEdges(const std::vector<place::node> & nodes,
     place::cube crossWRTA, crossWRTB;
   } later;
 
+  #pragma omp declare reduction \
+    (merge : std::vector<later> : omp_out.insert(omp_out.end(),\
+    omp_in.begin(), omp_in.end()))
+
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
   std::vector<later> tracker;
   //Iterator over the lower triangle of the adjaceny matrix
+  #pragma omp parallel for reduction(merge: tracker)
   for (int i = 0; i < cols ; ++i) {
     const place::node & nodeA = nodes[i];
     for (int j = i + 1; j < rows; ++j) {
@@ -499,7 +504,7 @@ void place::weightEdges(const std::vector<place::node> & nodes,
       postProgress();
     }
   }
-  std::cout << totatlCount / numCalls << std::endl;
+
   delete show_progress;
   // Copy the lower tranalge into the upper triangle
   // adjacencyMatrix.triangluarView<Upper>() = adjacencyMatrix.transpose();
