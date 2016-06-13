@@ -9,3 +9,4 @@ install_manifest.txt
 *.dat
 *.png
 .DS_store
+*.sublime*

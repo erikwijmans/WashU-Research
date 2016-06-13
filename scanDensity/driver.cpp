@@ -5,33 +5,31 @@
   and free space evidence
 */
 
-#include "scanDensity_scanDensity.h"
 #include "scanDensity_3DInfo.h"
+#include "scanDensity_scanDensity.h"
 
 #include <boost/progress.hpp>
 
-void saveImages(const std::vector<cv::Mat> & images,
-  const std::vector<std::string> & names);
-void saveZeroZero(const Eigen::Vector2i & zZ, const std::string & name);
+void saveImages(const std::vector<cv::Mat> &images,
+                const std::vector<std::string> &names);
+void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name);
 
 static const double voxelsPerMeter = 20.0;
 
 int main(int argc, char *argv[]) {
-
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  FLAGS_threads = 4;
+  DensityMapsManager manager(argc, argv);
 
-  DensityMapsManager manager (argc, argv);
-
-  boost::progress_display * show_progress = nullptr;
+  boost::progress_display *show_progress = nullptr;
   if (FLAGS_quietMode)
-    show_progress = new boost::progress_display (FLAGS_numScans);
-  if (FLAGS_threads)
-    FLAGS_threads = 4;
-  omp_set_num_threads(FLAGS_threads);
-  #pragma omp parallel shared(manager) if(!FLAGS_preview)
+    show_progress = new boost::progress_display(FLAGS_numScans);
+  if (FLAGS_threads) omp_set_num_threads(FLAGS_threads);
+
+#pragma omp parallel shared(manager) if (!FLAGS_preview)
   {
     bool loop = true;
-    while(loop) {
+    while (loop) {
       bool twoD = false;
       bool threeD = false;
       std::vector<std::string> $2DPointNames, $2DFreeNames;
@@ -40,7 +38,7 @@ int main(int argc, char *argv[]) {
       DensityMapsManager::PointsPtr $3DPoints, $2DPoints;
       DensityMapsManager::MatPtr R;
       double scale;
-      #pragma omp critical
+#pragma omp critical
       {
         if (!manager.hasNext()) {
           loop = false;
@@ -63,18 +61,18 @@ int main(int argc, char *argv[]) {
       }
 
       if (twoD) {
-        auto bBox2D = BoundingBox::Create($2DPoints, Eigen::Vector3f (9.0, 9.0, 6.0));
+        auto bBox2D =
+            BoundingBox::Create($2DPoints, Eigen::Vector3f(9.0, 9.0, 6.0));
         bBox2D->run();
 
-        CloudAnalyzer2D analyzer2D ($3DPoints, R, bBox2D);
+        CloudAnalyzer2D analyzer2D($3DPoints, R, bBox2D);
         analyzer2D.initalize(scale);
 
         if (FLAGS_pe) {
           analyzer2D.examinePointEvidence();
           if (FLAGS_save) {
             saveImages(analyzer2D.getPointEvidence(), $2DPointNames);
-            saveZeroZero(analyzer2D.getImageZeroZero(),
-              zerosName);
+            saveZeroZero(analyzer2D.getImageZeroZero(), zerosName);
           }
         }
         if (FLAGS_fe) {
@@ -86,40 +84,37 @@ int main(int argc, char *argv[]) {
       }
 
       if (threeD) {
-        auto bBox3D = BoundingBox::Create($3DPoints, Eigen::Vector3f (10.0, 10.0, 6.0));
+        auto bBox3D =
+            BoundingBox::Create($3DPoints, Eigen::Vector3f(10.0, 10.0, 6.0));
         bBox3D->run();
         Eigen::Vector3f pointMin, pointMax;
         bBox3D->getBoundingBox(pointMin, pointMax);
 
-        voxel::CloudAnalyzer3D analyzer3D ($3DPoints,
-          R, bBox3D);
+        voxel::CloudAnalyzer3D analyzer3D($3DPoints, R, bBox3D);
         analyzer3D.run(voxelsPerMeter, scale);
 
         if (FLAGS_save)
-          analyzer3D.saveVoxelGrids($3DPointNames, $3DFreeNames,
-            metaDataName);
+          analyzer3D.saveVoxelGrids($3DPointNames, $3DFreeNames, metaDataName);
       }
 
       if (show_progress && loop)
-        #pragma omp critical
+#pragma omp critical
         ++(*show_progress);
     }
   }
-  if (show_progress)
-    delete show_progress;
+  if (show_progress) delete show_progress;
 
   return 0;
 }
 
-void saveImages(const std::vector<cv::Mat> & images,
-  const std::vector<std::string> & names) {
+void saveImages(const std::vector<cv::Mat> &images,
+                const std::vector<std::string> &names) {
   assert(names.size() == images.size());
-  for (int i = 0; i < names.size(); ++i)
-    cv::imwrite(names[i], images[i]);
+  for (int i = 0; i < names.size(); ++i) cv::imwrite(names[i], images[i]);
 }
 
-void saveZeroZero(const Eigen::Vector2i & zZ, const std::string & name) {
-  std::ofstream out (name, std::ios::out | std::ios::binary);
+void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name) {
+  std::ofstream out(name, std::ios::out | std::ios::binary);
   for (int i = 0; i < NUM_ROTS; ++i)
     out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
   out.close();

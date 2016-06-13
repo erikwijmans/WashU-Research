@@ -3,14 +3,12 @@
 
 #include <eigen3/Eigen/Eigen>
 
+namespace dt {
+Eigen::MatrixXd distanceTransform(const Eigen::MatrixXd &);
 
-namespace dt{
-  Eigen::MatrixXd distanceTransform(const Eigen::MatrixXd &);
+void dt(Eigen::MatrixXd &image);
 
-  void dt(Eigen::MatrixXd & image);
-
-  Eigen::VectorXf dt(Eigen::VectorXf &);
+Eigen::VectorXf dt(Eigen::VectorXf &);
 }
-
 
 #endif

@@ -1,34 +1,34 @@
-#include <scan_typedefs.hpp>
 #include <locale>
+#include <scan_typedefs.hpp>
 
-std::string no_case_hash::lower_case (const std::string & s) const {
-  std::string a (s);
+std::string no_case_hash::lower_case(const std::string &s) const {
+  std::string a(s);
   std::locale loc;
-  for (auto & c : a)
-    c = std::tolower(c, loc);
+  for (auto &c : a) c = std::tolower(c, loc);
   return a;
 }
 
-size_t no_case_hash::operator()(const std::string & s) const {
+size_t no_case_hash::operator()(const std::string &s) const {
   return hasher(lower_case(s));
 }
 
-size_t std::hash<std::vector<int> >::operator()(const std::vector<int> & k) const {
+size_t std::hash<std::vector<int>>::operator()(
+    const std::vector<int> &k) const {
   size_t seed = 0;
   for (auto v : k) {
-    seed ^= h(v*A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= h(v * A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
   }
   return seed;
 }
 
-const std::unordered_map<std::string, double,
-  no_case_hash> buildingToScale = {{"DUC", 73.5}, {"cse", 98.0}};
+const std::unordered_map<std::string, double, no_case_hash> buildingToScale = {
+    {"DUC", 73.5}, {"cse", 98.0}};
 
-template<typename MatrixType>
-void saveMatrixAsSparse(const MatrixType & mat, std::ofstream & out) {
+template <typename MatrixType>
+void saveMatrixAsSparse(const MatrixType &mat, std::ofstream &out) {
   typedef typename MatrixType::Scalar Scalar;
   int numNonZeros = 0, rows = mat.rows(), cols = mat.cols();
-  const Scalar * dataPtr = mat.data();
+  const Scalar *dataPtr = mat.data();
   for (int i = 0; i < mat.size(); ++i)
     if (*(dataPtr + i)) ++numNonZeros;
 
@@ -38,14 +38,14 @@ void saveMatrixAsSparse(const MatrixType & mat, std::ofstream & out) {
 
   for (int i = 0; i < mat.size(); ++i) {
     if (*(dataPtr + i)) {
-      out.write(reinterpret_cast<const char *>(&i),sizeof(i));
+      out.write(reinterpret_cast<const char *>(&i), sizeof(i));
       out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(Scalar));
     }
   }
 }
 
-template<typename MatrixType>
-void loadMatrixFromSparse(MatrixType & mat, std::ifstream & in) {
+template <typename MatrixType>
+void loadMatrixFromSparse(MatrixType &mat, std::ifstream &in) {
   typedef typename MatrixType::Scalar Scalar;
   int numNonZeros, rows, cols;
 
@@ -54,7 +54,7 @@ void loadMatrixFromSparse(MatrixType & mat, std::ifstream & in) {
   in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
 
   mat = MatrixType::Zero(rows, cols);
-  Scalar * dataPtr = mat.data();
+  Scalar *dataPtr = mat.data();
 
   for (int i = 0; i < numNonZeros; ++i) {
     int index;
@@ -63,8 +63,8 @@ void loadMatrixFromSparse(MatrixType & mat, std::ifstream & in) {
   }
 }
 
-template<typename SparseMatrixType>
-void saveSparseMatrix(SparseMatrixType & mat, std::ofstream & out) {
+template <typename SparseMatrixType>
+void saveSparseMatrix(SparseMatrixType &mat, std::ofstream &out) {
   typedef typename SparseMatrixType::Scalar Scalar;
 
   int rows = mat.rows(), cols = mat.cols(), numNonZeros = mat.nonZeros();
@@ -73,17 +73,17 @@ void saveSparseMatrix(SparseMatrixType & mat, std::ofstream & out) {
   out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
 
   for (int i = 0; mat.outerSize(); ++i) {
-    for (typename SparseMatrixType::InnerIterator it (mat, i); it; ++it) {
-      int index = it.col()*rows + it.row();
+    for (typename SparseMatrixType::InnerIterator it(mat, i); it; ++it) {
+      int index = it.col() * rows + it.row();
       Scalar value = it.value();
-      out.write(reinterpret_cast<const char *>(&index),sizeof(index));
+      out.write(reinterpret_cast<const char *>(&index), sizeof(index));
       out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
     }
   }
 }
 
-template<typename SparseMatrixType>
-void loadSparseMatrix(SparseMatrixType & mat, std::ifstream & in) {
+template <typename SparseMatrixType>
+void loadSparseMatrix(SparseMatrixType &mat, std::ifstream &in) {
   typedef typename SparseMatrixType::Scalar Scalar;
   typedef Eigen::Triplet<Scalar> TripType;
 
@@ -101,21 +101,21 @@ void loadSparseMatrix(SparseMatrixType & mat, std::ifstream & in) {
     Scalar value;
     in.read(reinterpret_cast<char *>(&index), sizeof(index));
     in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
-    int col = floor(index/rows);
+    int col = floor(index / rows);
     int row = index % rows;
-    tripletList.push_back(TripType (row, col, value));
+    tripletList.push_back(TripType(row, col, value));
   }
   mat.setFromTriplets(tripletList.begin(), tripletList.end());
 }
 
-template<typename SparseVectorType>
-void saveSpareVector(const SparseVectorType & vec, std::ofstream & out) {
+template <typename SparseVectorType>
+void saveSpareVector(const SparseVectorType &vec, std::ofstream &out) {
   typedef typename SparseVectorType::Scalar Scalar;
   int nonZeros = vec.nonZeros(), size = vec.size();
   out.write(reinterpret_cast<const char *>(&nonZeros), sizeof(nonZeros));
   out.write(reinterpret_cast<const char *>(&size), sizeof(size));
   for (int i = 0; i < vec.outerSize(); ++i) {
-    for (typename SparseVectorType::InnerIterator it (vec, i); it; ++it) {
+    for (typename SparseVectorType::InnerIterator it(vec, i); it; ++it) {
       Scalar value = it.value();
       short row = it.row();
       out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
@@ -124,8 +124,8 @@ void saveSpareVector(const SparseVectorType & vec, std::ofstream & out) {
   }
 }
 
-template<typename SparseVectorType>
-void loadSparseVetor(SparseVectorType & vec, std::ifstream & in) {
+template <typename SparseVectorType>
+void loadSparseVetor(SparseVectorType &vec, std::ifstream &in) {
   typedef typename SparseVectorType::Scalar Scalar;
   int nonZeros, size;
   in.read(reinterpret_cast<char *>(&nonZeros), sizeof(nonZeros));
@@ -141,59 +141,59 @@ void loadSparseVetor(SparseVectorType & vec, std::ifstream & in) {
   }
 }
 
-void SHOT1344WithXYZ::writeToFile(std::ofstream & out) {
+void SHOT1344WithXYZ::writeToFile(std::ofstream &out) {
   out.write(reinterpret_cast<const char *>(descriptor->data()),
-    descriptor->size()*sizeof(float));
+            descriptor->size() * sizeof(float));
   out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
 }
 
-void SHOT1344WithXYZ::loadFromFile(std::ifstream & in) {
+void SHOT1344WithXYZ::loadFromFile(std::ifstream &in) {
   in.read(reinterpret_cast<char *>(descriptor->data()),
-    descriptor->size()*sizeof(float));
+          descriptor->size() * sizeof(float));
   in.read(reinterpret_cast<char *>(position.data()), sizeof(position));
 }
 
-void SPARSE352WithXYZ::writeToFile(std::ofstream & out) {
+void SPARSE352WithXYZ::writeToFile(std::ofstream &out) {
   saveSpareVector(*descriptor, out);
   out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
 }
 
-void SPARSE352WithXYZ::loadFromFile(std::ifstream & in) {
+void SPARSE352WithXYZ::loadFromFile(std::ifstream &in) {
   loadSparseVetor(*descriptor, in);
   in.read(reinterpret_cast<char *>(position.data()), sizeof(position));
 }
 
-void SPARSE1344WithXYZ::writeToFile(std::ofstream & out) {
+void SPARSE1344WithXYZ::writeToFile(std::ofstream &out) {
   saveSpareVector(*descriptor, out);
   out.write(reinterpret_cast<const char *>(position.data()), sizeof(position));
 }
 
-void SPARSE1344WithXYZ::loadFromFile(std::ifstream & in) {
+void SPARSE1344WithXYZ::loadFromFile(std::ifstream &in) {
   loadSparseVetor(*descriptor, in);
   in.read(reinterpret_cast<char *>(position.data()), sizeof(position));
 }
 
-void scan::PointXYZRGBA::writeToFile(std::ofstream & out) {
+void scan::PointXYZRGBA::writeToFile(std::ofstream &out) {
   out.write(reinterpret_cast<const char *>(point.data()), sizeof(point));
   out.write(reinterpret_cast<const char *>(&intensity), sizeof(intensity));
-  out.write(reinterpret_cast<const char *>(rgb), 3*sizeof(char));
+  out.write(reinterpret_cast<const char *>(rgb), 3 * sizeof(char));
 }
-void scan::PointXYZRGBA::loadFromFile(std::ifstream & in) {
+void scan::PointXYZRGBA::loadFromFile(std::ifstream &in) {
   in.read(reinterpret_cast<char *>(point.data()), sizeof(point));
   in.read(reinterpret_cast<char *>(&intensity), sizeof(intensity));
-  in.read(reinterpret_cast<char *>(rgb), 3*sizeof(char));
+  in.read(reinterpret_cast<char *>(rgb), 3 * sizeof(char));
 }
 
-void scan::PointXYZRGB::writeToFile(std::ofstream & out) {
+void scan::PointXYZRGB::writeToFile(std::ofstream &out) {
   out.write(reinterpret_cast<const char *>(point.data()), sizeof(point));
-  out.write(reinterpret_cast<const char *>(rgb), 3*sizeof(char));
+  out.write(reinterpret_cast<const char *>(rgb), 3 * sizeof(char));
 }
-void scan::PointXYZRGB::loadFromFile(std::ifstream & in) {
+void scan::PointXYZRGB::loadFromFile(std::ifstream &in) {
   in.read(reinterpret_cast<char *>(point.data()), sizeof(point));
-  in.read(reinterpret_cast<char *>(rgb), 3*sizeof(char));
+  in.read(reinterpret_cast<char *>(rgb), 3 * sizeof(char));
 }
 
-void place::VoxelGrid::writeToFile(std::ofstream & out) {
+void place::VoxelGrid::writeToFile(std::ofstream &out) {
   int numZ = v.size();
   out.write(reinterpret_cast<const char *>(&numZ), sizeof(numZ));
   for (int k = 0; k < numZ; ++k) {
@@ -203,7 +203,7 @@ void place::VoxelGrid::writeToFile(std::ofstream & out) {
   out.write(reinterpret_cast<const char *>(&c), sizeof(c));
 }
 
-void place::VoxelGrid::loadFromFile(std::ifstream & in) {
+void place::VoxelGrid::loadFromFile(std::ifstream &in) {
   int numZ;
   in.read(reinterpret_cast<char *>(&numZ), sizeof(numZ));
   v.resize(numZ);
@@ -214,7 +214,7 @@ void place::VoxelGrid::loadFromFile(std::ifstream & in) {
   in.read(reinterpret_cast<char *>(&c), sizeof(c));
 }
 
-void place::MetaData::writeToFile(std::ofstream & out) {
+void place::MetaData::writeToFile(std::ofstream &out) {
   out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
   out.write(reinterpret_cast<const char *>(&x), sizeof(x));
   out.write(reinterpret_cast<const char *>(&y), sizeof(y));
@@ -223,7 +223,7 @@ void place::MetaData::writeToFile(std::ofstream & out) {
   out.write(reinterpret_cast<const char *>(&s), sizeof(s));
 }
 
-void place::MetaData::loadFromFile(std::ifstream & in) {
+void place::MetaData::loadFromFile(std::ifstream &in) {
   in.read(reinterpret_cast<char *>(zZ.data()), sizeof(zZ));
   in.read(reinterpret_cast<char *>(&x), sizeof(x));
   in.read(reinterpret_cast<char *>(&y), sizeof(y));
@@ -232,22 +232,23 @@ void place::MetaData::loadFromFile(std::ifstream & in) {
   in.read(reinterpret_cast<char *>(&s), sizeof(s));
 }
 
-void place::Panorama::writeToFile(const std::string & imgName,
-  const std::string & dataName) {
+void place::Panorama::writeToFile(const std::string &imgName,
+                                  const std::string &dataName) {
   cv::imwrite(imgName, imgs[0]);
 
-  std::ofstream out (dataName, std::ios::out | std::ios::binary);
+  std::ofstream out(dataName, std::ios::out | std::ios::binary);
   int rows = rMap.rows();
   int cols = rMap.cols();
   out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
   out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
-  const float * dataPtr = rMap.data();
+  const float *dataPtr = rMap.data();
   out.write(reinterpret_cast<const char *>(dataPtr),
-            sizeof(float)*rMap.size());
+            sizeof(float) * rMap.size());
 
   const int numKeypoints = keypoints.size();
-  out.write(reinterpret_cast<const char *>(&numKeypoints), sizeof(numKeypoints));
-  for (auto & kp : keypoints) {
+  out.write(reinterpret_cast<const char *>(&numKeypoints),
+            sizeof(numKeypoints));
+  for (auto &kp : keypoints) {
     out.write(reinterpret_cast<const char *>(&kp.x), sizeof(float));
     out.write(reinterpret_cast<const char *>(&kp.y), sizeof(float));
   }
@@ -256,67 +257,70 @@ void place::Panorama::writeToFile(const std::string & imgName,
   cols = surfaceNormals.cols();
   out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
   out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
-  const auto * nPtr = surfaceNormals.data();
+  const auto *nPtr = surfaceNormals.data();
   for (int i = 0; i < surfaceNormals.size(); ++i) {
     out.write(reinterpret_cast<const char *>((nPtr + i)->data()),
-      3*sizeof(float));
+              3 * sizeof(float));
   }
 
   out.close();
 }
 
-void place::Panorama::loadFromFile(const std::string & imgName,
-  const std::string & dataName) {
+void place::Panorama::loadFromFile(const std::string &imgName,
+                                   const std::string &dataName) {
   imgs.resize(1);
   imgs[0] = cv::imread(imgName);
 
   int rows, cols, numKeypoints;
-  std::ifstream in (dataName, std::ios::in | std::ios::binary);
+  std::ifstream in(dataName, std::ios::in | std::ios::binary);
   in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
   in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
   rMap.resize(rows, cols);
-  float * dataPtr = rMap.data();
-  in.read(reinterpret_cast<char *>(dataPtr),
-          sizeof(float)*rMap.size());
+  float *dataPtr = rMap.data();
+  in.read(reinterpret_cast<char *>(dataPtr), sizeof(float) * rMap.size());
 
   in.read(reinterpret_cast<char *>(&numKeypoints), sizeof(numKeypoints));
   keypoints.resize(numKeypoints);
-  for (auto & kp : keypoints) {
+  for (auto &kp : keypoints) {
     in.read(reinterpret_cast<char *>(&kp.x), sizeof(float));
     in.read(reinterpret_cast<char *>(&kp.y), sizeof(float));
   }
   in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
   in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
   surfaceNormals.resize(rows, cols);
-  auto * nPtr = surfaceNormals.data();
+  auto *nPtr = surfaceNormals.data();
   for (int i = 0; i < surfaceNormals.size(); ++i) {
-    in.read(reinterpret_cast<char *>((nPtr + i)->data()),
-      3*sizeof(float));
+    in.read(reinterpret_cast<char *>((nPtr + i)->data()), 3 * sizeof(float));
   }
   in.close();
 }
 
-const cv::Mat & place::Panorama::operator[](int n) {
+const cv::Mat &place::Panorama::operator[](int n) {
   if (imgs.size() <= n || !imgs[n].data) {
-    #pragma omp critical
+#pragma omp critical
     {
-      if (imgs.size() <= n)
-        imgs.resize(n + 1);
+      if (imgs.size() <= n) imgs.resize(n + 1);
 
-        const double scale = pow(2, -n/2.0);
-        cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
+      const double scale = pow(2, -n / 2.0);
+      cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
     }
   }
   return imgs[n];
 }
 
-std::ostream & place::operator<<(std::ostream & os, const place::cube & print) {
-  os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")" << std::endl;
-  os << "      " << "(" << print.X2 << ", " << print.Y2 << ", " << print.Z2 <<  ")";
+double place::edge::getWeight() const {
+  return w * wSignificance + panoW * panoSignificance;
+}
+
+std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {
+  os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")"
+     << std::endl;
+  os << "      "
+     << "(" << print.X2 << ", " << print.Y2 << ", " << print.Z2 << ")";
   return os;
 }
 
-std::ostream & place::operator<<(std::ostream & os, const place::edge & print) {
+std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
   os << "edge: " << print.w << "  " << print.wSignificance;
   os << "  pano: " << print.panoW << "  " << print.panoSignificance;
   os << "  " << print.numSim << "  " << print.numDiff << std::endl;
@@ -325,21 +329,21 @@ std::ostream & place::operator<<(std::ostream & os, const place::edge & print) {
   return os;
 }
 
-std::ostream & place::operator<<(std::ostream & os, const place::posInfo * print) {
-  os << print->score <<"      " << print->x << "      "
-    << print->y << "      " << print->rotation << std::endl;
+std::ostream &place::operator<<(std::ostream &os, const place::posInfo *print) {
+  os << print->score << "      " << print->x << "      " << print->y << "      "
+     << print->rotation << std::endl;
   os << print->scanFP << "      " << print->fpScan << std::endl;
   os << print->scanPixels << "    " << print->fpPixels;
   return os;
 }
 
-std::ostream & place::operator<<(std::ostream & os, const place::posInfo & print) {
+std::ostream &place::operator<<(std::ostream &os, const place::posInfo &print) {
   os << &print;
   return os;
 }
 
-std::ostream & place::operator<<(std::ostream & os,
-    const place::SelectedNode & p) {
+std::ostream &place::operator<<(std::ostream &os,
+                                const place::SelectedNode &p) {
   os << "Color: " << p.color << "  ";
   os << "Agreement: " << p.agreement << "  ";
   os << "Label #: " << p.label << "  ";

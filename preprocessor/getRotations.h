@@ -3,8 +3,7 @@
 
 #include "preprocessor.h"
 
-void getRotations(const pcl::PointCloud<NormalType>::Ptr & cloud_normals,
-  const std::string & outName);
-
+void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
+                  const std::string &outName);
 
 #endif // GET_ROTATIONS_H

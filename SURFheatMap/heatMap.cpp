@@ -1,41 +1,39 @@
-#include <iostream>
-#include <fstream>
+#include <boost/math/special_functions/fpclassify.hpp>
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
+#include <fstream>
+#include <iostream>
+#include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/core.hpp>
-#include <boost/math/special_functions/fpclassify.hpp>
-#include "opencv2/xfeatures2d.hpp"
 #include "opencv2/core/cuda.hpp"
+#include "opencv2/xfeatures2d.hpp"
 // #include "opencv2/cudafeatures2d.hpp"
 #include "opencv2/xfeatures2d/cuda.hpp"
 
 namespace Eigen {
-  typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
-} // Eigen
-
+typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
+}  // Eigen
 
 int main() {
   cv::Mat grayA, grayB;
   grayA = cv::imread("A.png", CV_LOAD_IMAGE_GRAYSCALE);
   grayB = cv::imread("B.png", CV_LOAD_IMAGE_GRAYSCALE);
 
-  const int rows = std::min(grayA.rows,
-    grayB.rows);
+  const int rows = std::min(grayA.rows, grayB.rows);
   const int cols = std::min(grayA.cols, grayB.cols);
 
   std::vector<cv::KeyPoint> kpA, kpB;
 
-  std::ifstream in ("data.dat", std::ios::in | std::ios::binary);
+  std::ifstream in("data.dat", std::ios::in | std::ios::binary);
   int numKP;
   in.read(reinterpret_cast<char *>(&numKP), sizeof(int));
   kpA.resize(numKP);
-  for (auto & kp : kpA)
+  for (auto &kp : kpA)
     in.read(reinterpret_cast<char *>(&kp), sizeof(cv::KeyPoint));
 
   kpB.resize(numKP);
-  for (auto & kp : kpB)
+  for (auto &kp : kpB)
     in.read(reinterpret_cast<char *>(&kp), sizeof(cv::KeyPoint));
 
   std::cout << "Uploading" << std::endl;
@@ -49,8 +47,7 @@ int main() {
   cv::cuda::GpuMat gpu_maskA, gpu_maskB;
   gpu_maskA.upload(maskA);
 
-
-  cv::cuda::SURF_CUDA detector (200, 4, 2, true);
+  cv::cuda::SURF_CUDA detector(200, 4, 2, true);
 
   cv::cuda::GpuMat gpu_kpA, gpu_kpB;
   cv::cuda::GpuMat gpu_descripA, gpu_descripB;
@@ -84,11 +81,11 @@ int main() {
     int col = kpA[i].pt.x;
     int row = kpA[i].pt.y;
     double norm = cv::norm(A, B, cv::NORM_L2);
-    heatMap(row, col) = boost::math::isfinite(norm) &&
-      Eigen::numext::isfinite(norm) ? norm : 0;
+    heatMap(row, col) =
+        boost::math::isfinite(norm) && Eigen::numext::isfinite(norm) ? norm : 0;
   }
 
-  const double * dataPtr = heatMap.data();
+  const double *dataPtr = heatMap.data();
   double average = 0, sigma = 0;
   int count = 0;
   for (int i = 0; i < heatMap.size(); ++i) {
@@ -97,24 +94,24 @@ int main() {
       ++count;
     }
   }
-  average/= count;
+  average /= count;
 
   for (int i = 0; i < heatMap.size(); ++i) {
     const double tmp = *(dataPtr + i) - average;
     if (tmp) {
-      sigma += tmp*tmp;
+      sigma += tmp * tmp;
     }
   }
   sigma /= count;
   sigma = sqrt(sigma);
 
-  cv::Mat out (rows, cols, CV_8UC3, cv::Scalar::all(0));
+  cv::Mat out(rows, cols, CV_8UC3, cv::Scalar::all(0));
   for (int j = 0; j < rows; ++j) {
-    uchar * dst = out.ptr<uchar>(j);
+    uchar *dst = out.ptr<uchar>(j);
     for (int i = 0; i < cols; ++i) {
-      if (heatMap(j ,i)) {
+      if (heatMap(j, i)) {
         const int gray = cv::saturate_cast<uchar>(
-          255.0 * ((heatMap(j, i) - average)/(1.0 * sigma) + 1.0)/2.0);
+            255.0 * ((heatMap(j, i) - average) / (1.0 * sigma) + 1.0) / 2.0);
         int red, green, blue;
         if (gray < 128) {
           red = 0;
@@ -125,9 +122,9 @@ int main() {
           red = 2 * (gray - 128);
           green = 255 - red;
         }
-        dst[i*3] = blue;
-        dst[i*3 +1] = green;
-        dst[i*3 + 2] = red;
+        dst[i * 3] = blue;
+        dst[i * 3 + 1] = green;
+        dst[i * 3 + 2] = red;
       }
     }
   }
@@ -141,5 +138,4 @@ int main() {
   cvNamedWindow("SIFT Heat Map", CV_WINDOW_NORMAL);
   cv::imshow("SIFT Heat Map", out);
   cv::waitKey(0);
-
 }

@@ -1,8 +1,6 @@
 #ifndef PLACE_SCAN_MULTI_LABELING_HELPER_H
 #define PLACE_SCAN_MULTI_LABELING_HELPER_H
 
-namespace multi {
+namespace multi {}  // multi
 
-} // multi
-
-#endif // PLACE_SCAN_MULTI_LABELING_HELPER_H
+#endif  // PLACE_SCAN_MULTI_LABELING_HELPER_H

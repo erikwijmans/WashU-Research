@@ -3,9 +3,9 @@
 #define SCAN_GFLAGS_H
 
 #include <gflags/gflags.h>
+#include <boost/filesystem.hpp>
 #include <string>
 #include <vector>
-#include <boost/filesystem.hpp>
 
 DECLARE_bool(visulization);
 DECLARE_bool(previewIn);
@@ -27,8 +27,8 @@ DECLARE_string(floorPlan);
 DECLARE_string(binaryFolder);
 DECLARE_string(dmFolder);
 DECLARE_string(rotFolder);
-DECLARE_string(preDone);
-DECLARE_string(preDoneV2);
+DECLARE_string(outputV1);
+DECLARE_string(outputV2);
 DECLARE_string(zerosFolder);
 DECLARE_string(voxelFolder);
 DECLARE_string(panoFolder);
@@ -38,16 +38,17 @@ DECLARE_string(descriptorsFolder);
 DECLARE_string(SIFTFolder);
 DECLARE_string(dataPath);
 DECLARE_int32(startIndex);
+DECLARE_int32(startNumber);
 DECLARE_int32(numScans);
 DECLARE_int32(numLevels);
 DECLARE_int32(metricNumber);
-DECLARE_int32(stopNumber);
 DECLARE_int32(top);
 DECLARE_int32(threads);
 DECLARE_double(scale);
 
 void prependDataPath();
-void parseFolder(const std::string & name, std::vector<std::string> & out);
-boost::filesystem::directory_iterator folderToIterator(const std::string & name);
+void parseFolder(const std::string& name, std::vector<std::string>& out);
+boost::filesystem::directory_iterator folderToIterator(const std::string& name);
+int numberToIndex(const std::vector<std::string>& names, const int number);
 
-#endif // SCAN_GFLAGS_H
+#endif  // SCAN_GFLAGS_H
