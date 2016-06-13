@@ -11,11 +11,11 @@
 
 namespace pano {
 
-void compareNCC2(place::Panorama& panoA, place::Panorama& panoB,
-                 const Eigen::Matrix3d& RA, const Eigen::Matrix3d& RB,
-                 const Eigen::Vector3d& aToB, const Eigen::Vector3d& bToA,
-                 place::edge& e);
+void compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
+                 const Eigen::Matrix3d &RA, const Eigen::Matrix3d &RB,
+                 const Eigen::Vector3d &aToB, const Eigen::Vector3d &bToA,
+                 place::edge &e);
 
-}  // pano
+} // pano
 
-#endif  // PLACE_SCAN_PANORAMA_MATCHER_H
+#endif // PLACE_SCAN_PANORAMA_MATCHER_H

@@ -29,7 +29,8 @@ void DensityMapsManager::resetFlags(const std::string &commandLine) {
   std::vector<std::string> v;
   std::istringstream is(commandLine);
   std::string tmp;
-  while (is >> tmp) v.push_back(tmp);
+  while (is >> tmp)
+    v.push_back(tmp);
   char **argv = new char *[v.size() + 1];
   for (int i = 0; i < v.size(); ++i) {
     argv[i] = &v[i][0];
@@ -43,9 +44,11 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
 
-  if (!FLAGS_2D && !FLAGS_3D) FLAGS_2D = FLAGS_3D = true;
+  if (!FLAGS_2D && !FLAGS_3D)
+    FLAGS_2D = FLAGS_3D = true;
 
-  if (!FLAGS_pe && !FLAGS_fe) FLAGS_pe = FLAGS_fe = true;
+  if (!FLAGS_pe && !FLAGS_fe)
+    FLAGS_pe = FLAGS_fe = true;
 
   DIR *dir;
   struct dirent *ent;
@@ -111,12 +114,14 @@ void DensityMapsManager::run() {
   scanNumber = fileName.substr(fileName.find(".") - 3, 3);
   buildName = fileName.substr(fileName.rfind("/") + 1, 3);
 
-  if (!FLAGS_redo && exists2D() && exists3D()) return;
+  if (!FLAGS_redo && exists2D() && exists3D())
+    return;
 
-  if (!FLAGS_quietMode) std::cout << scanNumber << std::endl;
+  if (!FLAGS_quietMode)
+    std::cout << scanNumber << std::endl;
 
   std::ifstream binaryReader(rotationFile, std::ios::in | std::ios::binary);
-  R = std::make_shared<std::vector<Eigen::Matrix3d> >(4);
+  R = std::make_shared<std::vector<Eigen::Matrix3d>>(4);
   for (int i = 0; i < R->size(); ++i) {
     binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
                       sizeof(Eigen::Matrix3d));
@@ -129,9 +134,9 @@ void DensityMapsManager::run() {
   binaryReader.read(reinterpret_cast<char *>(&columns), sizeof(int));
   binaryReader.read(reinterpret_cast<char *>(&rows), sizeof(int));
 
-  pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f> >();
+  pointsWithCenter = std::make_shared<std::vector<Eigen::Vector3f>>();
   pointsWithCenter->reserve(columns * rows);
-  pointsNoCenter = std::make_shared<std::vector<Eigen::Vector3f> >();
+  pointsNoCenter = std::make_shared<std::vector<Eigen::Vector3f>>();
   pointsNoCenter->reserve(columns * rows);
 
   for (int k = 0; k < columns * rows; ++k) {
@@ -141,7 +146,8 @@ void DensityMapsManager::run() {
 
     point[1] *= -1.0;
 
-    if (!(point[0] || point[1] || point[2]) || tmp.intensity < 0.2) continue;
+    if (!(point[0] || point[1] || point[2]) || tmp.intensity < 0.2)
+      continue;
 
     pointsWithCenter->push_back(point);
 
@@ -201,30 +207,36 @@ static bool fexists(const std::string &name) {
 
 bool DensityMapsManager::exists2D() {
   std::vector<std::string> names;
-  if (FLAGS_pe) get2DPointNames(names);
-  if (FLAGS_fe) get2DFreeNames(names);
+  if (FLAGS_pe)
+    get2DPointNames(names);
+  if (FLAGS_fe)
+    get2DFreeNames(names);
   for (auto &n : names)
-    if (!fexists(n)) return false;
+    if (!fexists(n))
+      return false;
   return true;
 }
 
 bool DensityMapsManager::exists3D() {
   std::vector<std::string> names;
-  if (FLAGS_pe) get3DPointNames(names);
-  if (FLAGS_fe) get3DFreeNames(names);
+  if (FLAGS_pe)
+    get3DPointNames(names);
+  if (FLAGS_fe)
+    get3DFreeNames(names);
 
   for (auto &n : names)
-    if (!fexists(n)) return false;
+    if (!fexists(n))
+      return false;
   return true;
 }
 
 BoundingBox::BoundingBox(
-    const std::shared_ptr<const std::vector<Eigen::Vector3f> > &points,
+    const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     Eigen::Vector3f &&range)
     : points{points}, range{range} {}
 
 BoundingBox::BoundingBox(
-    const std::shared_ptr<const std::vector<Eigen::Vector3f> > &points,
+    const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     Eigen::Vector3f &range)
     : points{points}, range{range} {}
 
@@ -241,7 +253,8 @@ void BoundingBox::run() {
       sigma[i] += (point[i] - average[i]) * (point[i] - average[i]);
 
   sigma /= points->size() - 1;
-  for (int i = 0; i < 3; ++i) sigma[i] = sqrt(sigma[i]);
+  for (int i = 0; i < 3; ++i)
+    sigma[i] = sqrt(sigma[i]);
 }
 
 void BoundingBox::setRange(Eigen::Vector3f &&range) { this->range = range; }
@@ -251,15 +264,16 @@ void BoundingBox::setRange(Eigen::Vector3f &range) { this->range = range; }
 void BoundingBox::getBoundingBox(Eigen::Vector3f &min,
                                  Eigen::Vector3f &max) const {
   Eigen::Vector3f delta;
-  for (int i = 0; i < delta.size(); ++i) delta[i] = 1.1 * range[i] * sigma[i];
+  for (int i = 0; i < delta.size(); ++i)
+    delta[i] = 1.1 * range[i] * sigma[i];
 
   min = average - delta / 2.0;
   max = average + delta / 2.0;
 }
 
 CloudAnalyzer2D::CloudAnalyzer2D(
-    const std::shared_ptr<const std::vector<Eigen::Vector3f> > &points,
-    const std::shared_ptr<const std::vector<Eigen::Matrix3d> > &R,
+    const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
+    const std::shared_ptr<const std::vector<Eigen::Matrix3d>> &R,
     const std::shared_ptr<const BoundingBox> &bBox)
     : points{points}, R{R}, bBox{bBox}, pointsPerVoxel{nullptr} {
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
@@ -281,12 +295,16 @@ void CloudAnalyzer2D::initalize(double scale) {
     const int y = scale * (point[1] - pointMin[1]);
     const int z = zScale * (point[2] - pointMin[2]);
 
-    if (x < 0 || x >= numX) continue;
-    if (y < 0 || y >= numY) continue;
-    if (z < 0 || z >= numZ) continue;
+    if (x < 0 || x >= numX)
+      continue;
+    if (y < 0 || y >= numY)
+      continue;
+    if (z < 0 || z >= numZ)
+      continue;
 
     auto p = pointsPerVoxel->at(x, y);
-    if (!p) p = pointsPerVoxel->insert(Eigen::VectorXi::Zero(numZ), x, y);
+    if (!p)
+      p = pointsPerVoxel->insert(Eigen::VectorXi::Zero(numZ), x, y);
 
     ++(*p)[z];
   }
@@ -303,7 +321,8 @@ void CloudAnalyzer2D::examinePointEvidence() {
       auto column = pointsPerVoxel->at(i, j);
       if (column) {
         for (int k = 0; k < numZ; ++k) {
-          if ((*column)[k]) ++total(j, i);
+          if ((*column)[k])
+            ++total(j, i);
         }
       }
     }
@@ -348,8 +367,10 @@ void CloudAnalyzer2D::examinePointEvidence() {
         const Eigen::Vector3d pixel(i, j, 0);
         const Eigen::Vector3d src = R->at(r) * (pixel - newZZ) + zeroZero;
 
-        if (src[0] < 0 || src[0] >= total.cols()) continue;
-        if (src[1] < 0 || src[1] >= total.rows()) continue;
+        if (src[0] < 0 || src[0] >= total.cols())
+          continue;
+        if (src[1] < 0 || src[1] >= total.rows())
+          continue;
 
         const double count = total(src[1], src[0]);
         if (count > 0) {
@@ -382,9 +403,11 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
   for (int i = 0; i < numX; ++i) {
     for (int j = 0; j < numY; ++j) {
       auto column = pointsPerVoxel->at(i, j);
-      if (!column) continue;
+      if (!column)
+        continue;
       for (int k = 0; k < numZ; ++k) {
-        if (!(*column)[k]) continue;
+        if (!(*column)[k])
+          continue;
 
         float ray[3];
         ray[0] = i - cameraCenter[0] * FLAGS_scale;
@@ -402,9 +425,12 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
           voxelHit[1] = floor(cameraCenter[1] * FLAGS_scale + a * unitRay[1]);
           voxelHit[2] = floor(cameraCenter[2] * zScale + a * unitRay[2]);
 
-          if (voxelHit[0] < 0 || voxelHit[0] >= numX) continue;
-          if (voxelHit[1] < 0 || voxelHit[1] >= numY) continue;
-          if (voxelHit[2] < 0 || voxelHit[2] >= numZ) continue;
+          if (voxelHit[0] < 0 || voxelHit[0] >= numX)
+            continue;
+          if (voxelHit[1] < 0 || voxelHit[1] >= numY)
+            continue;
+          if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
+            continue;
           /*auto n = numTimesSeen(voxelHit[0], voxelHit[1]);
           if (!n) {
             n = numTimesSeen.insert(std::make_shared<Eigen::VectorXi>
@@ -476,8 +502,10 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
         const Eigen::Vector3d pixel(i, j, 0);
         const Eigen::Vector3d src = R->at(r) * (pixel - newZZ) + zeroZero;
 
-        if (src[0] < 0 || src[0] >= collapsedCount.cols()) continue;
-        if (src[1] < 0 || src[1] >= collapsedCount.rows()) continue;
+        if (src[0] < 0 || src[0] >= collapsedCount.cols())
+          continue;
+        if (src[1] < 0 || src[1] >= collapsedCount.rows())
+          continue;
 
         const double count = collapsedCount(src[1], src[0]);
         if (count > 0) {

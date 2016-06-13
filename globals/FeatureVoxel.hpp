@@ -9,9 +9,8 @@
 
 namespace voxel {
 
-template <typename T>
-class FeatureVoxel {
- public:
+template <typename T> class FeatureVoxel {
+public:
   typedef T Scalar;
   typedef Eigen::MatrixXi MatType;
   typedef std::vector<MatType> GridType;
@@ -42,7 +41,8 @@ class FeatureVoxel {
   }
   void setZeroZero(const Eigen::Vector3i &zZ) { this->zeroZero = zZ; };
   void writeToFile(const std::string &name) {
-    if (numNonZeros == 0) updateNumNonZeros();
+    if (numNonZeros == 0)
+      updateNumNonZeros();
 
     if (getNumZ() == 0 || getNumFeatures() == 0 || getNumY() == 0 ||
         getNumX() == 0 || zeroZero.norm() == 0) {
@@ -57,12 +57,14 @@ class FeatureVoxel {
     int z = getNumZ();
     out.write(reinterpret_cast<const char *>(&z), sizeof(z));
 
-    for (int k = 0; k < z; ++k) saveMatrixAsSparse(this->voxelGrid[k], out);
+    for (int k = 0; k < z; ++k)
+      saveMatrixAsSparse(this->voxelGrid[k], out);
 
     int numFeatureVectors = this->featureVectors.size();
     out.write(reinterpret_cast<const char *>(&numFeatureVectors), sizeof(int));
 
-    for (auto &v : this->featureVectors) saveSpareVector(*v, out);
+    for (auto &v : this->featureVectors)
+      saveSpareVector(*v, out);
 
     out.write(reinterpret_cast<const char *>(&nextID), sizeof(nextID));
     out.write(reinterpret_cast<const char *>(&numNonZeros),
@@ -85,13 +87,15 @@ class FeatureVoxel {
 
     this->voxelGrid.resize(z);
 
-    for (int k = 0; k < z; ++k) loadMatrixFromSparse(this->voxelGrid[k], in);
+    for (int k = 0; k < z; ++k)
+      loadMatrixFromSparse(this->voxelGrid[k], in);
 
     int numFeatureVectors;
     in.read(reinterpret_cast<char *>(&numFeatureVectors), sizeof(int));
     this->featureVectors.assign(numFeatureVectors,
                                 std::make_shared<DescripType>());
-    for (auto &v : this->featureVectors) loadSparseVetor(*v, in);
+    for (auto &v : this->featureVectors)
+      loadSparseVetor(*v, in);
 
     in.read(reinterpret_cast<char *>(&nextID), sizeof(nextID));
     in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
@@ -111,7 +115,8 @@ class FeatureVoxel {
     for (int k = 0; k < voxelGrid.size(); ++k) {
       const int *dataPtr = voxelGrid[k].data();
       for (int i = 0; i < voxelGrid[k].size(); ++i) {
-        if (*(dataPtr + i)) ++this->numNonZeros;
+        if (*(dataPtr + i))
+          ++this->numNonZeros;
       }
     }
   };
@@ -128,9 +133,12 @@ class FeatureVoxel {
       return this->featureVectors[ID - 2];
   };
   DescripPtr getFeatureVector(int x, int y, int z) const {
-    if (x < 0 || x >= getNumX()) return NULL;
-    if (y < 0 || y >= getNumY()) return NULL;
-    if (z < 0 || z >= getNumZ()) return NULL;
+    if (x < 0 || x >= getNumX())
+      return NULL;
+    if (y < 0 || y >= getNumY())
+      return NULL;
+    if (z < 0 || z >= getNumZ())
+      return NULL;
     int ID = this->voxelGrid[z](y, x);
     return this->getFeatureVector(ID);
   };
@@ -147,7 +155,7 @@ class FeatureVoxel {
   int getNumFeatures() const { return featureVectors.size(); };
   int getID(int x, int y, int z) const { return voxelGrid[z](y, x); };
 
- private:
+private:
   std::vector<DescripPtr> featureVectors;
   GridType voxelGrid;
   int nextID;
@@ -155,9 +163,8 @@ class FeatureVoxel {
   Eigen::Vector3i zeroZero = Eigen::Vector3i::Zero();
 };
 
-template <typename T>
-class SparseFeatureVoxel {
- public:
+template <typename T> class SparseFeatureVoxel {
+public:
   typedef T Scalar;
   typedef Eigen::SparseMatrix<int> MatType;
   typedef std::vector<MatType> GridType;
@@ -190,7 +197,8 @@ class SparseFeatureVoxel {
   }
   void setZeroZero(const Eigen::Vector3i &zZ) { this->zeroZero = zZ; };
   void writeToFile(const std::string &name) {
-    if (numNonZeros == 0) updateNumNonZeros();
+    if (numNonZeros == 0)
+      updateNumNonZeros();
 
     if (getNumZ() == 0 || getNumFeatures() == 0 || getNumY() == 0 ||
         getNumX() == 0 || zeroZero.norm() == 0) {
@@ -205,12 +213,14 @@ class SparseFeatureVoxel {
     int z = getNumZ();
     out.write(reinterpret_cast<const char *>(&z), sizeof(z));
 
-    for (int k = 0; k < z; ++k) saveSparseMatrix(this->voxelGrid[k], out);
+    for (int k = 0; k < z; ++k)
+      saveSparseMatrix(this->voxelGrid[k], out);
 
     int numFeatureVectors = this->featureVectors.size();
     out.write(reinterpret_cast<const char *>(&numFeatureVectors), sizeof(int));
 
-    for (auto &v : this->featureVectors) saveSpareVector(*v, out);
+    for (auto &v : this->featureVectors)
+      saveSpareVector(*v, out);
 
     out.write(reinterpret_cast<const char *>(&nextID), sizeof(nextID));
     out.write(reinterpret_cast<const char *>(&numNonZeros),
@@ -233,13 +243,15 @@ class SparseFeatureVoxel {
 
     this->voxelGrid.resize(z);
 
-    for (int k = 0; k < z; ++k) loadSparseMatrix(this->voxelGrid[k], in);
+    for (int k = 0; k < z; ++k)
+      loadSparseMatrix(this->voxelGrid[k], in);
 
     int numFeatureVectors;
     in.read(reinterpret_cast<char *>(&numFeatureVectors), sizeof(int));
     this->featureVectors.assign(numFeatureVectors,
                                 std::make_shared<DescripType>());
-    for (auto &v : this->featureVectors) loadSparseVetor(*v, in);
+    for (auto &v : this->featureVectors)
+      loadSparseVetor(*v, in);
 
     in.read(reinterpret_cast<char *>(&nextID), sizeof(nextID));
     in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
@@ -284,13 +296,13 @@ class SparseFeatureVoxel {
     featureVectors.clear();
   }
 
- private:
+private:
   std::vector<DescripPtr> featureVectors;
   GridType voxelGrid;
   int nextID;
   int numNonZeros;
   Eigen::Vector3i zeroZero = Eigen::Vector3i::Zero();
 };
-}  // voxel
+} // voxel
 
-#endif  // FEATURE_VOXEL_HPP
+#endif // FEATURE_VOXEL_HPP

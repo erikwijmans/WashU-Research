@@ -32,9 +32,12 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
     const int y = voxelsPerMeter * (point[1] - pointMin[1]);
     const int z = zScale * (point[2] - pointMin[2]);
 
-    if (x < 0 || x >= numX) continue;
-    if (y < 0 || y >= numY) continue;
-    if (z < 0 || z >= numZ) continue;
+    if (x < 0 || x >= numX)
+      continue;
+    if (y < 0 || y >= numY)
+      continue;
+    if (z < 0 || z >= numZ)
+      continue;
 
     ++pointsPerVoxel[z](y, x);
   }
@@ -50,7 +53,8 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
   for (int k = 0; k < numZ; ++k) {
     for (int i = 0; i < numX; ++i) {
       for (int j = 0; j < numY; ++j) {
-        if (!pointsPerVoxel[k](j, i)) continue;
+        if (!pointsPerVoxel[k](j, i))
+          continue;
 
         float ray[3];
         ray[0] = i - cameraCenter[0] * voxelsPerMeter;
@@ -71,9 +75,12 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
               floor(cameraCenter[1] * voxelsPerMeter + a * unitRay[1]);
           voxelHit[2] = floor(cameraCenter[2] * zScale + a * unitRay[2]);
 
-          if (voxelHit[0] < 0 || voxelHit[0] >= numX) continue;
-          if (voxelHit[1] < 0 || voxelHit[1] >= numY) continue;
-          if (voxelHit[2] < 0 || voxelHit[2] >= numZ) continue;
+          if (voxelHit[0] < 0 || voxelHit[0] >= numX)
+            continue;
+          if (voxelHit[1] < 0 || voxelHit[1] >= numY)
+            continue;
+          if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
+            continue;
 
           numTimesSeen[voxelHit[2]](voxelHit[1], voxelHit[0]) +=
               pointsPerVoxel[k](j, i);
@@ -184,7 +191,8 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     const int *fPtr = freeSpace[i].data();
     for (int j = 0; j < pointGrid[i].size(); ++j) {
       const int value = *(dataPtr + j);
-      if (value) sigmaP += (value - averageP) * (value - averageP);
+      if (value)
+        sigmaP += (value - averageP) * (value - averageP);
       if (*(fPtr + j))
         sigmaF += (*(fPtr + j) - averageF) * (*(fPtr + j) - averageF);
     }
@@ -245,8 +253,10 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
           Eigen::Vector3d point(i, j, 0);
           Eigen::Vector3d src = R->at(r) * (point - newZZ) + zeroZeroD;
 
-          if (src[0] < 0 || src[0] >= x) continue;
-          if (src[1] < 0 || src[1] >= y) continue;
+          if (src[0] < 0 || src[0] >= x)
+            continue;
+          if (src[1] < 0 || src[1] >= y)
+            continue;
 
           rotatedFree.v[k](j, i) = threshHoldedFree[k](src[1], src[0]);
           rotatedPoint.v[k](j, i) = threshHoldedPoint[k](src[1], src[0]);

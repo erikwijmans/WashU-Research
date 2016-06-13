@@ -1,4 +1,10 @@
+#include <Eigen/Dense>
+#include <Eigen/StdVector>
+#include <algorithm>
+#include <boost/thread/thread.hpp>
 #include <dirent.h>
+#include <fstream>
+#include <iostream>
 #include <pcl/common/common_headers.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/normal_3d_omp.h>
@@ -7,12 +13,6 @@
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <stdio.h>
-#include <Eigen/Dense>
-#include <Eigen/StdVector>
-#include <algorithm>
-#include <boost/thread/thread.hpp>
-#include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -56,9 +56,9 @@ void mouseEventOccurred(const visualization::MouseEvent &event,
   }
 }
 
-boost::shared_ptr<visualization::PCLVisualizer> normalsVis(
-    PointCloud<PointXYZRGB>::ConstPtr cloud,
-    PointCloud<Normal>::ConstPtr normals) {
+boost::shared_ptr<visualization::PCLVisualizer>
+normalsVis(PointCloud<PointXYZRGB>::ConstPtr cloud,
+           PointCloud<Normal>::ConstPtr normals) {
   // --------------------------------------------------------
   // -----Open 3D viewer and add point cloud and normals-----
   // --------------------------------------------------------
@@ -108,9 +108,12 @@ int main(int argc, char const *argv[]) {
     int rgb[3];
     ptxFile >> rgb[0] >> rgb[1] >> rgb[2];
 
-    if (itmp < 0.2) continue;
-    if (i % 10 != 0) continue;
-    if (point[0] == 0 || point[1] == 0 || point[2] == 0) continue;
+    if (itmp < 0.2)
+      continue;
+    if (i % 10 != 0)
+      continue;
+    if (point[0] == 0 || point[1] == 0 || point[2] == 0)
+      continue;
 
     PointXYZRGB tmp;
     tmp.x = point[0];
@@ -128,9 +131,12 @@ int main(int argc, char const *argv[]) {
   createBoundingBox(pointMin, pointMax, points);
 
   for (int i = 0; i < cloudTmp.size(); ++i) {
-    if (cloudTmp[i].x < pointMin[0] || cloudTmp[i].x > pointMax[0]) continue;
-    if (cloudTmp[i].y < pointMin[1] || cloudTmp[i].y > pointMax[1]) continue;
-    if (cloudTmp[i].z < pointMin[2] || cloudTmp[i].z > pointMax[2]) continue;
+    if (cloudTmp[i].x < pointMin[0] || cloudTmp[i].x > pointMax[0])
+      continue;
+    if (cloudTmp[i].y < pointMin[1] || cloudTmp[i].y > pointMax[1])
+      continue;
+    if (cloudTmp[i].z < pointMin[2] || cloudTmp[i].z > pointMax[2])
+      continue;
 
     cloud->points.push_back(cloudTmp[i]);
   }

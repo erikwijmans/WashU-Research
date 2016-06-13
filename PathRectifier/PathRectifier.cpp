@@ -13,12 +13,12 @@ acceleration at any point must be the same in both the input and output paths.
 
 */
 
-#include <gurobi_c++.h>
-#include <math.h>
 #include <Eigen/Dense>
 #include <Eigen/SparseCholesky>
 #include <fstream>
+#include <gurobi_c++.h>
 #include <iostream>
+#include <math.h>
 
 #define PI 3.14159
 
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
   APrime = A.transpose() * A;
   bPrime = A.transpose() * b;
 
-  SimplicialLDLT<SparseMatrix<float> > solver;
+  SimplicialLDLT<SparseMatrix<float>> solver;
   solver.compute(APrime);
 
   if (solver.info() != Success) {
@@ -205,8 +205,10 @@ void shiftToPositive(VectorXf &toShift) {
   float minX, minY;
   minX = minY = 0;
   for (int i = 0; i < 2 * F; i += 2) {
-    if (toShift(i) < minX) minX = toShift(i);
-    if (toShift(i + 1) < minY) minY = toShift(i + 1);
+    if (toShift(i) < minX)
+      minX = toShift(i);
+    if (toShift(i + 1) < minY)
+      minY = toShift(i + 1);
   }
 
   for (int i = 0; i < 2 * F; i += 2) {

@@ -1,7 +1,7 @@
-#include <dirent.h>
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
 #include <Eigen/StdVector>
+#include <dirent.h>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -73,7 +73,8 @@ void analyzeNormals(const string &normalsFileName, const string &outputFolder) {
 
   if (!FLAGS_redo) {
     ifstream out(rotOut, ios::in | ios::binary);
-    if (out.is_open()) return;
+    if (out.is_open())
+      return;
   }
 
   ifstream normalsFile(normalsFileName, ios::in | ios::binary);
@@ -87,7 +88,8 @@ void analyzeNormals(const string &normalsFileName, const string &outputFolder) {
   }
   normalsFile.close();
 
-  if (!FLAGS_quiteMode) cout << "N size: " << normals.size() << endl;
+  if (!FLAGS_quiteMode)
+    cout << "N size: " << normals.size() << endl;
 
   Vector3d d1, d2, d3;
   satoshiRansacManhattan1(normals, d1);
@@ -96,9 +98,11 @@ void analyzeNormals(const string &normalsFileName, const string &outputFolder) {
   }
   std::vector<Eigen::Vector3d> N2;
   for (auto &n : normals)
-    if (asin(n.cross(d1).norm()) > PI / 2.0 - 0.02) N2.push_back(n);
+    if (asin(n.cross(d1).norm()) > PI / 2.0 - 0.02)
+      N2.push_back(n);
 
-  if (!FLAGS_quiteMode) cout << "N2 size: " << N2.size() << endl;
+  if (!FLAGS_quiteMode)
+    cout << "N2 size: " << N2.size() << endl;
 
   satoshiRansacManhattan2(N2, d1, d2, d3);
 
@@ -138,7 +142,8 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
     std::random_device seed;
     std::mt19937_64 gen(seed());
     std::uniform_int_distribution<int> dist(0, m - 1);
-    for (int i = 0; i < 5000; ++i) dist(gen);
+    for (int i = 0; i < 5000; ++i)
+      dist(gen);
 
     while (k < K) {
       // random sampling
@@ -170,7 +175,8 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
           double p = max(0.001, pow(w, 3));
           K = log(1 - 0.999) / log(1 - p);
         }
-        if (k > 10000) k = 10 * k;
+        if (k > 10000)
+          k = 10 * k;
         ++k;
       }
     }
@@ -189,7 +195,8 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
     std::random_device seed;
     std::mt19937_64 gen(seed());
     std::uniform_int_distribution<int> dist(0, m - 1);
-    for (int i = 0; i < 5000; ++i) dist(gen);
+    for (int i = 0; i < 5000; ++i)
+      dist(gen);
 
     while (k < K) {
       // random sampling
@@ -240,7 +247,8 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
           K = log(1 - 0.999) / log(1 - p);
         }
 
-        if (k > 10000) k = 10 * K;
+        if (k > 10000)
+          k = 10 * K;
         ++k;
       }
     }
@@ -269,8 +277,10 @@ static Matrix3d crossProductMatrix(const Vector3d &vector) {
 
 Matrix3d getRotationMatrix(const Vector3d &end, const Vector3d &start) {
   if (acos(abs(start.dot(end))) < 0.005) {
-    if (start.dot(end) > 0) return Matrix3d::Identity();
-    if (start.dot(end) < 0) return -1.0 * Matrix3d::Identity();
+    if (start.dot(end) > 0)
+      return Matrix3d::Identity();
+    if (start.dot(end) < 0)
+      return -1.0 * Matrix3d::Identity();
   }
 
   Vector3d v = start.cross(end);

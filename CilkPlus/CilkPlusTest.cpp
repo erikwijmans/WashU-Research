@@ -12,7 +12,7 @@
 #ifdef _MSC_VER
 // Windows implementation of a mutex
 class mutex {
- public:
+public:
   mutex() { ::InitializeCriticalSection(&m_cs); }
 
   ~mutex() { ::DeleteCriticalSection(&m_cs); }
@@ -21,13 +21,13 @@ class mutex {
 
   void unlock() { ::LeaveCriticalSection(&m_cs); }
 
- private:
+private:
   CRITICAL_SECTION m_cs;
 };
 #else
 // Linux implementation of a mutex
 class mutex {
- public:
+public:
   mutex() : m_mutex(PTHREAD_MUTEX_INITIALIZER) {}
 
   ~mutex() {}
@@ -36,7 +36,7 @@ class mutex {
 
   void unlock() { ::pthread_mutex_unlock(&m_mutex); }
 
- private:
+private:
   pthread_mutex_t m_mutex;
 };
 #endif
@@ -49,7 +49,7 @@ class mutex {
  */
 void simulated_work() {
 #ifdef _MSC_VER
-  Sleep(100);  // 100 milliseconds
+  Sleep(100); // 100 milliseconds
 #else
   struct timespec request, remaining;
 
@@ -103,7 +103,7 @@ void locked_list_test() {
  *    completed.
  */
 void reducer_list_test() {
-  cilk::reducer<cilk::op_list_append<char> > letters_reducer;
+  cilk::reducer<cilk::op_list_append<char>> letters_reducer;
 
   // Build the list
   cilk_for(char ch = 'a'; ch <= 'z'; ch++) {

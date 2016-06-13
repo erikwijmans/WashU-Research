@@ -1,3 +1,5 @@
+#include "opencv2/core/cuda.hpp"
+#include "opencv2/xfeatures2d.hpp"
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
@@ -6,14 +8,12 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include "opencv2/core/cuda.hpp"
-#include "opencv2/xfeatures2d.hpp"
 // #include "opencv2/cudafeatures2d.hpp"
 #include "opencv2/xfeatures2d/cuda.hpp"
 
 namespace Eigen {
 typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
-}  // Eigen
+} // Eigen
 
 int main() {
   cv::Mat grayA, grayB;

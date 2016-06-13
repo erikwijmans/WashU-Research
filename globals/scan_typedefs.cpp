@@ -4,7 +4,8 @@
 std::string no_case_hash::lower_case(const std::string &s) const {
   std::string a(s);
   std::locale loc;
-  for (auto &c : a) c = std::tolower(c, loc);
+  for (auto &c : a)
+    c = std::tolower(c, loc);
   return a;
 }
 
@@ -12,8 +13,8 @@ size_t no_case_hash::operator()(const std::string &s) const {
   return hasher(lower_case(s));
 }
 
-size_t std::hash<std::vector<int>>::operator()(
-    const std::vector<int> &k) const {
+size_t std::hash<std::vector<int>>::
+operator()(const std::vector<int> &k) const {
   size_t seed = 0;
   for (auto v : k) {
     seed ^= h(v * A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -30,7 +31,8 @@ void saveMatrixAsSparse(const MatrixType &mat, std::ofstream &out) {
   int numNonZeros = 0, rows = mat.rows(), cols = mat.cols();
   const Scalar *dataPtr = mat.data();
   for (int i = 0; i < mat.size(); ++i)
-    if (*(dataPtr + i)) ++numNonZeros;
+    if (*(dataPtr + i))
+      ++numNonZeros;
 
   out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
   out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
@@ -299,7 +301,8 @@ const cv::Mat &place::Panorama::operator[](int n) {
   if (imgs.size() <= n || !imgs[n].data) {
 #pragma omp critical
     {
-      if (imgs.size() <= n) imgs.resize(n + 1);
+      if (imgs.size() <= n)
+        imgs.resize(n + 1);
 
       const double scale = pow(2, -n / 2.0);
       cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);

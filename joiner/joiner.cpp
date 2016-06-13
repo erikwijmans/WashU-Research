@@ -89,9 +89,9 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
                  Eigen::Vector3f &pointMin, Eigen::Vector3f &pointMax) {
   Eigen::Vector3f average = Eigen::Vector3f::Zero();
   Eigen::Vector3f sigma = Eigen::Vector3f::Zero();
-  for (auto &point : points) {
+
+  for (auto &point : points)
     average += point.point;
-  }
   average /= points.size();
 
   for (auto &point : points)

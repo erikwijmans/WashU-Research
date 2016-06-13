@@ -24,7 +24,8 @@ int main(int argc, char *argv[]) {
   boost::progress_display *show_progress = nullptr;
   if (FLAGS_quietMode)
     show_progress = new boost::progress_display(FLAGS_numScans);
-  if (FLAGS_threads) omp_set_num_threads(FLAGS_threads);
+  if (FLAGS_threads)
+    omp_set_num_threads(FLAGS_threads);
 
 #pragma omp parallel shared(manager) if (!FLAGS_preview)
   {
@@ -102,7 +103,8 @@ int main(int argc, char *argv[]) {
         ++(*show_progress);
     }
   }
-  if (show_progress) delete show_progress;
+  if (show_progress)
+    delete show_progress;
 
   return 0;
 }
@@ -110,7 +112,8 @@ int main(int argc, char *argv[]) {
 void saveImages(const std::vector<cv::Mat> &images,
                 const std::vector<std::string> &names) {
   assert(names.size() == images.size());
-  for (int i = 0; i < names.size(); ++i) cv::imwrite(names[i], images[i]);
+  for (int i = 0; i < names.size(); ++i)
+    cv::imwrite(names[i], images[i]);
 }
 
 void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name) {

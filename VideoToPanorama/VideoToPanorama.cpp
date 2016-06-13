@@ -18,17 +18,17 @@ usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt>
 <Panorama_Output_Path.png>
 */
 
+#include "opencv2/imgproc.hpp"
 #include <dirent.h>
-#include <math.h>
-#include <stdio.h>
-#include <time.h>
 #include <fstream>
 #include <iostream>
+#include <math.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
+#include <stdio.h>
 #include <string>
+#include <time.h>
 #include <vector>
-#include "opencv2/imgproc.hpp"
 
 #define NUM_ENTRY_PER_LINE 19
 #define PI 3.14159
@@ -61,9 +61,8 @@ int main(int argc, char **argv) {
   K = (Mat_<float>(3, 3) << 1082, 0, 360, 0, 1085, 640, 0, 0, 1);
 
   if (argc != 4) {
-    printf(
-        "usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> "
-        "<Panorama_Output_Path.png>\n");
+    printf("usage: ./VideoToPanorama.out <Images_Path> <IMU_File_Path.txt> "
+           "<Panorama_Output_Path.png>\n");
     return -1;
   }
 
@@ -166,7 +165,7 @@ Mat readInRotation(ifstream &file, float timeSamp) {
 
 void csvToBinary(ifstream &csv, ofstream &binary) {
   string line;
-  getline(csv, line);  // dump the header
+  getline(csv, line); // dump the header
 
   while (getline(csv, line)) {
     size_t pos1, pos2;
@@ -205,7 +204,8 @@ int projectImageToPanorama(string &imageName, ifstream &imuFile) {
 
   Mat rot_matrix = readInRotation(imuFile, (imgNum - 1) / FPS);
 
-  if (rot_matrix.empty()) return -1;
+  if (rot_matrix.empty())
+    return -1;
 
   int channels = img.channels();
   int nRows = img.rows;
@@ -294,8 +294,8 @@ void image_coords_to_pano_coords(float *img_coords, float *pano_coords,
   float theta =
       atan2(world_coords.at<float>(1), world_coords.at<float>(0)) + PI;
 
-  pano_coords[0] = theta / PI * PANO_H;  // col #
-  pano_coords[1] = phi / PI * PANO_H;    // row #
+  pano_coords[0] = theta / PI * PANO_H; // col #
+  pano_coords[1] = phi / PI * PANO_H;   // row #
 }
 
 void pano_coords_to_image_coords(float *pano_coords, float *img_coords,

@@ -2,8 +2,8 @@
 #ifndef SCAN_GFLAGS_H
 #define SCAN_GFLAGS_H
 
-#include <gflags/gflags.h>
 #include <boost/filesystem.hpp>
+#include <gflags/gflags.h>
 #include <string>
 #include <vector>
 
@@ -47,8 +47,8 @@ DECLARE_int32(threads);
 DECLARE_double(scale);
 
 void prependDataPath();
-void parseFolder(const std::string& name, std::vector<std::string>& out);
-boost::filesystem::directory_iterator folderToIterator(const std::string& name);
-int numberToIndex(const std::vector<std::string>& names, const int number);
+void parseFolder(const std::string &name, std::vector<std::string> &out);
+boost::filesystem::directory_iterator folderToIterator(const std::string &name);
+int numberToIndex(const std::vector<std::string> &names, const int number);
 
-#endif  // SCAN_GFLAGS_H
+#endif // SCAN_GFLAGS_H

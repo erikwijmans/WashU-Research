@@ -20,8 +20,7 @@ void findGlobalMinima(const std::vector<place::posInfo> &scores,
                       place::exclusionMap &maps,
                       std::vector<const place::posInfo *> &minima);
 
-template <typename MatType>
-void createPyramid(std::vector<MatType> &pyramid);
+template <typename MatType> void createPyramid(std::vector<MatType> &pyramid);
 
 template <typename MatType>
 void createPyramid(std::vector<std::vector<MatType>> &pyramid);
@@ -84,6 +83,6 @@ void createFPPyramidsWeighted(
     std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid);
 
-}  // namespace place
+} // namespace place
 
 #endif

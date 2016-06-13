@@ -86,13 +86,13 @@ void prependDataPath() {
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
 }
 
-void parseFolder(const std::string& name, std::vector<std::string>& out) {
-  for (auto& file : folderToIterator(name))
+void parseFolder(const std::string &name, std::vector<std::string> &out) {
+  for (auto &file : folderToIterator(name))
     out.push_back(file.path().filename().string());
 }
 
-boost::filesystem::directory_iterator folderToIterator(
-    const std::string& name) {
+boost::filesystem::directory_iterator
+folderToIterator(const std::string &name) {
   boost::filesystem::path folder(name);
   if (!boost::filesystem::exists(folder) ||
       !boost::filesystem::is_directory(folder)) {
@@ -102,7 +102,7 @@ boost::filesystem::directory_iterator folderToIterator(
   return boost::filesystem::directory_iterator(folder);
 }
 
-int numberToIndex(const std::vector<std::string>& names, const int number) {
+int numberToIndex(const std::vector<std::string> &names, const int number) {
   for (int i = 0; i < names.size(); ++i)
     if (number == std::stoi(names[i].substr(names[i].find(".") - 3, 3)))
       return i;
