@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     in.close();
     assert(num == binaryFileNames.size());
     double subSampleSize = 0.0085;
-    pcl::UniformSampling<PointType> uniform_sampling;
+
     for (int k = 0; k < 5; ++k) {
       std::cout << "Enter: " << k << std::endl;
       in.open(FLAGS_binaryFolder + binaryFileNames[k],
@@ -86,24 +86,25 @@ int main(int argc, char **argv) {
       createPCLPointCloud(points, current_cloud, rotMats[k].inverse(),
                           translations[k]);
 
-      current_cloud->insert(current_cloud->end(), output_cloud->begin(),
-                            output_cloud->end());
+      current_cloud->insert(current_cloud->end(),
+                            output_cloud->begin(), output_cloud->end());
 
       output_cloud->clear();
+      pcl::UniformSampling<PointType> uniform_sampling;
       uniform_sampling.setInputCloud(current_cloud);
       uniform_sampling.setRadiusSearch(subSampleSize);
       uniform_sampling.filter(*output_cloud);
 
-      if (output_cloud->size() > targetNumPoints) {
+      /*if (output_cloud->size() > targetNumPoints) {
         subSampleSize *= output_cloud->size() / targetNumPoints;
 
         output_cloud->clear();
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
-      }
-      std::cout << "Leaving" << std::endl;
+      }*/
+      std::cout << "Leaving: "<< current_cloud->size() << "  " << output_cloud->size() << std::endl;
     }
-
+    std::cout << "Saving" << std::endl;
     pcl::io::savePLYFileBinary(cloudName, *output_cloud);
   } else
     pcl::io::loadPLYFile(cloudName, *output_cloud);
@@ -155,8 +156,6 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
         in = false;
 
     if (!in)
-      continue;
-    if (p.intensity < 0.2)
       continue;
 
     Eigen::Vector3d point = p.point.cast<double>();
