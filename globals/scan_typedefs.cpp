@@ -1,4 +1,5 @@
 #include <locale>
+#include <opencv2/core.hpp>
 #include <scan_typedefs.hpp>
 
 std::string no_case_hash::lower_case(const std::string &s) const {

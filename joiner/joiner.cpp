@@ -8,10 +8,10 @@
 #include <scan_gflags.h>
 #include <scan_typedefs.hpp>
 
+typedef pcl::PointXYZRGB PointType;
+
 void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
                          pcl::PointCloud<PointType>::Ptr &cloud);
-
-typedef pcl::PointXYZRGB PointType;
 
 constexpr double targetNumPoints = 20e6;
 
@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
                    std::ios::in | std::ios::binary);
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
+  std::cout << num << std::endl;
   assert(num == binaryFileNames.size());
   std::vector<Eigen::Matrix3d> rotMats(num);
   std::vector<Eigen::Vector3d> translations(num);
@@ -41,6 +42,7 @@ int main(int argc, char **argv) {
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
   pcl::UniformSampling<PointType> uniform_sampling;
   for (int k = 0; k < num; ++k) {
+    std::cout << "Enter: " << k << std::endl;
     in.open(FLAGS_binaryFolder + binaryFileNames[k],
             std::ios::in | std::ios::binary);
     int rows, cols;
@@ -49,10 +51,12 @@ int main(int argc, char **argv) {
     std::vector<scan::PointXYZRGBA> points(rows * cols);
     for (auto &p : points) {
       p.loadFromFile(in);
-      p.point[1] *= -1;
-      p.point = rotMats[k].inverse() * p.point;
-      p.point += translations[k];
-      p.point[1] *= -1;
+      Eigen::Vector3d tmp(p.point.cast<double>());
+      tmp[1] *= -1;
+      tmp = rotMats[k].inverse() * tmp;
+      tmp += translations[k];
+      tmp[1] *= -1;
+      p.point = tmp.cast<float>();
     }
 
     pcl::PointCloud<PointType>::Ptr current_cloud(
@@ -82,6 +86,7 @@ int main(int argc, char **argv) {
       pcl::copyPointCloud(*current_cloud, sampled_indices.points,
                           *output_cloud);
     }
+    std::cout << "Leaving" << std::endl;
   }
 }
 
