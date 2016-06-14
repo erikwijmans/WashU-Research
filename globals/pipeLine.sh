@@ -24,6 +24,7 @@ mkdir -p $1/voxelGrids/R2
 mkdir -p $1/voxelGrids/metaData
 
 #run the 3 programs
+<<<<<<< b23eeb6b48521dde588349fd0e87af17b52ffe88
 # echo "Running preprocessor"
 # cd $2/preprocessor
 # make || exit 1
@@ -31,6 +32,18 @@ mkdir -p $1/voxelGrids/metaData
 
 # echo "Running scanDensity"
 # cd $2/scanDensity
+=======
+cd $2/preprocessor
+echo "Running preprocessor"
+make || exit 1
+./preprocessor -dataPath=$1
+echo "Running scanDensity"
+cd $2/scanDensity
+make || exit 1
+./scanDensity -dataPath=$1
+# echo "Running placeScan"
+# cd $2/placeScan
+>>>>>>> Commit before rebase
 # make || exit 1
 # ./scanDensity -dataPath=$1 -redo -2D
 

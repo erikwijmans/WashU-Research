@@ -238,7 +238,7 @@ void convertToBinary(const std::string &fileNameIn, const std::string &outName,
 
   std::ifstream in(outName, std::ios::in | std::ios::binary);
 
-  if (!in.is_open()) {
+  if (!in.is_open() || FLAGS_redo) {
     in.close();
     std::ifstream scanFile(fileNameIn, std::ios::in);
     int columns, rows;
