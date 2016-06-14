@@ -226,9 +226,9 @@ void multi::Labeler::weightEdges() {
 
 void multi::Labeler::solveTRW() {
   place::TRWSolver(adjacencyMatrix, R1Nodes, bestNodes);
+  unlockNodes(bestNodes);
   exclusionLite(bestNodes, freeVoxelFileNames[0].substr(0, 3),
                 unwantedNeighbors);
-  unlockNodes(bestNodes);
 }
 
 void multi::Labeler::solveMIP() {

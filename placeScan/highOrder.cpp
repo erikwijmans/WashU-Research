@@ -420,7 +420,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
   std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> H2toH;
   for (auto &pair : highOrder) {
     auto &incident = pair.first;
-    const double weight = pair.second.w;
+    const double weight = 0.5 * pair.second.w;
     std::vector<GRBVar *> final;
     stackTerms(incident, inverseVarList, model, H2toH, hOrderVars, hOrderQs,
                final);
@@ -474,6 +474,7 @@ void place::MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
 
     const int numVars = numberOfLabels.size();
     const int numOpts = nodes.size();
+    std::cout << "Labels: ";
     for (int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
       if (varList[i].get(GRB_DoubleAttr_X) == 1.0) {
         bestNodes.emplace_back(nodes[i], 1.0, i - offset, nodes[i].locked);

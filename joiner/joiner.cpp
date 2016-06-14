@@ -1,5 +1,6 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
+#include <pcl/io/ply_io.h>
 #include <pcl/keypoints/uniform_sampling.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -88,6 +89,8 @@ int main(int argc, char **argv) {
     }
     std::cout << "Leaving" << std::endl;
   }
+
+  pcl::io::savePLYFileBinary(FLAGS_outputV2 + "pointCloud.ply", *output_cloud);
 }
 
 void boundingBox(const std::vector<scan::PointXYZRGBA> &points,

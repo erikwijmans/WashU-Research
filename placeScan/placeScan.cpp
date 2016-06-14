@@ -134,11 +134,11 @@ int main(int argc, char *argv[]) {
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
-    labeler.displayGraph();
+    // labeler.displayGraph();
     labeler.solveTRW();
     // labeler.displaySolution();
     labeler.solveMIP();
-    labeler.saveFinal();
+    // labeler.saveFinal();
     while (true)
       labeler.displaySolution();
   }
