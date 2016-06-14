@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
     labeler.solveTRW();
     // labeler.displaySolution();
     labeler.solveMIP();
-    // labeler.saveFinal();
+    labeler.saveFinal();
     while (true)
       labeler.displaySolution();
   }

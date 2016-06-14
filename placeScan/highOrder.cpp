@@ -246,7 +246,7 @@ void place::createHigherOrderTerms(
     else
       ++it;
 
-  dispHMap(hMap, highOrder);
+  // dispHMap(hMap, highOrder);
 }
 
 void place::displayHighOrder(
@@ -312,7 +312,7 @@ static std::vector<GRBVar *> condenseStack(
     const std::vector<GRBVar *> &toStack, GRBModel &model,
     std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> &H2toH,
     std::list<GRBVar> &hOrderVars,
-    std::list<std::pair<GRBQuadExpr, GRBQuadExpr>> &hOrderQs, int level) {
+    std::list<std::pair<GRBQuadExpr, GRBQuadExpr>> &hOrderQs) {
   std::vector<GRBVar *> stacked;
   int i = 0;
   for (; i + 1 < toStack.size(); i += 2) {
@@ -346,7 +346,7 @@ stackTerms(const std::vector<int> &toStack, GRBVar *varList, GRBModel &model,
     stacked.push_back(varList + i);
 
   while (stacked.size() > 2) {
-    stacked = condenseStack(stacked, model, H2toH, hOrderVars, hOrderQs, 0);
+    stacked = condenseStack(stacked, model, H2toH, hOrderVars, hOrderQs);
   }
 }
 

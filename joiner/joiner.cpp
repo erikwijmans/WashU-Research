@@ -1,10 +1,9 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
+#include <pcl/filters/uniform_sampling.h>
 #include <pcl/io/ply_io.h>
-#include <pcl/keypoints/uniform_sampling.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/visualization/pcl_visualizer.h>
 
 #include <scan_gflags.h>
 #include <scan_typedefs.hpp>
@@ -22,9 +21,9 @@ int main(int argc, char **argv) {
 
   std::vector<std::string> binaryFileNames;
   parseFolder(FLAGS_binaryFolder, binaryFileNames);
-
   std::ifstream in(FLAGS_outputV2 + "final.dat",
                    std::ios::in | std::ios::binary);
+
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
   std::cout << num << std::endl;
@@ -68,24 +67,17 @@ int main(int argc, char **argv) {
                           output_cloud->end());
 
     output_cloud->clear();
-    pcl::PointCloud<int> sampled_indices;
     uniform_sampling.setInputCloud(current_cloud);
     uniform_sampling.setRadiusSearch(subSampleSize);
-    uniform_sampling.compute(sampled_indices);
-
-    pcl::copyPointCloud(*current_cloud, sampled_indices.points, *output_cloud);
+    uniform_sampling.filter(*output_cloud);
 
     if (output_cloud->size() > targetNumPoints) {
       subSampleSize *= output_cloud->size() / targetNumPoints;
 
       output_cloud->clear();
-      pcl::PointCloud<int> sampled_indices;
       uniform_sampling.setInputCloud(current_cloud);
       uniform_sampling.setRadiusSearch(subSampleSize);
-      uniform_sampling.compute(sampled_indices);
-
-      pcl::copyPointCloud(*current_cloud, sampled_indices.points,
-                          *output_cloud);
+      uniform_sampling.filter(*output_cloud);
     }
     std::cout << "Leaving" << std::endl;
   }

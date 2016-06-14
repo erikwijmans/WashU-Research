@@ -267,6 +267,7 @@ void multi::Labeler::saveFinal() {
   const int num = bestNodes.size();
   out.write(reinterpret_cast<const char *>(&num), sizeof(num));
 
+  load();
   for (auto &n : bestNodes) {
     Eigen::Matrix3d &rotMat = rotationMatricies[n.color][n.s.rotation];
     Eigen::Vector3d trans(n.s.x, n.s.y, 0);

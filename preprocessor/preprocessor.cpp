@@ -16,18 +16,14 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/xfeatures2d.hpp>
 #include <string>
-
-#include "opencv2/xfeatures2d.hpp"
 
 #include <boost/progress.hpp>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
-#include <pcl/keypoints/impl/sift_keypoint.hpp>
-#include <pcl/keypoints/sift_keypoint.h>
-#include <pcl/keypoints/uniform_sampling.h>
-#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/filters/uniform_sampling.h>
 
 #include <dirent.h>
 
@@ -351,7 +347,7 @@ static Eigen::Vector3d pointCloudToPanorama(const Eigen::Vector3f &worldCoord,
   return Eigen::Vector3d(x, y, polar[0]);
 }
 
-void fillGaps(auto &mat, auto &mask) {
+template <class T1, class T2> void fillGaps(T1 &mat, T2 &mask) {
   assert(mat.rows() == mask.rows());
   assert(mat.cols() == mask.cols());
   int count = 0;
@@ -503,7 +499,6 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
     auto &n = cloud_normals->at(i);
     Eigen::Vector3f coord(p.x, p.y, p.z);
     auto panoCoord = pointCloudToPanorama(coord, trackingPanorama.size());
-    const double r = panoCoord[2];
     const int trackedRow = panoCoord[1];
     const int trackedCol = panoCoord[0];
     surfaceNormals(trackedRow, trackedCol) =
@@ -520,7 +515,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   fillGaps(surfaceNormals, hasNormal);
   fillGaps(rMap, rMap);
 
-  constexpr double scale = pow(2, -5.0 / 2);
+  const double scale = pow(2, -5.0 / 2);
   cv::Mat scaledTracking, scaledPTX;
   cv::resize(trackingPanorama, scaledTracking, cv::Size(), scale, scale,
              CV_INTER_AREA);
@@ -688,17 +683,13 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
       return;
   }
 
-  pcl::PointCloud<int> sampled_indices;
   pcl::PointCloud<PointType>::Ptr filtered_cloud(
       new pcl::PointCloud<PointType>);
   pcl::UniformSampling<PointType> uniform_sampling;
-
   uniform_sampling.setInputCloud(cloud);
   // 85 mm
   uniform_sampling.setRadiusSearch(0.0085f);
-  uniform_sampling.compute(sampled_indices);
-
-  pcl::copyPointCloud(*cloud, sampled_indices.points, *filtered_cloud);
+  uniform_sampling.filter(*filtered_cloud);
 
   pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
   pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>);

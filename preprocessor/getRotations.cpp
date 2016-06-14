@@ -187,7 +187,6 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
       for (auto &n : N) {
         if (std::min(std::acos(std::abs(nest.dot(n))),
                      std::acos(std::abs(nest2.dot(n)))) < 0.02) {
-
           if (std::acos(std::abs(nest.dot(n))) < 0.02) {
             x = n;
           } else {
