@@ -86,12 +86,12 @@ int main(int argc, char **argv) {
       createPCLPointCloud(points, current_cloud, rotMats[k].inverse(),
                           translations[k]);
 
-      current_cloud->insert(current_cloud->end(),
-                            output_cloud->begin(), output_cloud->end());
+      current_cloud->insert(current_cloud->end(), output_cloud->begin(),
+                            output_cloud->end());
 
-      output_cloud->clear();
       pcl::UniformSampling<PointType> uniform_sampling;
       uniform_sampling.setInputCloud(current_cloud);
+      output_cloud->clear();
       uniform_sampling.setRadiusSearch(subSampleSize);
       uniform_sampling.filter(*output_cloud);
 
@@ -102,7 +102,8 @@ int main(int argc, char **argv) {
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
       }*/
-      std::cout << "Leaving: "<< current_cloud->size() << "  " << output_cloud->size() << std::endl;
+      std::cout << "Leaving: " << current_cloud->size() << "  "
+                << output_cloud->size() << std::endl;
     }
     std::cout << "Saving" << std::endl;
     pcl::io::savePLYFileBinary(cloudName, *output_cloud);
