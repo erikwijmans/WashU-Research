@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
     assert(num == binaryFileNames.size());
     double subSampleSize = 0.0085;
 
-    for (int k = 0; k < 5; ++k) {
-      std::cout << "Enter: " << k << std::endl;
+    for (int k = 3; k < 5; ++k) {
+      std::cout << "Enter: " << binaryFileNames[k] << std::endl;
       in.open(FLAGS_binaryFolder + binaryFileNames[k],
               std::ios::in | std::ios::binary);
       int rows, cols;
