@@ -163,8 +163,6 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
 
     if (!in)
       continue;
-    if (p.intensity < 0.2)
-      continue;
 
     Eigen::Vector3d point = p.point.cast<double>();
     point[1] *= -1;
@@ -176,9 +174,9 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
     tmp.x = point[0];
     tmp.y = point[1];
     tmp.z = point[2];
-    tmp.r = static_cast<uint8_t>(rgb[0]);
-    tmp.g = static_cast<uint8_t>(rgb[1]);
-    tmp.b = static_cast<uint8_t>(rgb[2]);
+    tmp.r = cv::saturate_cast<uint8_t>(rgb[0]);
+    tmp.g = cv::saturate_cast<uint8_t>(rgb[1]);
+    tmp.b = cv::saturate_cast<uint8_t>(rgb[2]);
     cloud->push_back(tmp);
   }
 }
