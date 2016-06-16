@@ -93,7 +93,7 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   std::string buildName = rotationsFiles[0].substr(0, 3);
 
   if (FLAGS_scale == -1) {
-    FLAGS_scale = buildingToScale.getScale();
+    FLAGS_scale = buildingScale.getScale();
   }
 
   if (FLAGS_numScans == -1)
