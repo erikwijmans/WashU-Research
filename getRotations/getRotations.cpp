@@ -49,6 +49,9 @@ int main(int argc, char *argv[]) {
 
   sort(normalsNames.begin(), normalsNames.end());
 
+  if (FLAGS_startNumber != -1)
+  	FLAGS_startIndex = numberToIndex(normalsNames, FLAGS_startNumber);
+
   if (FLAGS_numScans == -1)
     FLAGS_numScans = normalsNames.size() - FLAGS_startIndex;
 

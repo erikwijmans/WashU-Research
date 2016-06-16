@@ -91,6 +91,9 @@ int main(int argc, char *argv[]) {
          return numA < numB;
        });
 
+  if (FLAGS_startNumber != -1)
+    FLAGS_startIndex = numberToIndex(csvFileNames, FLAGS_startNumber);
+
   if (FLAGS_numScans == -1)
     FLAGS_numScans = csvFileNames.size() - FLAGS_startIndex;
   if (FLAGS_threads)

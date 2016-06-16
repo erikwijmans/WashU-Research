@@ -4,7 +4,7 @@
 
 double BuildingScale::getScale() {
   if (this->scale == -1) {
-    std::ifstream in(FLAGS_dataPath + "scale.txt");
+    std::ifstream in(FLAGS_dataPath + "/scale.txt");
     in >> this->scale;
     in.close();
   }
@@ -13,7 +13,7 @@ double BuildingScale::getScale() {
 
 void BuildingScale::update(double scale) {
   this->scale = scale;
-  std::ofstream out(FLAGS_dataPath + "scale.txt");
+  std::ofstream out(FLAGS_dataPath + "/scale.txt");
   out << scale;
   out.close();
 }

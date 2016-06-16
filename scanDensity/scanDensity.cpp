@@ -96,6 +96,9 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
     FLAGS_scale = buildingScale.getScale();
   }
 
+  if (FLAGS_startNumber != -1)
+  	FLAGS_startIndex = numberToIndex(binaryNames, FLAGS_startNumber);
+
   if (FLAGS_numScans == -1)
     FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
   this->current = FLAGS_startIndex;

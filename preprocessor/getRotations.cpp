@@ -75,6 +75,11 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   else
     getMajorAngles(d3, R);
 
+  if (!FLAGS_quietMode) {
+    for (auto &r: R)
+      std::cout << r << std::endl << std::endl;
+  }
+
   if (FLAGS_save) {
     std::ofstream binaryWriter(outName, std::ios::out | std::ios::binary);
     for (int i = 0; i < R.size(); ++i) {
@@ -249,12 +254,13 @@ static Eigen::Matrix3d crossProductMatrix(const Eigen::Vector3d &vector) {
 */
 Eigen::Matrix3d getRotationMatrix(const Eigen::Vector3d &end,
                                   const Eigen::Vector3d &start) {
-
-  if (std::acos(std::abs(start.dot(end))) < 0.005) {
-    if (start.dot(end) > 0)
-      return Eigen::Matrix3d::Identity();
-    if (start.dot(end) < 0)
-      return -1.0 * Eigen::Matrix3d::Identity();
+  if (std::acos(std::abs(start.dot(end))) < 0.05) {
+    Eigen::Matrix3d out = Eigen::Matrix3d::Identity();
+    if (start.dot(end) < 0) {
+      out(0, 0) *= -1;
+      out(1, 1) *= -1;
+    }
+    return out;
   }
 
   Eigen::Vector3d v = start.cross(end);
