@@ -136,9 +136,10 @@ int main(int argc, char *argv[]) {
     labeler.weightEdges();
     // labeler.displayGraph();
     labeler.solveTRW();
-    // labeler.displaySolution();
+    labeler.saveFinal(0);
+    labeler.displaySolution();
     labeler.solveMIP();
-    labeler.saveFinal();
+    // labeler.saveFinal(1);
     while (true)
       labeler.displaySolution();
   }

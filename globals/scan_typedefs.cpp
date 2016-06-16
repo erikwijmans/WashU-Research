@@ -2,16 +2,20 @@
 #include <opencv2/core.hpp>
 #include <scan_typedefs.hpp>
 
-std::string no_case_hash::lower_case(const std::string &s) const {
-  std::string a(s);
-  std::locale loc;
-  for (auto &c : a)
-    c = std::tolower(c, loc);
-  return a;
+double BuildingScale::getScale() {
+  if (this->scale == -1) {
+    std::ifstream in(FLAGS_dataPath + "scale.txt");
+    in >> this->scale;
+    in.close();
+  }
+  return this->scale;
 }
 
-size_t no_case_hash::operator()(const std::string &s) const {
-  return hasher(lower_case(s));
+void BuildingScale::update(double scale) {
+  this->scale = scale;
+  std::ofstream out(FLAGS_dataPath + "scale.txt");
+  out << scale;
+  out.close();
 }
 
 size_t std::hash<std::vector<int>>::
@@ -23,8 +27,7 @@ operator()(const std::vector<int> &k) const {
   return seed;
 }
 
-const std::unordered_map<std::string, double, no_case_hash> buildingToScale = {
-    {"DUC", 73.5}, {"cse", 98.0}};
+BuildingScale buildingScale;
 
 template <typename MatrixType>
 void saveMatrixAsSparse(const MatrixType &mat, std::ofstream &out) {
@@ -350,6 +353,7 @@ std::ostream &place::operator<<(std::ostream &os,
                                 const place::SelectedNode &p) {
   os << "Color: " << p.color << "  ";
   os << "Agreement: " << p.agreement << "  ";
+  os << "Norm: " << p.norm << "  ";
   os << "Label #: " << p.label << "  ";
   if (!p.locked)
     os << "Selected for relabeling";

@@ -53,7 +53,7 @@ DEFINE_string(descriptorsFolder, "descriptors/", "name of descriptorsFolder");
 DEFINE_string(SIFTFolder, "SIFT/", "name of SIFT folder");
 DEFINE_string(binaryFolder, "binaryFiles/", "Path to binary files");
 DEFINE_string(
-    dataPath, "/home/erik/Projects/3DscanData/DUC/Floor1",
+    dataPath, "/home/erik/Projects/3DScanData/DUC/Floor1",
     "Path to where the program should search for the various folders it needs");
 DEFINE_int32(startIndex, 0, "Scan number to start with");
 DEFINE_int32(startNumber, -1, "Tells the program what number to start with");

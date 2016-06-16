@@ -1,6 +1,7 @@
 #include "highOrder.h"
 #include "placeScan_multiLabeling.h"
 
+#include <boost/math/distributions/students_t.hpp>
 #include <fstream>
 #include <iostream>
 #include <opencv2/highgui.hpp>
@@ -13,7 +14,7 @@ const int minScans = 20;
 static constexpr int minNodes = 2;
 static void selectR1Nodes(const std::vector<place::node> &nodes,
                           std::vector<place::node> &R1Nodes) {
-  constexpr int maxR1 = 200;
+  constexpr int maxR1Nodes = 50;
   int currentColor = nodes[0].color;
   double lastScore = 1.0;
   double initailScore = nodes[0].s.score;
@@ -26,7 +27,7 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
       initailScore = n.s.score;
     }
     if (++count > minNodes &&
-        (count > maxR1 || n.s.score - lastScore > maxDelta ||
+        (count > maxR1Nodes || n.s.score - lastScore > maxDelta ||
          n.s.score - initailScore > maxTotal))
       continue;
     lastScore = n.s.score;
@@ -38,6 +39,7 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
 static void selectR2Nodes(const std::vector<place::node> &nodes,
                           const std::vector<place::SelectedNode> &bestNodes,
                           std::vector<place::R2Node> &R2Nodes) {
+  constexpr int maxR2Nodes = 50;
   int currentColor = -1;
   double lastScore = 1.0;
   double initailScore = nodes[0].s.score;
@@ -52,8 +54,9 @@ static void selectR2Nodes(const std::vector<place::node> &nodes,
         R2Nodes.push_back(bestNodes[currentColor]);
     }
     if (!bestNodes[currentColor].locked) {
-      if (++count > minNodes && (n.s.score - lastScore > maxDelta ||
-                                 n.s.score - initailScore > maxTotal))
+      if (++count > minNodes &&
+          (n.s.score - lastScore > maxDelta ||
+           n.s.score - initailScore > maxTotal || count > maxR2Nodes))
         continue;
       lastScore = n.s.score;
       R2Nodes.emplace_back(n, false);
@@ -62,14 +65,9 @@ static void selectR2Nodes(const std::vector<place::node> &nodes,
 }
 
 static void exclusionLite(
-    std::vector<place::SelectedNode> &nodes, const std::string &buildName,
+    std::vector<place::SelectedNode> &nodes,
     std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
-  auto it = buildingToScale.find(buildName);
-  if (it == buildingToScale.cend()) {
-    std::cout << "Could not find building " << buildName << std::endl;
-    exit(1);
-  }
-  const double scale = it->second;
+  const double scale = buildingScale.getScale();
   for (int i = 0; i < nodes.size(); ++i) {
     for (int j = 0; j < nodes.size(); ++j) {
       if (i == j)
@@ -78,13 +76,15 @@ static void exclusionLite(
       const Eigen::Vector2d b(nodes[j].s.x, nodes[j].s.y);
       const double dist = (a - b).norm() / scale;
       if (dist < 1.5) {
-        nodes[i].locked = false;
-        nodes[j].locked = false;
         auto it = unwantedNeighbors.find(i);
         if (it == unwantedNeighbors.cend())
           unwantedNeighbors.emplace(i, std::unordered_set<int>({j}));
         else
           it->second.emplace(j);
+        if (nodes[i].locked && nodes[j].locked) {
+          nodes[i].locked = false;
+          nodes[j].locked = false;
+        }
       }
     }
   }
@@ -110,9 +110,9 @@ static void unlockNodes(std::vector<place::SelectedNode> &nodes) {
   sigma = sqrt(sigma);
 
   std::cout << average << "  " << sigma << std::endl;
-
   for (auto &n : nodes) {
     const double norm = (n.agreement - average) / sigma;
+    n.norm = norm;
     if (norm < -0.75)
       n.locked = false;
   }
@@ -227,8 +227,7 @@ void multi::Labeler::weightEdges() {
 void multi::Labeler::solveTRW() {
   place::TRWSolver(adjacencyMatrix, R1Nodes, bestNodes);
   unlockNodes(bestNodes);
-  exclusionLite(bestNodes, freeVoxelFileNames[0].substr(0, 3),
-                unwantedNeighbors);
+  exclusionLite(bestNodes, unwantedNeighbors);
 }
 
 void multi::Labeler::solveMIP() {
@@ -250,19 +249,15 @@ void multi::Labeler::displayGraph() {
   place::displayGraph(adjacencyMatrix, R1Nodes, scans, zeroZeros);
 }
 
-void multi::Labeler::saveFinal() {
+void multi::Labeler::saveFinal(int index) {
+  if (!FLAGS_save)
+    return;
 
-  const std::string buildName = freeVoxelFileNames[0].substr(0, 3);
-  auto it = buildingToScale.find(buildName);
-  if (it == buildingToScale.cend()) {
-    std::cout << "Could not find building: " << buildName << std::endl;
-    exit(2);
-  }
-  const double scale = it->second;
+  const double scale = buildingScale.getScale();
   const Eigen::Vector3d center =
       Eigen::Vector3d(bestNodes[0].s.x, bestNodes[0].s.y, 0) / scale;
 
-  std::ofstream out(FLAGS_outputV2 + "final.dat",
+  std::ofstream out(FLAGS_outputV2 + "final_" + std::to_string(index) + ".dat",
                     std::ios::out | std::ios::binary);
   const int num = bestNodes.size();
   out.write(reinterpret_cast<const char *>(&num), sizeof(num));

@@ -153,7 +153,7 @@ void place::createHigherOrderTerms(
         if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
           continue;
         if (_fp(j + yOffset, i + xOffset) != 255 &&
-            localGroup(currentScan, j, i, 10)) {
+            localGroup(currentScan, j, i, 7)) {
           auto &h = hMap(j + yOffset, i + xOffset);
           if (currentNode.locked) {
             h.weight += currentNode.w;
@@ -189,11 +189,11 @@ void place::createHigherOrderTerms(
     auto h = data + i;
     h->count = h->owners.size();
     if (h->count) {
-      h->weight /= std::pow(h->count, 1.1);
+      h->weight /= std::pow(h->count, 1.5);
     }
   }
 
-  // dispHMap(hMap);
+  dispHMap(hMap);
 
   for (int i = 0; i < hMap.size(); ++i) {
     std::vector<int> &key = (data + i)->incident;
@@ -241,7 +241,7 @@ void place::createHigherOrderTerms(
     pair.second.w = (pair.second.w - average) / (sigma);
 
   for (auto it = highOrder.cbegin(); it != highOrder.cend();)
-    if (it->second.w <= -0.5)
+    if (it->second.w <= 0.0)
       it = highOrder.erase(it);
     else
       ++it;
@@ -420,7 +420,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
   std::unordered_map<std::pair<GRBVar *, GRBVar *>, GRBVar *> H2toH;
   for (auto &pair : highOrder) {
     auto &incident = pair.first;
-    const double weight = 0.5 * pair.second.w;
+    const double weight = pair.second.w;
     std::vector<GRBVar *> final;
     stackTerms(incident, inverseVarList, model, H2toH, hOrderVars, hOrderQs,
                final);

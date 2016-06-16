@@ -44,13 +44,15 @@ int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
 
+  std::vector<std::string> binaryFileNames;
+  parseFolder(FLAGS_binaryFolder, binaryFileNames);
+  const std::string buildName = binaryFileNames[0].substr(0, 3);
+  const std::string cloudName = FLAGS_outputV2 + buildName + "_pointCloud.ply";
+
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
-  const std::string cloudName = FLAGS_outputV2 + "pointCloud.ply";
 
   if (FLAGS_redo || !fexists(cloudName)) {
-    std::vector<std::string> binaryFileNames;
-    parseFolder(FLAGS_binaryFolder, binaryFileNames);
-    std::ifstream in(FLAGS_outputV2 + "final.dat",
+    std::ifstream in(FLAGS_outputV2 + "final_0.dat",
                      std::ios::in | std::ios::binary);
 
     int num;
@@ -70,7 +72,7 @@ int main(int argc, char **argv) {
     assert(num == binaryFileNames.size());
     double subSampleSize = 0.0085;
 
-    for (int k = 3; k < 5; ++k) {
+    for (int k = 0; k < num; ++k) {
       std::cout << "Enter: " << binaryFileNames[k] << std::endl;
       in.open(FLAGS_binaryFolder + binaryFileNames[k],
               std::ios::in | std::ios::binary);
@@ -80,6 +82,7 @@ int main(int argc, char **argv) {
       std::vector<scan::PointXYZRGBA> points(rows * cols);
       for (auto &p : points)
         p.loadFromFile(in);
+      in.close();
 
       pcl::PointCloud<PointType>::Ptr current_cloud(
           new pcl::PointCloud<PointType>);
@@ -95,13 +98,13 @@ int main(int argc, char **argv) {
       uniform_sampling.setRadiusSearch(subSampleSize);
       uniform_sampling.filter(*output_cloud);
 
-      /*if (output_cloud->size() > targetNumPoints) {
+      if (output_cloud->size() > targetNumPoints) {
         subSampleSize *= output_cloud->size() / targetNumPoints;
 
         output_cloud->clear();
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
-      }*/
+      }
       std::cout << "Leaving: " << current_cloud->size() << "  "
                 << output_cloud->size() << std::endl;
     }
@@ -110,10 +113,12 @@ int main(int argc, char **argv) {
   } else
     pcl::io::loadPLYFile(cloudName, *output_cloud);
 
-  pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
-  while (!viewer->wasStopped()) {
-    viewer->spinOnce(100);
-    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+  if (FLAGS_visulization) {
+    pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
+    while (!viewer->wasStopped()) {
+      viewer->spinOnce(100);
+      boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+    }
   }
 }
 
@@ -134,7 +139,7 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
   for (int i = 0; i < 3; ++i)
     sigma[i] = sqrt(sigma[i]);
 
-  Eigen::Vector3f range(10, 10, 6);
+  Eigen::Vector3f range(13, 13, 8);
   Eigen::Vector3f delta;
   for (int i = 0; i < delta.size(); ++i)
     delta[i] = 1.1 * range[i] * sigma[i];
@@ -149,7 +154,7 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
                          const Eigen::Vector3d &trans) {
   Eigen::Vector3f pointMin, pointMax;
   boundingBox(points, pointMin, pointMax);
-
+  int count = 0;
   for (auto &p : points) {
     bool in = true;
     for (int i = 0; i < 3; ++i)
@@ -157,6 +162,8 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
         in = false;
 
     if (!in)
+      continue;
+    if (p.intensity < 0.2)
       continue;
 
     Eigen::Vector3d point = p.point.cast<double>();

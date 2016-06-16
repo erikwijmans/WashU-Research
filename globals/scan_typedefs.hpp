@@ -12,21 +12,23 @@
 #include <unordered_map>
 
 #include <omp.h>
+#include <scan_gflags.h>
 
 #define NUM_ROTS 4
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double maxPhi = 2.61946;
 
-typedef struct no_case_hash {
-  std::hash<std::string> hasher;
-  std::locale loc;
-  size_t operator()(const std::string &s) const;
-  std::string lower_case(const std::string &s) const;
-} no_case_hash;
+class BuildingScale {
+private:
+  double scale = -1;
 
-extern const std::unordered_map<std::string, double, no_case_hash>
-    buildingToScale;
+public:
+  double getScale();
+  void update(double scale);
+};
+
+extern BuildingScale buildingScale;
 
 namespace std {
 template <> struct hash<std::vector<int>> {
@@ -172,24 +174,26 @@ typedef struct node {
 } node;
 
 typedef struct SelectedNode : public node {
-  double agreement;
+  double agreement, norm;
   int label;
   bool locked;
   SelectedNode(const node &o, double agreement, int label, bool locked)
-      : node{o}, agreement{agreement}, label{label}, locked{locked} {};
+      : node{o}, agreement{agreement}, norm{0}, label{label}, locked{locked} {};
 
   friend std::ostream &operator<<(std::ostream &os,
                                   const place::SelectedNode &p);
 } SelectedNode;
 
 typedef struct R2Node : public node {
+  double agreement;
   bool locked;
-  R2Node(const node &o, bool locked) : node{o}, locked{locked} {};
+  R2Node(const node &o, bool locked) : node{o}, agreement{0}, locked{locked} {};
 
   R2Node(const posInfo &s, double w, double nw, int color, int pos, bool locked)
       : node{s, w, nw, color, pos}, locked{locked} {};
   R2Node(const SelectedNode &s)
-      : node{s.s, s.w, s.nw, s.color, s.pos}, locked{s.locked} {};
+      : node{s.s, s.w, s.nw, s.color, s.pos}, agreement{s.agreement},
+        locked{s.locked} {};
 } R2Node;
 
 typedef struct {

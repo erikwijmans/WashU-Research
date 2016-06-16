@@ -21,7 +21,7 @@ public:
   void displaySolution();
   void displayGraph();
   void getLabeling(std::vector<const place::node *> &labels);
-  void saveFinal();
+  void saveFinal(int index);
   struct s {
     double w;
     int c;

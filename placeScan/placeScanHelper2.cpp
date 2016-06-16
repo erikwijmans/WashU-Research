@@ -508,7 +508,7 @@ void place::loadInPlacementGraph(const std::string &imageName,
                            (currentScore.scanPixels);
     double fpExplained =
         (currentScore.fpPixels - currentScore.fpScan) / (currentScore.fpPixels);
-    const double w = (1.5 * scanExplained + fpExplained) / 2.5;
+    const double w = (scanExplained + fpExplained);
     n.w = w;
   }
 
@@ -923,7 +923,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   typedef opengm::TRWSi_Parameter<Model> Parameter;
   typedef opengm::TRWSi<Model, opengm::Maximizer> Solver;
 
-  Parameter parameter(5000);
+  Parameter parameter(500);
   Solver solver(gm, parameter);
   Solver::TimingVisitorType verboseVisitor;
   solver.infer(verboseVisitor);

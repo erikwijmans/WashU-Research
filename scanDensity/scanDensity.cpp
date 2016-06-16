@@ -93,13 +93,7 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   std::string buildName = rotationsFiles[0].substr(0, 3);
 
   if (FLAGS_scale == -1) {
-    auto it = buildingToScale.find(buildName);
-    if (it == buildingToScale.end()) {
-      std::cout << "Could not find a scale assocaited with " << buildName
-                << std::endl;
-      exit(1);
-    }
-    FLAGS_scale = buildingToScale.find(buildName)->second;
+    FLAGS_scale = buildingToScale.getScale();
   }
 
   if (FLAGS_numScans == -1)
