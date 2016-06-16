@@ -17,7 +17,6 @@ void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name);
 static const double voxelsPerMeter = 20.0;
 
 int main(int argc, char *argv[]) {
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
   FLAGS_threads = 4;
   DensityMapsManager manager(argc, argv);
 

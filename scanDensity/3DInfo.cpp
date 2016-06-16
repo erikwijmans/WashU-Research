@@ -11,7 +11,6 @@ voxel::CloudAnalyzer3D::CloudAnalyzer3D(
     const std::shared_ptr<const std::vector<Eigen::Matrix3d>> &R,
     const std::shared_ptr<const BoundingBox> &bBox)
     : points{points}, R{R}, bBox{bBox} {
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 }
 
 void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
@@ -149,7 +148,7 @@ static void displayVoxelGrid(const auto &voxelB) {
       }
     }
   }
-
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
   cv::imshow("Preview", heatMap);
   cv::waitKey(0);
 }
