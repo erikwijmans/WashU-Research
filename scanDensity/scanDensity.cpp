@@ -269,9 +269,7 @@ CloudAnalyzer2D::CloudAnalyzer2D(
     const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     const std::shared_ptr<const std::vector<Eigen::Matrix3d>> &R,
     const std::shared_ptr<const BoundingBox> &bBox)
-    : points{points}, R{R}, bBox{bBox}, pointsPerVoxel{nullptr} {
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-}
+    : points{points}, R{R}, bBox{bBox}, pointsPerVoxel{nullptr} {}
 
 void CloudAnalyzer2D::initalize(double scale) {
   bBox->getBoundingBox(pointMin, pointMax);
@@ -376,6 +374,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
       }
     }
     if (FLAGS_preview) {
+      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
       cv::imshow("Preview", heatMap);
       cv::waitKey(0);
     }
@@ -520,6 +519,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
     }
 
     if (FLAGS_preview) {
+      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
       cv::imshow("Preview", heatMap);
       cv::waitKey(0);
     }
