@@ -324,13 +324,6 @@ static Eigen::Vector3d cartesianToPolar(const Eigen::Vector3d &coords) {
   return Eigen::Vector3d(r, theta, phi);
 }
 
-static Eigen::Vector3d polarToCartesian(const Eigen::Vector3d &coords) {
-  double x = coords[0] * cos(coords[1]) * sin(coords[2]);
-  double y = coords[0] * sin(coords[1]) * sin(coords[2]);
-  double z = coords[0] * cos(coords[2]);
-  return Eigen::Vector3d(x, y, z);
-}
-
 static Eigen::Vector3d pointCloudToPanorama(const Eigen::Vector3f &worldCoord,
                                             const cv::Size &resolution) {
   auto polar = cartesianToPolar(worldCoord.cast<double>());
@@ -345,8 +338,6 @@ template <class T1, class T2> void fillGaps(T1 &mat, T2 &mask) {
   int count = 0;
   constexpr int limit = 15;
   decltype(mat.data()) current = nullptr;
-  auto maskPtr = mask.data();
-  auto matPtr = mat.data();
 
   for (int j = 0, loop = 1; j < mat.rows() && loop; ++j) {
     for (int i = 0; i < mat.cols() && loop; ++i) {
