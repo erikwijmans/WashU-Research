@@ -32,7 +32,7 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
       continue;
     lastScore = n.s.score;
     R1Nodes.push_back(n);
-    R1Nodes.back().pos = R1Nodes.size() - 1;
+    R1Nodes.back().id = R1Nodes.size() - 1;
   }
 }
 
@@ -64,8 +64,8 @@ static void selectR2Nodes(const std::vector<place::node> &nodes,
   }
 }
 
-static void exclusionLite(
-    std::vector<place::SelectedNode> &nodes,
+static void calcNeighbors(
+    const std::vector<place::node> &nodes,
     std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
   const double scale = buildingScale.getScale();
   for (int i = 0; i < nodes.size(); ++i) {
@@ -76,15 +76,33 @@ static void exclusionLite(
       const Eigen::Vector2d b(nodes[j].s.x, nodes[j].s.y);
       const double dist = (a - b).norm() / scale;
       if (dist < 1.5) {
-        auto it = unwantedNeighbors.find(i);
+        const int idA = nodes[i].id;
+        const int idB = nodes[j].id;
+        auto it = unwantedNeighbors.find(idA);
         if (it == unwantedNeighbors.cend())
-          unwantedNeighbors.emplace(i, std::unordered_set<int>({j}));
+          unwantedNeighbors.emplace(idA, std::unordered_set<int>({idB}));
         else
-          it->second.emplace(j);
-        if (nodes[i].locked && nodes[j].locked) {
-          nodes[i].locked = false;
-          nodes[j].locked = false;
-        }
+          it->second.emplace(idB);
+      }
+    }
+  }
+}
+
+static void exclusionLite(
+    std::vector<place::SelectedNode> &nodes,
+    const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
+  for (int i = 0; i < nodes.size(); ++i) {
+    const int idA = nodes[i].id;
+    auto it = unwantedNeighbors.find(idA);
+    if (it == unwantedNeighbors.cend())
+      continue;
+    auto &n = it->second;
+    for (int j = 0; j < nodes.size(); ++j) {
+      const int idB = nodes[j].id;
+      auto isNeighbor = n.find(idB);
+      if (isNeighbor != n.cend() && nodes[i].locked && nodes[j].locked) {
+        nodes[i].locked = false;
+        nodes[j].locked = false;
       }
     }
   }
@@ -159,6 +177,7 @@ multi::Labeler::Labeler() {
 
   R1Nodes.clear();
   selectR1Nodes(nodes, R1Nodes);
+  calcNeighbors(R1Nodes, unwantedNeighbors);
 }
 
 void multi::Labeler::load() {

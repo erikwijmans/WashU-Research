@@ -69,14 +69,6 @@ static void dispHMap(const Eigen::ArrayXH &hMap,
   cv::waitKey(0);
 }
 
-static double pseries(const int n, const double p = 1.0) {
-  double sum = 1.0;
-  for (int i = 2; i <= n; ++i) {
-    sum += 1.0 / std::pow(i, p);
-  }
-  return sum;
-}
-
 static void dispHMap(Eigen::ArrayXH &hMap) {
   double average = 0;
   int count = 0;
@@ -136,7 +128,6 @@ void place::createHigherOrderTerms(
     const std::vector<place::R2Node> &nodes,
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
     multi::Labeler::map &highOrder) {
-
   Eigen::ArrayXH hMap(floorPlan.rows, floorPlan.cols);
   for (int a = 0; a < nodes.size(); ++a) {
     auto &currentNode = nodes[a];
@@ -171,12 +162,12 @@ void place::createHigherOrderTerms(
     auto &owners = (data + i)->owners;
     std::vector<int> &incident = (data + i)->incident;
     for (auto &o : owners) {
-      auto pair = unwantedNeighbors.find(o);
+      auto pair = unwantedNeighbors.find(nodes[o].id);
       if (pair == unwantedNeighbors.cend())
         continue;
       auto &exclusionSet = pair->second;
       for (auto it = incident.cbegin(); it != incident.cend();) {
-        auto match = exclusionSet.find(*it);
+        auto match = exclusionSet.find(nodes[*it].id);
         if (match != exclusionSet.cend())
           it = incident.erase(it);
         else
@@ -254,7 +245,6 @@ void place::displayHighOrder(
     const std::vector<place::R2Node> &nodes,
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros) {
-
   for (auto &it : highOrder) {
     auto &key = it.first;
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
@@ -341,7 +331,6 @@ stackTerms(const std::vector<int> &toStack, GRBVar *varList, GRBModel &model,
            std::list<GRBVar> &hOrderVars,
            std::list<std::pair<GRBQuadExpr, GRBQuadExpr>> &hOrderQs,
            std::vector<GRBVar *> &stacked) {
-
   for (auto &i : toStack)
     stacked.push_back(varList + i);
 
@@ -362,7 +351,6 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
                           const std::vector<place::R2Node> &nodes,
                           const std::vector<int> &numberOfLabels,
                           GRBVar *&varList, GRBModel &model) {
-
   const int numVars = numberOfLabels.size();
   const int numOpts = nodes.size();
 
@@ -404,8 +392,8 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
   for (int a = 0; a < numOpts; ++a) {
     // Pairwise
     for (int b = a + 1; b < numOpts; ++b) {
-      const int i = nodes[a].pos;
-      const int j = nodes[b].pos;
+      const int i = nodes[a].id;
+      const int j = nodes[b].id;
       const double weight = adjacencyMatrix(j, i).getWeight();
       if (weight == 0.0)
         continue;
@@ -440,7 +428,6 @@ void place::MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
                       const multi::Labeler::map &highOrder,
                       const std::vector<place::R2Node> &nodes,
                       std::vector<place::SelectedNode> &bestNodes) {
-
   std::vector<int> numberOfLabels;
   {
     int i = 0;

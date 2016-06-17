@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
       uniform_sampling.filter(*output_cloud);
 
       if (output_cloud->size() > targetNumPoints) {
-        subSampleSize *= output_cloud->size() / targetNumPoints;
+        subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
 
         output_cloud->clear();
         uniform_sampling.setRadiusSearch(subSampleSize);

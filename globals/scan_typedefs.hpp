@@ -168,9 +168,9 @@ typedef struct node {
   posInfo s;
   double w;
   double nw;
-  int color, pos, groupSize;
-  node(const posInfo &s, double w, double nw, int color, int pos)
-      : s{s}, w{w}, nw{nw}, color{color}, pos{pos} {};
+  int color, id;
+  node(const posInfo &s, double w, double nw, int color, int id)
+      : s{s}, w{w}, nw{nw}, color{color}, id{id} {};
 } node;
 
 typedef struct SelectedNode : public node {
@@ -189,10 +189,10 @@ typedef struct R2Node : public node {
   bool locked;
   R2Node(const node &o, bool locked) : node{o}, agreement{0}, locked{locked} {};
 
-  R2Node(const posInfo &s, double w, double nw, int color, int pos, bool locked)
-      : node{s, w, nw, color, pos}, locked{locked} {};
+  R2Node(const posInfo &s, double w, double nw, int color, int id, bool locked)
+      : node{s, w, nw, color, id}, locked{locked} {};
   R2Node(const SelectedNode &s)
-      : node{s.s, s.w, s.nw, s.color, s.pos}, agreement{s.agreement},
+      : node{s.s, s.w, s.nw, s.color, s.id}, agreement{s.agreement},
         locked{s.locked} {};
 } R2Node;
 

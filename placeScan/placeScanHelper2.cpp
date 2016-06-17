@@ -887,8 +887,8 @@ void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
       Function f(shape, shape + 2);
       for (int a = 0; a < numberOfLabels[i]; ++a) {
         for (int b = 0; b < numberOfLabels[j]; ++b) {
-          const int row = nodes[currentRow + b].pos;
-          const int col = nodes[colOffset + a].pos;
+          const int row = nodes[currentRow + b].id;
+          const int col = nodes[colOffset + a].id;
           f(a, b) = adjacencyMatrix(row, col).getWeight();
         }
       }
@@ -945,9 +945,9 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
     } else {
       double agreement = 0;
       int count = 0;
-      const int col = nodes[index].pos;
+      const int col = nodes[index].id;
       for (int j = 0, rowOffset = 0; j < numVars; ++j) {
-        const int row = nodes[rowOffset + labeling[j]].pos;
+        const int row = nodes[rowOffset + labeling[j]].id;
         const double w = adjacencyMatrix(row, col).getWeight();
         if (w != 0) {
           agreement += w;
