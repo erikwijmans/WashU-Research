@@ -23,8 +23,6 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &,
                              const Eigen::Vector3d &, Eigen::Vector3d &,
                              Eigen::Vector3d &);
 void getMajorAngles(const Eigen::Vector3d &, std::vector<Eigen::Matrix3d> &);
-Eigen::Matrix3d getRotationMatrix(const Eigen::Vector3d &,
-                                  const Eigen::Vector3d &);
 
 void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                   const std::string &outName) {
@@ -53,7 +51,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   // dominate direction
   std::vector<Eigen::Vector3d> N2;
   for (auto &n : normals)
-    if (std::asin(n.cross(d1).norm()) > PI / 2.0 - 0.02)
+    if (std::asin(n.cross(d1)) > PI / 2.0 - 0.02)
       N2.push_back(n);
 
   if (!FLAGS_quietMode)
@@ -76,7 +74,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
     getMajorAngles(d3, R);
 
   if (!FLAGS_quietMode) {
-    for (auto &r: R)
+    for (auto &r : R)
       std::cout << r << std::endl << std::endl;
   }
 
@@ -107,7 +105,7 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
     std::mt19937_64 gen(seed());
     std::uniform_int_distribution<int> dist(0, m - 1);
     // NB: Runs the generator a couple thousand times to ensure
-    // that each thread gets very different number even if their
+    // that each thread gets very different numbers even if their
     // seeds are relatively similar
     for (int i = 0; i < 5000; ++i)
       dist(gen);
@@ -122,7 +120,7 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
       double numInliers = 0;
       Eigen::Vector3d average = Eigen::Vector3d::Zero();
       for (auto &n : N) {
-        // nest and n are both unit vectors, so this is angle
+        // nest and n are both unit vectors, so this is |angle|
         // between them
         if (std::acos(std::abs(nest.dot(n))) < 0.02) {
           ++numInliers;
@@ -142,7 +140,7 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
           maxInliers = numInliers;
 
           M = average / average.norm();
-
+          // NB: Ransac formula to check for consensus
           double w = (numInliers - 3) / m;
           double p = std::max(0.001, std::pow(w, 3));
           K = log(1 - 0.999) / log(1 - p);
@@ -229,54 +227,16 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
 }
 
 void getMajorAngles(const Eigen::Vector3d &M, std::vector<Eigen::Matrix3d> &R) {
-  R[0] = getRotationMatrix(Eigen::Vector3d::UnitX(), M);
-  R[1] = getRotationMatrix(Eigen::Vector3d::UnitY(), M);
-  R[2] = getRotationMatrix(-1.0 * Eigen::Vector3d::UnitX(), M);
-  R[3] = getRotationMatrix(-1.0 * Eigen::Vector3d::UnitY(), M);
-}
-
-static Eigen::Matrix3d crossProductMatrix(const Eigen::Vector3d &vector) {
-  Eigen::Matrix3d scratch = Eigen::Matrix3d::Zero();
-
-  scratch(1, 0) = vector[2];
-  scratch(2, 0) = -vector[1];
-  scratch(0, 1) = -vector[2];
-  scratch(2, 1) = vector[0];
-  scratch(0, 2) = vector[1];
-  scratch(1, 2) = -vector[0];
-
-  return scratch;
-}
-
-/**
-  Gets a rotation matrix that rotates start onto end.  This utlizes
-  Rodrigues' rotation formula
-*/
-Eigen::Matrix3d getRotationMatrix(const Eigen::Vector3d &end,
-                                  const Eigen::Vector3d &start) {
-  if (std::acos(std::abs(start.dot(end))) < 0.05) {
+  // Angle between the dominate direction and the x-axis
+  const double theta = atan2(M[1], M[0]);
+  // Calculate the rotation matrix require to rotate a given axis onto
+  // the dominate direction.  Order is X, Y, -X, -Y
+  for (int i = 0; i < NUM_ROTS; ++i) {
     Eigen::Matrix3d out = Eigen::Matrix3d::Identity();
-    if (start.dot(end) < 0) {
-      out(0, 0) *= -1;
-      out(1, 1) *= -1;
-    }
-    return out;
+    out(0, 0) = cos(-theta + 2 * PI / NUM_ROTS * i);
+    out(1, 1) = cos(-theta + 2 * PI / NUM_ROTS * i);
+    out(0, 1) = -sin(-theta + 2 * PI / NUM_ROTS * i);
+    out(1, 0) = sin(-theta + 2 * PI / NUM_ROTS * i);
+    R[i] = out;
   }
-
-  Eigen::Vector3d v = start.cross(end);
-  double s = v.dot(v);
-  double c = start.dot(end);
-
-  Eigen::Matrix3d vx = crossProductMatrix(v);
-
-  Eigen::Matrix3d out =
-      Eigen::Matrix3d::Identity() + vx + vx * vx * (1 - c) / s;
-
-  out(2, 2) = 1.0;
-  out(0, 2) = 0;
-  out(1, 2) = 0;
-  out(2, 0) = 0;
-  out(2, 1) = 0;
-
-  return out;
 }

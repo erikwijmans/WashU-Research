@@ -46,17 +46,6 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                  pcl::PointCloud<PointType>::Ptr &normals_points,
                  const std::string &outName);
-void getDescriptors(const pcl::PointCloud<PointType>::Ptr &cloud,
-                    const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                    const pcl::PointCloud<PointType>::Ptr &normals_points,
-                    pcl::PointCloud<DescriptorType>::Ptr &cloud_descriptors,
-                    pcl::PointCloud<PointType>::Ptr &filtered_cloud);
-void saveDescriptors(
-    const pcl::PointCloud<PointType>::Ptr &cloud,
-    const pcl::PointCloud<DescriptorType>::Ptr &cloud_descriptors,
-    const std::string &outName);
-void SIFT(const pcl::PointCloud<PointType>::Ptr &cloud,
-          const std::string &outName);
 
 static inline bool fexists(const std::string &file) {
   std::ifstream in(file, std::ios::in);
@@ -448,7 +437,8 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
                     pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                     pcl::PointCloud<PointType>::Ptr &normals_points,
                     const std::string &panoName, const std::string &dataName) {
-
+  if (!FLAGS_redo && fexists(panoName) && fexists(dataName))
+    return;
   cv::Mat trackingPanorama(PTXrows, PTXcols, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat_<cv::Vec3b> _trackingPanorama = trackingPanorama;
 
@@ -681,10 +671,8 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
                 pcl::PointCloud<PointType>::Ptr &normals_points,
                 const std::string &outName) {
 
-  if (!FLAGS_redo) {
-    if (reloadNormals(cloud_normals, normals_points, outName))
-      return;
-  }
+  if (!FLAGS_redo && reloadNormals(cloud_normals, normals_points, outName))
+    return;
 
   pcl::PointCloud<PointType>::Ptr filtered_cloud(
       new pcl::PointCloud<PointType>);
@@ -702,7 +690,6 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
   norm_est.setRadiusSearch(0.03);
   norm_est.compute(*cloud_normals);
 
-  size_t startSize = cloud_normals->size();
   std::vector<int> indices;
   pcl::removeNaNNormalsFromPointCloud(*cloud_normals, *cloud_normals, indices);
   pcl::copyPointCloud(*filtered_cloud, indices, *normals_points);
