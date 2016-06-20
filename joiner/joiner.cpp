@@ -52,6 +52,11 @@ int main(int argc, char **argv) {
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
 
   if (FLAGS_redo || !fexists(cloudName)) {
+    const std::string fileName = FLAGS_outputV2 + "final_0.dat";
+    if (!fexists(fileName)) {
+      std::cout << "Could not find: " << fileName << std::endl;
+      exit(1);
+    }
     std::ifstream in(FLAGS_outputV2 + "final_0.dat",
                      std::ios::in | std::ios::binary);
 
