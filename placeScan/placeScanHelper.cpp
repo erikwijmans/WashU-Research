@@ -186,8 +186,6 @@ static int countNumToDeltas(const std::vector<const place::posInfo *> &minima) {
 void place::savePlacement(const std::vector<const place::posInfo *> &minima,
                           const std::string &outName,
                           const std::vector<Eigen::Vector2i> &zeroZero) {
-
-  assert(minima.size() > 2);
   std::ofstream out(outName, std::ios::out);
   std::ofstream outB(outName.substr(0, outName.find(".")) + ".dat",
                      std::ios::out | std::ios::binary);
@@ -245,7 +243,7 @@ bool place::reshowPlacement(const std::string &scanName,
   if (!FLAGS_quietMode)
     std::cout << "Showing minima: " << num << std::endl;
 
-  for (int i = 0; i < num; ++i) {
+  for (int k = 0; k < num; ++k) {
     in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
 
     const cv::Mat &bestScan = rotatedScans[minScore.rotation];
@@ -288,7 +286,8 @@ bool place::reshowPlacement(const std::string &scanName,
     if (!FLAGS_quietMode) {
       std::cout << &minScore << std::endl;
       std::cout << "% of scan unexplained: "
-                << minScore.scanFP / minScore.scanPixels << std::endl
+                << minScore.scanFP / minScore.scanPixels << "   Index: " << k
+                << std::endl
                 << std::endl;
     }
     cv::imshow("Preview", output);

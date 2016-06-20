@@ -337,10 +337,10 @@ std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
 }
 
 std::ostream &place::operator<<(std::ostream &os, const place::posInfo *print) {
-  os << print->score << "      " << print->x << "      " << print->y << "      "
+  os << print->score << "  " << print->x << "  " << print->y << "  "
      << print->rotation << std::endl;
-  os << print->scanFP << "      " << print->fpScan << std::endl;
-  os << print->scanPixels << "    " << print->fpPixels;
+  os << print->scanFP << "  " << print->fpScan << std::endl;
+  os << print->scanPixels << " " << print->fpPixels;
   return os;
 }
 

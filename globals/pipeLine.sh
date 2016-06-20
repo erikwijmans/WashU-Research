@@ -25,17 +25,17 @@ mkdir -p $1/voxelGrids/metaData
 
 #run the 3 programs
 
-echo "Running preprocessor"
-cd $2/preprocessor
-make || exit 1
-./preprocessor -dataPath=$1
-
-echo "Running scanDensity"
-cd $2/scanDensity
-make || exit 1
-./scanDensity -dataPath=$1 -redo
-
-# echo "Running placeScan"
-# cd $2/placeScan
+# echo "Running preprocessor"
+# cd $2/preprocessor
 # make || exit 1
-# ./placeScan -dataPath=$1 -V1 -redo
+# ./preprocessor -dataPath=$1
+
+# echo "Running scanDensity"
+# cd $2/scanDensity
+# make || exit 1
+# ./scanDensity -dataPath=$1 -redo
+
+echo "Running placeScan"
+cd $2/placeScan
+make || exit 1
+./placeScan -dataPath=$1 -V1 -redo -threads=5 || exit 1

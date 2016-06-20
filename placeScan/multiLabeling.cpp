@@ -14,7 +14,7 @@ const int minScans = 20;
 static constexpr int minNodes = 2;
 static void selectR1Nodes(const std::vector<place::node> &nodes,
                           std::vector<place::node> &R1Nodes) {
-  constexpr int maxR1Nodes = 50;
+  constexpr int maxR1Nodes = 75;
   int currentColor = nodes[0].color;
   double lastScore = 1.0;
   double initailScore = nodes[0].s.score;
@@ -26,9 +26,9 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
       lastScore = 1.0;
       initailScore = n.s.score;
     }
-    if (++count > minNodes &&
-        (count > maxR1Nodes || n.s.score - lastScore > maxDelta ||
-         n.s.score - initailScore > maxTotal))
+    if (n.s.score - lastScore > maxDelta ||
+        (++count > minNodes &&
+         (count > maxR1Nodes || n.s.score - initailScore > maxTotal)))
       continue;
     lastScore = n.s.score;
     R1Nodes.push_back(n);
@@ -39,7 +39,7 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
 static void selectR2Nodes(const std::vector<place::node> &nodes,
                           const std::vector<place::SelectedNode> &bestNodes,
                           std::vector<place::R2Node> &R2Nodes) {
-  constexpr int maxR2Nodes = 50;
+  constexpr int maxR2Nodes = 75;
   int currentColor = -1;
   double lastScore = 1.0;
   double initailScore = nodes[0].s.score;
@@ -54,9 +54,9 @@ static void selectR2Nodes(const std::vector<place::node> &nodes,
         R2Nodes.push_back(bestNodes[currentColor]);
     }
     if (!bestNodes[currentColor].locked) {
-      if (++count > minNodes &&
-          (n.s.score - lastScore > maxDelta ||
-           n.s.score - initailScore > maxTotal || count > maxR2Nodes))
+      if (n.s.score - lastScore > maxDelta ||
+          (++count > minNodes &&
+           (n.s.score - initailScore > maxTotal || count > maxR2Nodes)))
         continue;
       lastScore = n.s.score;
       R2Nodes.emplace_back(n, false);
@@ -280,10 +280,11 @@ void multi::Labeler::saveFinal(int index) {
                     std::ios::out | std::ios::binary);
   const int num = bestNodes.size();
   out.write(reinterpret_cast<const char *>(&num), sizeof(num));
-
+  Eigen::Matrix3d zeroMat = Eigen::Matrix3d::Zero();
   load();
   for (auto &n : bestNodes) {
-    Eigen::Matrix3d &rotMat = rotationMatricies[n.color][n.s.rotation];
+    Eigen::Matrix3d &rotMat =
+        n.agreement != 0 ? rotationMatricies[n.color][n.s.rotation] : zeroMat;
     Eigen::Vector3d trans(n.s.x, n.s.y, 0);
     trans /= scale;
     trans = trans - center;

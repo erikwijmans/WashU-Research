@@ -676,6 +676,8 @@ void place::displayBest(
 
   for (auto &n : bestNodes) {
     std::cout << n << std::endl;
+    if (n.agreement == 0)
+      continue;
 
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
@@ -847,6 +849,10 @@ Model createModel(const Eigen::MatrixXE &adjacencyMatrix,
     }
     numberOfLabels.push_back(i);
   }
+  std::cout << "Number of labels: ";
+  for (auto &i : numberOfLabels)
+    std::cout << i << "_";
+  std::cout << std::endl;
 
   // Construct the model
   labelSize = new size_t[numberOfLabels.size()];
@@ -941,7 +947,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   for (int i = 0, offset = 0; i < numVars; ++i) {
     const int index = offset + labeling[i];
     if (labeling[i] >= numberOfLabels[i]) {
-      bestNodes.emplace_back(nodes[index], 0, labeling[i], false);
+      bestNodes.emplace_back(nodes[index - 1], 0, labeling[i], false);
     } else {
       double agreement = 0;
       int count = 0;
@@ -955,7 +961,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
         }
         rowOffset += numberOfLabels[j];
       }
-      agreement += 0.5 * nodes[index].w;
+      // agreement += 0.5 * nodes[index].w;
       agreement /= count ? count : 1;
       bestNodes.emplace_back(nodes[index], agreement, labeling[i], true);
     }

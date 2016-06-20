@@ -9,8 +9,9 @@ project( placeScan )
 find_package( OpenCV REQUIRED )
 find_package( gflags REQUIRED )
 find_package( GUROBI REQUIRED )
-find_package( Boost COMPONENTS system filesystem REQUIRED )
+find_package( Boost COMPONENTS system filesystem timer REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
+message(${Boost_INCLUDE_DIRS})
 include_directories(${GUROBI_INCLUDE_DIRS})
 file( GLOB place_SRC
    "place*.cpp"
@@ -18,7 +19,6 @@ file( GLOB place_SRC
    "panoramaMatcher.cpp"
    "highOrder.cpp")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=gnu++14 -g -O3")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lgurobi_c++ -lgurobi65 -lm -lpthread")
 set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
 include_directories(${globals_dir})
 file(GLOB scan_globals
@@ -29,5 +29,6 @@ add_executable( placeScan ${place_SRC} ${scan_globals})
 target_link_libraries( placeScan ${OpenCV_LIBS}
                       ${Boost_SYSTEM_LIBRARIES}
                       ${Boost_FILESYSTEM_LIBRARIES}
+                      ${Boost_TIMER_LIBRARIES}
                       ${GUROBI_LIBS}
                       gflags)

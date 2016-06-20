@@ -8,11 +8,17 @@
 
 #include <algorithm>
 #include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
 #include <fstream>
 #include <iostream>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
+static constexpr int errosionKernelSize = 5;
+static_assert(errosionKernelSize % 2 == 1,
+              "Errosion kernel size needs to be odd");
+static constexpr int searchKernelSize = errosionKernelSize + 2;
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -138,9 +144,9 @@ int main(int argc, char *argv[]) {
     labeler.solveTRW();
     labeler.saveFinal(0);
     labeler.displaySolution();
-    labeler.solveMIP();
+    // labeler.solveMIP();
     // labeler.saveFinal(1);
-    while (true)
+    while (false)
       labeler.displaySolution();
   }
   return 0;
@@ -151,11 +157,12 @@ void place::analyzePlacement(
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     const std::vector<Eigen::MatrixXb> &fpMasks, const std::string &scanName,
     const std::string &zerosFile, const std::string &maskName) {
-  const double startTime = omp_get_wtime();
+  boost::timer::auto_cpu_timer *timer = nullptr;
 
   if (!FLAGS_quietMode) {
     std::cout << scanName << std::endl;
     std::cout << maskName << std::endl;
+    timer = new boost::timer::auto_cpu_timer;
   }
 
   cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
@@ -251,6 +258,8 @@ void place::analyzePlacement(
   std::vector<place::posInfo> scores;
   std::vector<const posInfo *> minima;
 
+  constexpr double numRects = 16;
+  const double divisor = std::sqrt(numRects);
   if (true && FLAGS_debugMode) {
     for (int k = 0; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
@@ -277,13 +286,13 @@ void place::analyzePlacement(
                     rSSparsePyramidTrimmed[k][1].cols(),
                     rSSparsePyramidTrimmed[k][2].cols(),
                     rSSparsePyramidTrimmed[k][3].cols()}) /
-          5.0;
+          divisor;
       const double exclusionY =
           std::min({rSSparsePyramidTrimmed[k][0].rows(),
                     rSSparsePyramidTrimmed[k][1].rows(),
                     rSSparsePyramidTrimmed[k][2].rows(),
                     rSSparsePyramidTrimmed[k][3].rows()}) /
-          5.0;
+          divisor;
       const int newRows = std::ceil(fpPyramid[k].rows() / exclusionY);
       const int newCols = std::ceil(fpPyramid[k].cols() / exclusionX);
       place::exclusionMap maps{NULL, exclusionX, exclusionY, newRows, newCols};
@@ -327,12 +336,12 @@ void place::analyzePlacement(
                                         rSSparsePyramidTrimmed[k][1].cols(),
                                         rSSparsePyramidTrimmed[k][2].cols(),
                                         rSSparsePyramidTrimmed[k][3].cols()}) /
-                              5.0;
+                              divisor;
     const double exclusionY = std::min({rSSparsePyramidTrimmed[k][0].rows(),
                                         rSSparsePyramidTrimmed[k][1].rows(),
                                         rSSparsePyramidTrimmed[k][2].rows(),
                                         rSSparsePyramidTrimmed[k][3].rows()}) /
-                              5.0;
+                              divisor;
     const int newRows = std::ceil(fpPyramid[k].rows() / exclusionY);
     const int newCols = std::ceil(fpPyramid[k].cols() / exclusionX);
     place::exclusionMap maps{NULL, exclusionX, exclusionY, newRows, newCols};
@@ -340,7 +349,7 @@ void place::analyzePlacement(
     if (k == 0)
       findLocalMinima(scores, -0.5, maps);
     else
-      findLocalMinima(scores, 0.5, maps);
+      findLocalMinima(scores, 0.8, maps);
     findGlobalMinima(scores, maps, minima);
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
 
@@ -378,12 +387,8 @@ void place::analyzePlacement(
               return (a->score < b->score);
             });
 
-  if (!FLAGS_quietMode) {
-    const int seconds = omp_get_wtime() - startTime;
-    const int minutes = seconds / 60;
-    std::cout << "Time: " << minutes << "m " << seconds % 60 << "s";
-    std::cout << std::endl << std::endl << std::endl;
-  }
+  if (timer)
+    delete timer;
 
   if (FLAGS_save) {
     const std::string placementName =
@@ -814,21 +819,19 @@ void place::findPointsToAnalyzeV2(
     std::vector<Eigen::Vector3i> &pointsToAnalyze) {
   pointsToAnalyze.clear();
   pointsToAnalyze.reserve(minima.size() * 25);
+  constexpr int range = searchKernelSize / 2;
 
   for (auto min : minima) {
     const int x = 2 * min->x;
     const int y = 2 * min->y;
     const int rotIndex = min->rotation;
-    for (int i = -2; i <= 2; ++i) {
-      for (int j = -2; j <= 2; ++j) {
-        if (i >= -1 && i <= 1 && j >= -1 && j <= 1)
+    for (int i = -range; i <= range; ++i)
+      for (int j = -range; j <= range; ++j)
+        if ((std::abs(i) != range && std::abs(j) != range) || rand() % 2)
           pointsToAnalyze.push_back(Eigen::Vector3i(x + i, y + j, rotIndex));
-        else if (rand() % 2)
-          pointsToAnalyze.push_back(Eigen::Vector3i(x + i, y + j, rotIndex));
-      }
-    }
+
+    pointsToAnalyze.shrink_to_fit();
   }
-  pointsToAnalyze.shrink_to_fit();
 }
 
 void place::createFPPyramids(
