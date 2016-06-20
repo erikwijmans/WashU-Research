@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
               sizeof(Eigen::Vector3d));
     }
     in.close();
-    assert(num == binaryFileNames.size());
+    assert(num <= binaryFileNames.size());
     double subSampleSize = 0.0085;
 
     for (int k = 0; k < num; ++k) {
