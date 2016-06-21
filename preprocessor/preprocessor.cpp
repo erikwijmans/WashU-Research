@@ -79,7 +79,6 @@ int main(int argc, char *argv[]) {
          int numB = std::stoi(b.substr(b.find(".") - 3, 3));
          return numA < numB;
        });
-
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(csvFileNames, FLAGS_startNumber);
 
