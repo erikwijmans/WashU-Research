@@ -51,7 +51,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   // dominate direction
   std::vector<Eigen::Vector3d> N2;
   for (auto &n : normals)
-    if (std::asin(n.cross(d1)) > PI / 2.0 - 0.02)
+    if (std::asin(n.cross(d1).norm()) > PI / 2.0 - 0.02)
       N2.push_back(n);
 
   if (!FLAGS_quietMode)
@@ -99,57 +99,46 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
   volatile double maxInliers = 0, K = 1e5;
   volatile int k = 0;
 
-#pragma omp parallel shared(k, K, maxInliers, N, M)
-  {
-    std::random_device seed;
-    std::mt19937_64 gen(seed());
-    std::uniform_int_distribution<int> dist(0, m - 1);
-    // NB: Runs the generator a couple thousand times to ensure
-    // that each thread gets very different numbers even if their
-    // seeds are relatively similar
-    for (int i = 0; i < 5000; ++i)
-      dist(gen);
+  std::random_device seed;
+  std::mt19937_64 gen(seed());
+  std::uniform_int_distribution<int> dist(0, m - 1);
 
-    while (k < K) {
-      // random sampling
-      int randomIndex = dist(gen);
-      // compute the model parameters
-      const Eigen::Vector3d &nest = N[randomIndex];
+  while (k < K) {
+    // random sampling
+    int randomIndex = dist(gen);
+    // compute the model parameters
+    const Eigen::Vector3d &nest = N[randomIndex];
 
-      // Count the number of inliers
-      double numInliers = 0;
-      Eigen::Vector3d average = Eigen::Vector3d::Zero();
-      for (auto &n : N) {
-        // nest and n are both unit vectors, so this is |angle|
-        // between them
-        if (std::acos(std::abs(nest.dot(n))) < 0.02) {
-          ++numInliers;
-          // NB: All normals that are inliers with the estimate
-          // are averaged together to get the truest estimate
-          // of the dominate direction
-          if (nest.dot(n) < 0)
-            average -= n;
-          else
-            average += n;
-        }
-      }
-
-#pragma omp crtical
-      {
-        if (numInliers > maxInliers) {
-          maxInliers = numInliers;
-
-          M = average / average.norm();
-          // NB: Ransac formula to check for consensus
-          double w = (numInliers - 3) / m;
-          double p = std::max(0.001, std::pow(w, 3));
-          K = log(1 - 0.999) / log(1 - p);
-        }
-        if (k > 10000)
-          k = 10 * K;
-        ++k;
+    // Count the number of inliers
+    double numInliers = 0;
+    Eigen::Vector3d average = Eigen::Vector3d::Zero();
+#pragma omp parallel for reduction(+ : average, numInliers)
+    for (int i = 0; i < m; ++i) {
+      auto &n = N[i];
+      // nest and n are both unit vectors, so this is |angle|
+      // between them
+      if (std::acos(std::abs(nest.dot(n))) < 0.02) {
+        ++numInliers;
+        // NB: All normals that are inliers with the estimate
+        // are averaged together to get the truest estimate
+        // of the dominate direction
+        if (nest.dot(n) < 0)
+          average -= n;
+        else
+          average += n;
       }
     }
+
+    if (numInliers > maxInliers) {
+      maxInliers = numInliers;
+
+      M = average / average.norm();
+      // NB: Ransac formula to check for consensus
+      double w = (numInliers - 3) / m;
+      double p = std::max(0.001, std::pow(w, 3));
+      K = log(1 - 0.999) / log(1 - p);
+    }
+    ++k;
   }
 }
 
@@ -167,62 +156,53 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
   volatile double maxInliers = 0, K = 1.0e5;
   volatile int k = 0;
 
-#pragma omp parallel shared(k, K, maxInliers, N, n1, M1, M2)
-  {
-    std::random_device seed;
-    std::mt19937_64 gen(seed());
-    std::uniform_int_distribution<int> dist(0, m - 1);
-    for (int i = 0; i < 5000; ++i)
-      dist(gen);
+  std::random_device seed;
+  std::mt19937_64 gen(seed());
+  std::uniform_int_distribution<int> dist(0, m - 1);
 
-    while (k < K) {
-      // random sampling
-      int randomIndex = dist(gen);
-      // compute the model parameters
-      const Eigen::Vector3d &nest = N[randomIndex];
+  while (k < K) {
+    // random sampling
+    int randomIndex = dist(gen);
+    // compute the model parameters
+    const Eigen::Vector3d &nest = N[randomIndex];
 
-      const Eigen::Vector3d nest2 = nest.cross(n1);
+    const Eigen::Vector3d nest2 = nest.cross(n1);
 
-      // counting inliers and outliers
-      double numInliers = 0;
-      Eigen::Vector3d average = Eigen::Vector3d::Zero();
+    // counting inliers and outliers
+    double numInliers = 0;
+    Eigen::Vector3d average = Eigen::Vector3d::Zero();
+#pragma omp parallel for reduction(+ : average, numInliers)
+    for (int i = 0; i < m; ++i) {
+      auto &n = N[i];
       Eigen::Vector3d x;
-      for (auto &n : N) {
-        if (std::min(std::acos(std::abs(nest.dot(n))),
-                     std::acos(std::abs(nest2.dot(n)))) < 0.02) {
-          if (std::acos(std::abs(nest.dot(n))) < 0.02) {
-            x = n;
-          } else {
-            x = n.cross(n1);
-          }
-
-          if (nest.dot(x) < 0)
-            average -= x;
-          else
-            average += x;
-          ++numInliers;
-        }
-      }
-
-#pragma omp crtical
-      {
-        if (numInliers > maxInliers) {
-          maxInliers = numInliers;
-
-          average /= average.norm();
-          M1 = average;
-          M2 = average.cross(n1);
-
-          double w = (maxInliers - 3) / m;
-          double p = std::max(0.001, std::pow(w, 3));
-          K = log(1 - 0.999) / log(1 - p);
+      if (std::min(std::acos(std::abs(nest.dot(n))),
+                   std::acos(std::abs(nest2.dot(n)))) < 0.02) {
+        if (std::acos(std::abs(nest.dot(n))) < 0.02) {
+          x = n;
+        } else {
+          x = n.cross(n1);
         }
 
-        if (k > 10000)
-          k = 10 * K;
-        ++k;
+        if (nest.dot(x) < 0)
+          average -= x;
+        else
+          average += x;
+        ++numInliers;
       }
     }
+
+    if (numInliers > maxInliers) {
+      maxInliers = numInliers;
+
+      average /= average.norm();
+      M1 = average;
+      M2 = average.cross(n1);
+
+      double w = (maxInliers - 3) / m;
+      double p = std::max(0.001, std::pow(w, 3));
+      K = log(1 - 0.999) / log(1 - p);
+    }
+    ++k;
   }
 }
 

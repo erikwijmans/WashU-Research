@@ -79,6 +79,8 @@ int main(int argc, char **argv) {
 
     for (int k = 0; k < num; ++k) {
       std::cout << "Enter: " << binaryFileNames[k] << std::endl;
+      if (rotMats[k] == Eigen::Matrix3d::Zero())
+        continue;
       in.open(FLAGS_binaryFolder + binaryFileNames[k],
               std::ios::in | std::ios::binary);
       int rows, cols;

@@ -94,8 +94,8 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
       Eigen::Vector3i(-pointMin[0] * voxelsPerMeter,
                       -pointMin[1] * voxelsPerMeter, -pointMin[2] * zScale);
 }
-
-static void displayVoxelGrid(const auto &voxelB) {
+template<typename T>
+static void displayVoxelGrid(const T &voxelB) {
   Eigen::MatrixXd collapsed =
       Eigen::MatrixXd::Zero(voxelB[0].rows(), voxelB[0].cols());
 

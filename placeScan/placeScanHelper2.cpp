@@ -676,7 +676,7 @@ void place::displayBest(
 
   for (auto &n : bestNodes) {
     std::cout << n << std::endl;
-    if (n.agreement == 0)
+    if (n.agreement == -1000)
       continue;
 
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
@@ -947,7 +947,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   for (int i = 0, offset = 0; i < numVars; ++i) {
     const int index = offset + labeling[i];
     if (labeling[i] >= numberOfLabels[i]) {
-      bestNodes.emplace_back(nodes[index - 1], 0, labeling[i], false);
+      bestNodes.emplace_back(nodes[index - 1], -1000, labeling[i], false);
     } else {
       double agreement = 0;
       int count = 0;

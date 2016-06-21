@@ -1,7 +1,6 @@
 #include "highOrder.h"
 #include "placeScan_multiLabeling.h"
 
-#include <boost/math/distributions/students_t.hpp>
 #include <fstream>
 #include <iostream>
 #include <opencv2/highgui.hpp>
@@ -283,8 +282,9 @@ void multi::Labeler::saveFinal(int index) {
   Eigen::Matrix3d zeroMat = Eigen::Matrix3d::Zero();
   load();
   for (auto &n : bestNodes) {
-    Eigen::Matrix3d &rotMat =
-        n.agreement != 0 ? rotationMatricies[n.color][n.s.rotation] : zeroMat;
+    Eigen::Matrix3d &rotMat = n.agreement != -1000
+                                  ? rotationMatricies[n.color][n.s.rotation]
+                                  : zeroMat;
     Eigen::Vector3d trans(n.s.x, n.s.y, 0);
     trans /= scale;
     trans = trans - center;

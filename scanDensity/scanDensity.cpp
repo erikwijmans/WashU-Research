@@ -84,12 +84,6 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   }
   sort(rotationsFiles.begin(), rotationsFiles.end());
 
-  if (binaryNames.size() != rotationsFiles.size()) {
-    std::cout << "Not the same number of binaryFiles as rotationsFiles"
-              << std::endl;
-    exit(1);
-  }
-
   std::string buildName = rotationsFiles[0].substr(0, 3);
 
   if (FLAGS_scale == -1) {
@@ -101,6 +95,12 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
 
   if (FLAGS_numScans == -1)
     FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
+
+  if (FLAGS_startIndex + FLAGS_numScans > binaryNames.size()
+    || FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size()) {
+    std::cout << "Not enough binary or rot files" << std::endl;
+    exit(1);
+  }
   this->current = FLAGS_startIndex;
 }
 
