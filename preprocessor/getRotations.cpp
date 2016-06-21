@@ -88,6 +88,8 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   }
 }
 
+#pragma omp declare reduction(+ : Eigen::Vector3d : omp_out += omp_in)
+
 /**
   Gets the first dominate direction.  Dominate direction extraction
   is done using RANSAC.  N is all normals and M is the ouput
