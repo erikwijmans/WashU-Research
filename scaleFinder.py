@@ -75,6 +75,7 @@ def main():
 
       if len(result_name) == 0:
         for f in os.listdir(output_dir):
+          print f
           if f.find('{:03d}.txt'.format(number)) != -1:
             result_name = f
             break
