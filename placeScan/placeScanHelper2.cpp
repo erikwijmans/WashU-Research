@@ -21,26 +21,12 @@
 
 template <typename T>
 static void displayCollapsed(T &collapsed, const std::string &windowName) {
+  typedef typename T::Scalar scalar;
   double average, sigma;
-  average = sigma = 0;
-  int count = 0;
-  const double *dataPtr = collapsed.data();
-  for (int i = 0; i < collapsed.size(); ++i) {
-    if (*(dataPtr + i)) {
-      ++count;
-      average += *(dataPtr + i);
-    }
-  }
-
-  average = average / count;
-
-  for (int i = 0; i < collapsed.size(); ++i) {
-    if (*(dataPtr + i) != 0)
-      sigma += (*(dataPtr + i) - average) * (*(dataPtr + i) - average);
-  }
-
-  sigma = sigma / (count - 1);
-  sigma = sqrt(sigma);
+  const scalar *dataPtr = collapsed.data();
+  place::aveAndStdev(dataPtr, dataPtr + collapsed.size(), average, sigma,
+                     [](const scalar v) { return v; },
+                     [](const scalar v) { return v; });
 
   cv::Mat heatMap(collapsed.rows(), collapsed.cols(), CV_8UC3,
                   cv::Scalar::all(255));
@@ -321,6 +307,7 @@ void place::weightEdges(
 
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
+  const double scale = buildingScale.getScale();
   std::vector<later> tracker;
 // Iterator over the lower triangle of the adjaceny matrix
 #pragma omp parallel for reduction(merge : tracker)
@@ -336,16 +323,16 @@ void place::weightEdges(
       auto &metaB = voxelInfo[nodeB.color][nodeB.s.rotation];
 
       place::cube aBox, bBox;
-      aBox.X1 = nodeA.s.x * (metaA.vox / metaA.s) - metaA.zZ[0];
+      aBox.X1 = nodeA.s.x * (metaA.vox / scale) - metaA.zZ[0];
       aBox.X2 = aBox.X1 + metaA.x - 1;
-      aBox.Y1 = nodeA.s.y * (metaA.vox / metaA.s) - metaA.zZ[1];
+      aBox.Y1 = nodeA.s.y * (metaA.vox / scale) - metaA.zZ[1];
       aBox.Y2 = aBox.Y1 + metaA.y - 1;
       aBox.Z1 = 0 - metaA.zZ[2];
       aBox.Z2 = aBox.Z1 + metaA.z - 1;
 
-      bBox.X1 = nodeB.s.x * (metaB.vox / metaB.s) - metaB.zZ[0];
+      bBox.X1 = nodeB.s.x * (metaB.vox / scale) - metaB.zZ[0];
       bBox.X2 = bBox.X1 + metaB.x - 1;
-      bBox.Y1 = nodeB.s.y * (metaB.vox / metaB.s) - metaB.zZ[1];
+      bBox.Y1 = nodeB.s.y * (metaB.vox / scale) - metaB.zZ[1];
       bBox.Y2 = bBox.Y1 + metaB.y - 1;
       bBox.Z1 = 0 - metaB.zZ[2];
       bBox.Z2 = bBox.Z1 + metaB.z - 1;
@@ -591,9 +578,9 @@ void place::displayGraph(
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
 
-  for (int i = 18; i < cols; ++i) {
+  for (int i = 0; i < cols; ++i) {
     const place::node &nodeA = nodes[i];
-    if (nodeA.color != 32)
+    if (nodeA.color != 40)
       continue;
     for (int j = 0; j < rows; ++j) {
       const place::node &nodeB = nodes[j];

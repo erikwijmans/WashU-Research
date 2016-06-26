@@ -1,25 +1,21 @@
-set(CMAKE_CXX_COMPILER g++)
-cmake_minimum_required(VERSION 2.8)
-project(joiner)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast -g")
-find_package(gflags REQUIRED)
-find_package(PCL REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package( Boost COMPONENTS system filesystem REQUIRED )
+project(joiner CXX)
 
-set(globals_dir ${CMAKE_CURRENT_SOURCE_DIR}/../globals)
-include_directories(${globals_dir})
-file(GLOB globals
-    ${globals_dir}/scan_gflags.cpp
-    ${globals_dir}/scan_typedefs.cpp)
+if(APPLE)
+  set(CMAKE_CXX_COMPILER /usr/local/bin/clang++)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
+else()
+  set(CMAKE_CXX_COMPILER g++-4.9)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g -fopenmp")
+find_package( PCL REQUIRED )
+find_package( OpenCV REQUIRED )
+include_directories(${globals_INCLUDE})
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 file(GLOB src
 	"joiner.cpp")
 
-include_directories( ${Boost_INCLUDE_DIRS} )
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-add_executable( joiner ${src} ${globals})
-target_link_libraries( joiner ${OpenCV_LIBS} ${PCL_LIBRARIES} ${Boost_FILESYSTEM_LIBRARY}
-                      ${Boost_SYSTEM_LIBRARY} gflags)
+add_executable( joiner ${src})
+target_link_libraries( joiner ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})

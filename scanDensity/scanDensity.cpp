@@ -324,25 +324,13 @@ void CloudAnalyzer2D::examinePointEvidence() {
   }
 
   double average, sigma;
-  average = sigma = 0;
-  int count = 0;
   const float *dataPtr = total.data();
-  for (int i = 0; i < total.size(); ++i) {
-    if (*(dataPtr + i)) {
-      ++count;
-      average += *(dataPtr + i);
-    }
-  }
-
-  average = average / count;
-
-  for (int i = 0; i < total.size(); ++i) {
-    if (*(dataPtr + i) != 0)
-      sigma += (*(dataPtr + i) - average) * (*(dataPtr + i) - average);
-  }
-
-  sigma = sigma / (count - 1);
-  sigma = sqrt(sigma);
+  place::aveAndStdev(dataPtr, dataPtr + total.size(), average, sigma,
+                        [](double v) {
+                          return v;
+                        }, [](double v) -> bool {
+                          return v;
+                        });
 
   int newRows = sqrt(2) * std::max(total.rows(), total.cols());
   int newCols = newRows;
@@ -459,26 +447,13 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
   }
 
   double average, sigma;
-  average = sigma = 0;
-  size_t count = 0;
   const double *vPtr = collapsedCount.data();
-
-  for (int i = 0; i < collapsedCount.size(); ++i) {
-    if (*(vPtr + i) != 0) {
-      average += *(vPtr + i);
-      ++count;
-    }
-  }
-
-  average = average / count;
-
-  for (int i = 0; i < collapsedCount.size(); ++i) {
-    if (*(vPtr + i) != 0)
-      sigma += (*(vPtr + i) - average) * (*(vPtr + i) - average);
-  }
-  sigma = sigma / (count - 1);
-  sigma = sqrt(sigma);
-
+  place::aveAndStdev(vPtr, vPtr + collapsedCount.size(), average, sigma,
+                        [](double v) {
+                          return v;
+                        }, [](double v) -> bool {
+                          return v;
+                        });
   int newRows =
       sqrt(2) * std::max(collapsedCount.rows(), collapsedCount.cols());
   int newCols = newRows;

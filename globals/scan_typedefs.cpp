@@ -1,6 +1,6 @@
+#include "scan_typedefs.hpp"
 #include <locale>
 #include <opencv2/core.hpp>
-#include <scan_typedefs.hpp>
 
 double BuildingScale::getScale() {
   if (this->scale == -1) {
@@ -317,6 +317,21 @@ const cv::Mat &place::Panorama::operator[](int n) {
 
 double place::edge::getWeight() const {
   return w * wSignificance + panoW * panoSignificance;
+}
+
+place::exclusionMap::exclusionMap(double exclusionX, double exclusionY,
+                                  int rows, int cols)
+    : exclusionX{exclusionX}, exclusionY{exclusionY}, rows{rows}, cols{cols} {
+  maps = new const place::posInfo **[NUM_ROTS];
+  for (int i = 0; i < NUM_ROTS; ++i)
+    // 2d array with one access index:  [<colNumber>*rows + <rowNumber>]
+    maps[i] = new const place::posInfo *[rows * cols]();
+}
+
+place::exclusionMap::~exclusionMap() {
+  for (int i = 0; i < NUM_ROTS; ++i)
+    delete[] maps[i];
+  delete[] maps;
 }
 
 std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {

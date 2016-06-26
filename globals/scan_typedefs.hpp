@@ -6,13 +6,14 @@
 #include <eigen3/Eigen/Sparse>
 #include <eigen3/Eigen/StdVector>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <unordered_map>
 
+#include "scan_gflags.h"
 #include <omp.h>
-#include <scan_gflags.h>
 
 #define NUM_ROTS 4
 
@@ -144,11 +145,14 @@ typedef struct posInfo {
                                   const place::posInfo &print);
 } posInfo;
 
-typedef struct {
+struct exclusionMap {
   const posInfo ***maps;
   double exclusionX, exclusionY;
   int rows, cols;
-} exclusionMap;
+
+  exclusionMap(double exclusionX, double exclusionY, int rows, int cols);
+  ~exclusionMap();
+};
 
 typedef struct VoxelGrid {
   std::vector<Eigen::MatrixXb> v;
@@ -203,14 +207,13 @@ typedef struct {
   int Y2;
 } rect;
 
-typedef struct MetaData {
+struct MetaData {
   Eigen::Vector3i zZ;
   int x, y, z;
   double vox, s;
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
-
-} MetaData;
+};
 
 class cube {
 public:
@@ -237,6 +240,73 @@ typedef struct Panorama {
 
   const cv::Mat &operator[](int n);
 } Panorama;
+
+template <class It>
+void aveAndStdev(It first, It last, double &average, double &sigma) {
+  average = 0;
+  int count = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    const double value = *(first + i);
+    average += value;
+    ++count;
+  }
+  average /= count;
+
+  sigma = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    const double value = *(first + i);
+    sigma += (value - average) * (value - average);
+  }
+  sigma /= count - 1;
+  sigma = std::sqrt(sigma);
+}
+
+template <class It, class UnaryFunc>
+void aveAndStdev(It first, It last, double &average, double &sigma,
+                 UnaryFunc selector) {
+  average = 0;
+  int count = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    const double value = selector(*(first + i));
+    average += value;
+    ++count;
+  }
+  average /= count;
+
+  sigma = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    const double value = selector(*(first + i));
+    sigma += (value - average) * (value - average);
+  }
+  sigma /= count - 1;
+  sigma = std::sqrt(sigma);
+}
+
+template <class It, class UnaryFunc, class UnaryFunc2>
+void aveAndStdev(It first, It last, double &average, double &sigma,
+                 UnaryFunc selector, UnaryFunc2 filter) {
+  average = 0;
+  int count = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    if (filter(*(first + i))) {
+      const double value = selector(*(first + i));
+      average += value;
+      ++count;
+    }
+  }
+  average /= count;
+
+  sigma = 0;
+  for (int i = 0; (first + i) != last; ++i) {
+    if (filter(*(first + i))) {
+      const double value = selector(*(first + i));
+      sigma += (value - average) * (value - average);
+    }
+  }
+  sigma /= count - 1;
+  sigma = std::sqrt(sigma);
+}
+
 } // place
 
 #endif // SCAN_TYPEDEFS_HPP
