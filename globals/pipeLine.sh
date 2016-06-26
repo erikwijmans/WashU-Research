@@ -1,4 +1,4 @@
-#Usage: ./pipeLine.sh <location_of_data_to_use> <location_of_progs>
+#Usage: ./pipeLine.sh <location_of_data_to_use> <location_of_build_dir>
 #CSE Scale = 98.0
 #DUC Scale = 73.5
 
@@ -23,19 +23,20 @@ mkdir -p $1/voxelGrids/R1
 mkdir -p $1/voxelGrids/R2
 mkdir -p $1/voxelGrids/metaData
 
+# Build the project
+cd $2
+make || exit 1
+
 #run the 3 programs
 
-# echo "Running preprocessor"
-# cd $2/preprocessor
-# make || exit 1
-# ./preprocessor -dataPath=$1
+echo "Running preprocessor"
+cd $2/preprocessor
+./preprocessor -dataPath=$1
 
-# echo "Running scanDensity"
-# cd $2/scanDensity
-# make || exit 1
-# ./scanDensity -dataPath=$1 -redo
+echo "Running scanDensity"
+cd $2/scanDensity
+./scanDensity -dataPath=$1 -redo
 
 echo "Running placeScan"
 cd $2/placeScan
-make || exit 1
-./placeScan -dataPath=$1 -V1 -redo -threads=5 || exit 1
+./placeScan -dataPath=$1 -V1 -redo || exit 1

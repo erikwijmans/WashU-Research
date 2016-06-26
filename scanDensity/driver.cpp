@@ -14,7 +14,7 @@ void saveImages(const std::vector<cv::Mat> &images,
                 const std::vector<std::string> &names);
 void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name);
 
-static const double voxelsPerMeter = 20.0;
+static constexpr double voxelsPerMeter = 20.0;
 
 int main(int argc, char *argv[]) {
   FLAGS_threads = 4;

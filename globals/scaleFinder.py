@@ -69,7 +69,7 @@ def main():
       print '\n{}'.format(command)
       subprocess.call(command.split(' '))
 
-      command = '{} -dataPath={} -redo -V1 -numScans=1 -startNumber={} {}'.format(place_exe, dataPath, number, extras)
+      command = '{} -dataPath={} -redo -V1 -numScans=1 -startNumber={} -noerrosion {}'.format(place_exe, dataPath, number, extras)
       print '\n{}'.format(command)
       subprocess.call(command.split(' '))
 
@@ -83,8 +83,15 @@ def main():
       #Trash the header line
       results_file.readline()
       #The best score is the first element in a space seperated list
-      current_scores[i] = float(results_file.readline().split(' ')[0])
+      count = 0
+      average = 0
+      for line in iter(lambda: results_file.readline(), ''):
+        average += float(line.split(' ')[0])
+        if ++count == 20:
+          break
       results_file.close()
+      current_scores[i] = average/count
+
 
     print '\nscores: {}'.format(current_scores)
     if current_scores[0] < current_scores[1] and current_scores[2] < current_scores[1]:

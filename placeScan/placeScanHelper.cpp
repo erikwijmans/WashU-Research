@@ -13,24 +13,21 @@ cv::Mat fpColor, floorPlan;
 std::vector<Eigen::Vector3i> truePlacement;
 const double maxDelta = 0.10, maxTotal = 0.15;
 
-static const int minWrite = 20;
+static constexpr int minWrite = 200;
 
 void place::parseFolders(std::vector<std::string> &pointFileNames,
                          std::vector<std::string> &zerosFileNames,
                          std::vector<std::string> *freeFileNames) {
 
   const std::string newDmFolder = FLAGS_dmFolder + "R0/";
-  for (auto &file : folderToIterator(newDmFolder)) {
-    std::string fileName = file.path().filename().string();
-    if (fileName != ".." && fileName != "." &&
-        fileName.find("point") != std::string::npos) {
-      pointFileNames.push_back(fileName);
-    } else if (freeFileNames && fileName != ".." && fileName != "." &&
-               fileName.find("freeSpace") != std::string::npos) {
-      freeFileNames->push_back(fileName);
-    }
+  parseFolder(newDmFolder, pointFileNames, [](const std::string &s) {
+    return s.find("point") != std::string::npos;
+  });
+  if (freeFileNames) {
+    parseFolder(newDmFolder, *freeFileNames, [](const std::string &s) {
+      return s.find("freeSpace") != std::string::npos;
+    });
   }
-
   const std::string zzFolder = FLAGS_zerosFolder;
   parseFolder(zzFolder, zerosFileNames);
 
@@ -38,11 +35,6 @@ void place::parseFolders(std::vector<std::string> &pointFileNames,
     perror("Not the same number of scans as zeros!");
     exit(1);
   }
-
-  sort(pointFileNames.begin(), pointFileNames.end());
-  sort(zerosFileNames.begin(), zerosFileNames.end());
-  if (freeFileNames)
-    sort(freeFileNames->begin(), freeFileNames->end());
 }
 
 void place::loadInScans(const std::string &scanName,
@@ -149,38 +141,16 @@ void place::trimScans(const std::vector<cv::Mat> &toTrim,
   }
 }
 
-static void normalize(const std::vector<const place::posInfo *> &minima,
-                      std::vector<place::posInfo> &out) {
-  double average = 0;
-  for (auto &m : minima)
-    average += m->score;
-  average /= minima.size();
-
-  double sigma = 0;
-  for (auto &m : minima)
-    sigma += (m->score - average) * (m->score - average);
-  sigma /= minima.size() - 1;
-  sigma = sqrt(sigma);
-
-  for (auto &m : minima) {
-    place::posInfo minScore = *m;
-    minScore.score = (minScore.score - average) / sigma;
-    out.push_back(minScore);
-  }
-}
-
 static int countNumToDeltas(const std::vector<const place::posInfo *> &minima) {
   int num = 0;
-  double lastScore = 1.0;
   const double initailScore = minima[0]->score;
   for (auto &min : minima) {
-    if (min->score - lastScore < maxDelta &&
-        min->score - initailScore < (maxTotal + 0.05))
+    if (min->score - initailScore < (maxTotal + 0.05))
       ++num;
     else
       break;
   }
-  return num;
+  return minima.size();
 }
 
 void place::savePlacement(const std::vector<const place::posInfo *> &minima,
@@ -231,25 +201,27 @@ bool place::reshowPlacement(const std::string &scanName,
 
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
+  std::vector<place::posInfo> scores(num);
+  for (auto &s : scores)
+    in.read(reinterpret_cast<char *>(&s), sizeof(place::posInfo));
+
+  num = place::getCutoffIndex(scores,
+                              [](const place::posInfo &s) { return s.score; }) +
+        1;
   num = FLAGS_top > 0 && num > FLAGS_top ? FLAGS_top : num;
-  place::posInfo minScore;
-  in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
-  in.seekg(sizeof(num));
 
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
-  const double initailScore = minScore.score;
-  double lastScore = 1.0;
   if (!FLAGS_quietMode)
     std::cout << "Showing minima: " << num << std::endl;
 
-  for (int k = 0; k < num; ++k) {
-    in.read(reinterpret_cast<char *>(&minScore), sizeof(minScore));
+  for (int k = 0; k < std::min(num, (int)scores.size()); ++k) {
+    auto &currentScore = scores[k];
 
-    const cv::Mat &bestScan = rotatedScans[minScore.rotation];
+    const cv::Mat &bestScan = rotatedScans[currentScore.rotation];
 
-    const int xOffset = minScore.x - zeroZero[minScore.rotation][0];
-    const int yOffset = minScore.y - zeroZero[minScore.rotation][1];
+    const int xOffset = currentScore.x - zeroZero[currentScore.rotation][0];
+    const int yOffset = currentScore.y - zeroZero[currentScore.rotation][1];
 
     cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
     fpColor.copyTo(output);
@@ -274,9 +246,9 @@ bool place::reshowPlacement(const std::string &scanName,
     }
 
     for (int i = -10; i < 10; ++i) {
-      uchar *dst = output.ptr<uchar>(i + minScore.y);
+      uchar *dst = output.ptr<uchar>(i + currentScore.y);
       for (int j = -10; j < 10; ++j) {
-        const int x = 3 * (j + minScore.x);
+        const int x = 3 * (j + currentScore.x);
         dst[x + 0] = 255;
         dst[x + 1] = 0;
         dst[x + 2] = 0;
@@ -284,20 +256,14 @@ bool place::reshowPlacement(const std::string &scanName,
     }
 
     if (!FLAGS_quietMode) {
-      std::cout << &minScore << std::endl;
+      std::cout << &currentScore << std::endl;
       std::cout << "% of scan unexplained: "
-                << minScore.scanFP / minScore.scanPixels << "   Index: " << k
-                << std::endl
+                << currentScore.scanFP / currentScore.scanPixels
+                << "   Index: " << k << std::endl
                 << std::endl;
     }
     cv::imshow("Preview", output);
     cv::waitKey(0);
-
-    if (minScore.score - initailScore > maxTotal)
-      break;
-    if (minScore.score - lastScore > maxDelta)
-      break;
-    lastScore = minScore.score;
   }
   return true;
 }
@@ -619,6 +585,7 @@ static void labelNeighbours(const cv::Mat &image, const int currentLabel,
   toLabel.pop_front();
   const int yOffset = currentPixel.first;
   const int xOffset = currentPixel.second;
+
   for (int j = -1; j <= 1; ++j) {
     for (int i = -1; i <= 1; ++i) {
       if (j + yOffset < 0 || j + yOffset >= labeledImage.rows())
@@ -632,6 +599,7 @@ static void labelNeighbours(const cv::Mat &image, const int currentLabel,
       }
     }
   }
+
   labelNeighbours(image, currentLabel, labeledImage, toLabel);
 }
 
@@ -654,24 +622,15 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
     }
   }
 
-  Eigen::VectorXi countPerLabel = Eigen::VectorXi::Zero(currentLabel + 1);
+  Eigen::VectorXi countPerLabel = Eigen::VectorXi::Zero(currentLabel);
   const int *labeledImagePtr = labeledImage.data();
-  for (int i = 1; i < labeledImage.size(); ++i)
+  for (int i = 0; i < labeledImage.size(); ++i)
     ++countPerLabel[*(labeledImagePtr + i)];
 
   double average = 0.0, sigma = 0.0;
   const int *countPerLabelPtr = countPerLabel.data();
-  for (int i = 1; i < countPerLabel.size(); ++i)
-    average += *(countPerLabelPtr + i);
-
-  average /= countPerLabel.size() - 1;
-
-  for (int i = 1; i < countPerLabel.size(); ++i) {
-    const int value = *(countPerLabelPtr + i);
-    sigma += (value - average) * (value - average);
-  }
-  sigma /= countPerLabel.size() - 2;
-  sigma = sqrt(sigma);
+  place::aveAndStdev(countPerLabelPtr + 1,
+                     countPerLabelPtr + countPerLabel.size(), average, sigma);
 
   double threshHold = average;
   for (int j = 0; j < image.rows; ++j) {

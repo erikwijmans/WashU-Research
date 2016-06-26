@@ -1,5 +1,6 @@
 #include "highOrder.h"
 #include "placeScan_multiLabeling.h"
+#include "placeScan_placeScanHelper.h"
 
 #include <fstream>
 #include <iostream>
@@ -13,51 +14,49 @@ const int minScans = 20;
 static constexpr int minNodes = 2;
 static void selectR1Nodes(const std::vector<place::node> &nodes,
                           std::vector<place::node> &R1Nodes) {
-  constexpr int maxR1Nodes = 75;
-  int currentColor = nodes[0].color;
-  double lastScore = 1.0;
-  double initailScore = nodes[0].s.score;
-  int count = 0;
-  for (auto &n : nodes) {
-    if (n.color != currentColor) {
-      currentColor = n.color;
-      count = 0;
-      lastScore = 1.0;
-      initailScore = n.s.score;
+  std::vector<size_t> numberOfLabels;
+  {
+    size_t i = 0;
+    const place::node *prevNode = &nodes[0];
+    for (auto &n : nodes) {
+      if (n.color == prevNode->color) {
+        prevNode = &n;
+        ++i;
+      } else {
+        numberOfLabels.push_back(i);
+        i = 1;
+        prevNode = &n;
+      }
     }
-    if (n.s.score - lastScore > maxDelta ||
-        (++count > minNodes &&
-         (count > maxR1Nodes || n.s.score - initailScore > maxTotal)))
-      continue;
-    lastScore = n.s.score;
-    R1Nodes.push_back(n);
-    R1Nodes.back().id = R1Nodes.size() - 1;
+    numberOfLabels.push_back(i);
   }
+
+  for (int i = 0, offset = 0; i < numberOfLabels.size();
+       offset += numberOfLabels[i], ++i) {
+    const int index = place::getCutoffIndex(
+        std::vector<place::node>(nodes.begin() + offset,
+                                 nodes.begin() + offset + numberOfLabels[i]),
+        [](const place::node &n) { return n.s.score; });
+
+    R1Nodes.insert(R1Nodes.end(), nodes.begin() + offset,
+                   nodes.begin() + offset + index);
+  }
+
+  for (int i = 0; i < R1Nodes.size(); ++i)
+    R1Nodes[i].id = i;
 }
 
 static void selectR2Nodes(const std::vector<place::node> &nodes,
                           const std::vector<place::SelectedNode> &bestNodes,
                           std::vector<place::R2Node> &R2Nodes) {
-  constexpr int maxR2Nodes = 75;
   int currentColor = -1;
-  double lastScore = 1.0;
-  double initailScore = nodes[0].s.score;
-  int count = 0;
   for (auto &n : nodes) {
     if (n.color != currentColor) {
       currentColor = n.color;
-      lastScore = 1.0;
-      initailScore = n.s.score;
-      count = 0;
       if (bestNodes[currentColor].locked)
         R2Nodes.push_back(bestNodes[currentColor]);
     }
     if (!bestNodes[currentColor].locked) {
-      if (n.s.score - lastScore > maxDelta ||
-          (++count > minNodes &&
-           (n.s.score - initailScore > maxTotal || count > maxR2Nodes)))
-        continue;
-      lastScore = n.s.score;
       R2Nodes.emplace_back(n, false);
     }
   }

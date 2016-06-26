@@ -49,6 +49,16 @@ DECLARE_double(scale);
 void prependDataPath();
 void parseFolder(const std::string &name, std::vector<std::string> &out);
 boost::filesystem::directory_iterator folderToIterator(const std::string &name);
+template <class UrnaryFunc>
+void parseFolder(const std::string &name, std::vector<std::string> &out,
+                 UrnaryFunc f) {
+  for (auto &file : folderToIterator(name)) {
+    const std::string name = file.path().filename().string();
+    if (f(name))
+      out.push_back(name);
+  }
+  std::sort(out.begin(), out.end());
+}
 int numberToIndex(const std::vector<std::string> &names, const int number);
 
 #endif // SCAN_GFLAGS_H

@@ -1,12 +1,24 @@
-set(CMAKE_CXX_COMPILER clang++)
-cmake_minimum_required(VERSION 2.8)
-project(test)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Ofast -fopenmp -g")
-find_package( Boost COMPONENTS system filesystem timer REQUIRED )
-find_package(gflags REQUIRED)
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
+if(APPLE)
+  set(CMAKE_CXX_COMPILER /usr/local/bin/clang++)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
+else()
+  set(CMAKE_CXX_COMPILER g++-4.9)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g -fopenmp")
+find_package( OpenCV REQUIRED )
+find_package( gflags REQUIRED )
+find_package( Boost COMPONENTS system filesystem REQUIRED )
+include_directories( ${Boost_INCLUDE_DIRS} )
 
-add_executable(test scan_gflags.cpp)
-target_link_libraries( test
-                      ${Boost_FILESYSTEM_LIBRARY}
-                      ${Boost_SYSTEM_LIBRARY} gflags)
+set(globals_SRC
+  scan_gflags.cpp
+  scan_typedefs.cpp)
+
+add_library(globals_lib ${globals_SRC})
+
+set(globals_LIBS globals_lib ${OpenCV_LIBS} ${Boost_SYSTEM_LIBRARIES}
+                      ${Boost_FILESYSTEM_LIBRARIES} gflags)
+set(globals_LIBS ${globals_LIBS} PARENT_SCOPE)
+
+set(globals_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})
+set(globals_INCLUDE ${globals_INCLUDE} PARENT_SCOPE)
