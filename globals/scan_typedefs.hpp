@@ -57,17 +57,31 @@ public:
   friend std::ostream &operator<<(std::ostream &os, const place::edge &print);
 };
 
-typedef struct {
-  std::vector<int> incident, owners;
-  double weight = 0.0;
-  int count = 0;
-} hOrder;
+class Wall {
+public:
+  struct side {
+    std::vector<int> incident, owners;
+    double distance = 10000.0;
+    double weight = 0.0;
+    int count = 0;
+  };
+  Wall() : normal{nullptr}, s{nullptr} {};
+  ~Wall();
+  void init(const Eigen::Vector2d &n);
+  side &getSide(const Eigen::Vector2d &ray);
+  const Eigen::Vector2d &getNormal();
+  void changeNormal(const Eigen::Vector2d &n);
+
+private:
+  Eigen::Vector2d *normal;
+  side *s;
+};
 } // place
 
 namespace Eigen {
 typedef Array<Eigen::Vector3f, Dynamic, Dynamic, RowMajor> ArrayXV3f;
 typedef Array<place::edge, Dynamic, Dynamic> MatrixXE;
-typedef Array<place::hOrder, Dynamic, Dynamic> ArrayXH;
+typedef Array<place::Wall::side, Dynamic, Dynamic> ArrayXH;
 typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 typedef Matrix<int, Dynamic, Dynamic, RowMajor> RowMatrixXi;
 typedef Matrix<char, Dynamic, Dynamic, RowMajor> RowMatrixXb;
@@ -154,28 +168,29 @@ struct exclusionMap {
   ~exclusionMap();
 };
 
-typedef struct VoxelGrid {
+struct VoxelGrid {
   std::vector<Eigen::MatrixXb> v;
   Eigen::Vector3i zZ;
   size_t c;
 
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
-} VoxelGrid;
+};
 
 typedef struct {
   posInfo s;
   int scanNum;
 } moreInfo;
 
-typedef struct node {
+struct node {
   posInfo s;
   double w;
   double nw;
   int color, id;
   node(const posInfo &s, double w, double nw, int color, int id)
       : s{s}, w{w}, nw{nw}, color{color}, id{id} {};
-} node;
+  inline double getWeight() const { return nw; };
+};
 
 typedef struct SelectedNode : public node {
   double agreement, norm;
@@ -241,70 +256,38 @@ typedef struct Panorama {
   const cv::Mat &operator[](int n);
 } Panorama;
 
-template <class It>
-void aveAndStdev(It first, It last, double &average, double &sigma) {
-  average = 0;
+template <class It, class UnaryFunc, class UnaryPredicate>
+std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
+                                       UnaryPredicate filter) {
+  double average = 0;
   int count = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    const double value = *(first + i);
-    average += value;
-    ++count;
-  }
+  std::for_each(first, last, [&](auto &e) {
+    if (filter(e)) {
+      average += selector(e);
+      ++count;
+    }
+  });
   average /= count;
 
-  sigma = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    const double value = *(first + i);
-    sigma += (value - average) * (value - average);
-  }
+  double sigma = 0;
+  std::for_each(first, last, [&](auto &e) {
+    if (filter(e)) {
+      const double value = selector(e);
+      sigma += (value - average) * (value - average);
+    }
+  });
   sigma /= count - 1;
   sigma = std::sqrt(sigma);
+  return std::make_tuple(average, sigma);
 }
 
 template <class It, class UnaryFunc>
-void aveAndStdev(It first, It last, double &average, double &sigma,
-                 UnaryFunc selector) {
-  average = 0;
-  int count = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    const double value = selector(*(first + i));
-    average += value;
-    ++count;
-  }
-  average /= count;
-
-  sigma = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    const double value = selector(*(first + i));
-    sigma += (value - average) * (value - average);
-  }
-  sigma /= count - 1;
-  sigma = std::sqrt(sigma);
+std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector) {
+  return aveAndStdev(first, last, selector, [](auto &e) { return true; });
 }
 
-template <class It, class UnaryFunc, class UnaryFunc2>
-void aveAndStdev(It first, It last, double &average, double &sigma,
-                 UnaryFunc selector, UnaryFunc2 filter) {
-  average = 0;
-  int count = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    if (filter(*(first + i))) {
-      const double value = selector(*(first + i));
-      average += value;
-      ++count;
-    }
-  }
-  average /= count;
-
-  sigma = 0;
-  for (int i = 0; (first + i) != last; ++i) {
-    if (filter(*(first + i))) {
-      const double value = selector(*(first + i));
-      sigma += (value - average) * (value - average);
-    }
-  }
-  sigma /= count - 1;
-  sigma = std::sqrt(sigma);
+template <class It> std::tuple<double, double> aveAndStdev(It first, It last) {
+  return aveAndStdev(first, last, [](auto &e) { return e; });
 }
 
 } // place

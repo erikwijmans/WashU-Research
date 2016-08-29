@@ -49,12 +49,12 @@ DECLARE_double(scale);
 void prependDataPath();
 void parseFolder(const std::string &name, std::vector<std::string> &out);
 boost::filesystem::directory_iterator folderToIterator(const std::string &name);
-template <class UrnaryFunc>
+template <class UrnaryPredicate>
 void parseFolder(const std::string &name, std::vector<std::string> &out,
-                 UrnaryFunc f) {
+                 UrnaryPredicate filter) {
   for (auto &file : folderToIterator(name)) {
     const std::string name = file.path().filename().string();
-    if (f(name))
+    if (filter(name))
       out.push_back(name);
   }
   std::sort(out.begin(), out.end());

@@ -1,3 +1,4 @@
+#include "highOrder.h"
 #include "placeScan_multiLabeling.h"
 #include "placeScan_placeScan.h"
 
@@ -71,15 +72,17 @@ int main(int argc, char *argv[]) {
       }
     }
   }
+  place::getDirections();
   if (FLAGS_debugMode && false) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R3/DUC_point_020.png", 0);
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_047.png", 0);
     std::vector<Eigen::Vector2i> tmp(4);
     std::vector<cv::Mat> toTrim = {image}, trimmed;
     place::trimScans(toTrim, trimmed, tmp);
     image = trimmed[0];
 
-    const int xOffset = 750;
-    const int yOffset = 4400;
+    const int xOffset = 2106 - image.cols / 2.0;
+    const int yOffset = 1083 - image.rows / 2.0;
+    std::cout << xOffset << "  " << yOffset << std::endl;
     for (int i = 0; i < image.rows; ++i) {
       uchar *src = image.ptr<uchar>(i);
       uchar *dst = fpColor.ptr<uchar>(i + yOffset);
@@ -97,11 +100,6 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
-  std::vector<Eigen::MatrixXb> fpMasks;
-  if (FLAGS_redo)
-    place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
-
   std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
 
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
@@ -111,11 +109,12 @@ int main(int argc, char *argv[]) {
   if (FLAGS_numScans == -1)
     FLAGS_numScans = pointFileNames.size() - FLAGS_startIndex;
 
-  boost::progress_display *show_progress = nullptr;
-  if (FLAGS_quietMode && FLAGS_V1)
-    show_progress = new boost::progress_display(FLAGS_numScans);
-
   if (FLAGS_V1) {
+    boost::progress_display *show_progress = nullptr;
+    if (FLAGS_quietMode)
+      show_progress = new boost::progress_display(FLAGS_numScans);
+    std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
+    std::vector<Eigen::MatrixXb> fpMasks;
     for (int i = FLAGS_startIndex;
          i < std::min(FLAGS_startIndex + FLAGS_numScans,
                       (int)pointFileNames.size());
@@ -123,22 +122,20 @@ int main(int argc, char *argv[]) {
       const std::string scanName = pointFileNames[i];
       const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
       const std::string maskName = freeFileNames[i];
-      if (FLAGS_redo)
-        place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks, scanName,
-                                zerosFile, maskName);
-      else if (!place::reshowPlacement(scanName, zerosFile, FLAGS_outputV1)) {
-        if (fpPyramid.size() == 0)
-          place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid,
-                                  fpMasks);
+
+      if (FLAGS_redo ||
+          !place::reshowPlacement(scanName, zerosFile, FLAGS_outputV1)) {
+
+        place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
         place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks, scanName,
                                 zerosFile, maskName);
       }
       if (show_progress)
         ++(*show_progress);
     }
+    if (show_progress)
+      delete show_progress;
   }
-  if (show_progress)
-    delete show_progress;
 
   if (FLAGS_V2) {
     multi::Labeler labeler;
@@ -270,7 +267,7 @@ void place::analyzePlacement(
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp(705, 4380, 3);
+      Eigen::Vector3i tmp(1878, 781, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -409,8 +406,9 @@ void place::analyzePlacement(
 void place::findLocalMinima(const std::vector<place::posInfo> &scores,
                             const float bias, place::exclusionMap &maps) {
   double averageScore, sigScore;
-  place::aveAndStdev(scores.begin(), scores.end(), averageScore, sigScore,
-                     [](const place::posInfo &s) { return s.score; });
+  std::tie(averageScore, sigScore) =
+      place::aveAndStdev(scores.begin(), scores.end(),
+                         [](const place::posInfo &s) { return s.score; });
 
   if (!FLAGS_quietMode) {
     std::cout << "Average         Sigma" << std::endl;
@@ -730,7 +728,7 @@ void place::findPlacement(
         }
       }
 
-      if (numPixelsInside < 0.6 * numPixelsInMask)
+      if (numPixelsInside < 0.7 * numPixelsInMask)
         continue;
 
       Eigen::SparseMatrix<double> currentFP =
@@ -741,10 +739,10 @@ void place::findPlacement(
       for (int i = 0; i < currentFP.outerSize(); ++i)
         for (Eigen::SparseMatrix<double>::InnerIterator it(currentFP, i); it;
              ++it)
-          if (currentMask(it.row(), it.col()) != 0)
+          if (currentMask(it.row(), it.col()))
             numFPPixelsUM += it.value();
 
-      if (numFPPixelsUM < 0.5 * numPixelsUnderMask[scanIndex])
+      if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
         continue;
 
       double scanFPsetDiff = 0;
@@ -857,6 +855,11 @@ void place::createFPPyramids(
     std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     std::vector<Eigen::MatrixXb> &fpMasks) {
+
+  static bool loaded = false;
+  if (loaded)
+    return;
+
   cv::Mat element = cv::getStructuringElement(
       cv::MORPH_RECT, cv::Size(errosionKernelSize, errosionKernelSize));
   cv::Mat fpEroded(floorPlan.rows, floorPlan.cols, CV_8UC1);
@@ -875,14 +878,14 @@ void place::createFPPyramids(
 
   for (int i = 0; i < fpSparse.outerSize(); ++i)
     for (Eigen::SparseMatrix<double>::InnerIterator it(fpSparse, i); it; ++it)
-      if (it.value() > 0.6)
+      if (it.value() > 0.4)
         fpTrip.push_back(
             Eigen::Triplet<double>(it.row(), it.col(), it.value()));
 
   for (int i = 0; i < erodedFpSparse.outerSize(); ++i)
     for (Eigen::SparseMatrix<double>::InnerIterator it(erodedFpSparse, i); it;
          ++it)
-      if (it.value() > 0.6)
+      if (it.value() > 0.4)
         erodedTrip.push_back(
             Eigen::Triplet<double>(it.row(), it.col(), it.value()));
 
@@ -942,6 +945,8 @@ void place::createFPPyramids(
       cv::waitKey(0);
     }
   }
+
+  loaded = true;
 }
 
 void place::findNumPixelsUnderMask(

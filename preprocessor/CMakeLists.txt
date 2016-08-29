@@ -21,3 +21,4 @@ file(GLOB src
 
 add_executable( preprocessor ${src})
 target_link_libraries( preprocessor ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+cotire(preprocessor)

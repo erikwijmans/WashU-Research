@@ -581,10 +581,9 @@ static void labelNeighbours(const cv::Mat &image, const int currentLabel,
   if (toLabel.empty())
     return;
 
-  auto currentPixel = toLabel.front();
+  int yOffset, xOffset;
+  std::tie(yOffset, xOffset) = toLabel.front();
   toLabel.pop_front();
-  const int yOffset = currentPixel.first;
-  const int xOffset = currentPixel.second;
 
   for (int j = -1; j <= 1; ++j) {
     for (int i = -1; i <= 1; ++i) {
@@ -629,8 +628,8 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
 
   double average = 0.0, sigma = 0.0;
   const int *countPerLabelPtr = countPerLabel.data();
-  place::aveAndStdev(countPerLabelPtr + 1,
-                     countPerLabelPtr + countPerLabel.size(), average, sigma);
+  std::tie(average, sigma) = place::aveAndStdev(
+      countPerLabelPtr + 1, countPerLabelPtr + countPerLabel.size());
 
   double threshHold = average;
   for (int j = 0; j < image.rows; ++j) {

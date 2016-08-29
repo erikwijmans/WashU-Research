@@ -87,63 +87,81 @@ void removeMinimumConnectedComponents(cv::Mat &image);
 
 template <class E, class UrnaryFunc>
 int getCutoffIndex(const std::vector<E> &list, UrnaryFunc selector) {
-  constexpr int max = 50;
-  std::vector<std::string> names;
-  parseFolder(FLAGS_outputV1, names, [](const std::string &s) {
-    return s.find(".dat") != std::string::npos;
-  });
-  std::vector<double> scores, deltas, totalDeltas;
-  for (auto &n : names) {
-    std::ifstream in(FLAGS_outputV1 + n, std::ios::in | std::ios::binary);
-    int num;
-    in.read(reinterpret_cast<char *>(&num), sizeof(num));
-    place::posInfo tmp;
-    in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-    double score = tmp.score;
-    const double firstScore = score;
-    scores.push_back(score);
-    for (int i = 0; i < num - 1; ++i) {
+  constexpr int max = 30;
+  constexpr int minNodes = 3;
+  static bool first = true;
+  static double cutoffDelta, cutoffScore, cutOffTotal, instantCutoff;
+  if (first) {
+    std::vector<std::string> names;
+    parseFolder(FLAGS_outputV1, names, [](const std::string &s) {
+      return s.find(".dat") != std::string::npos;
+    });
+    std::vector<double> scores, deltas, totalDeltas;
+    for (auto &n : names) {
+      std::ifstream in(FLAGS_outputV1 + n, std::ios::in | std::ios::binary);
+      int num;
+      in.read(reinterpret_cast<char *>(&num), sizeof(num));
+      place::posInfo tmp;
       in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-      score = tmp.score;
-      const double delta = score - scores.back();
-      const double totalDelta = score - firstScore;
-      if (delta > 0.0001)
-        deltas.push_back(delta);
+      double score = tmp.score;
+      const double firstScore = score;
       scores.push_back(score);
-      totalDeltas.push_back(totalDelta);
+      for (int i = 0; i < std::min(num - 1, 100); ++i) {
+        in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
+        score = tmp.score;
+        const double delta = score - scores.back();
+        const double totalDelta = score - firstScore;
+        if (delta > 0.0001)
+          deltas.push_back(delta);
+        scores.push_back(score);
+        totalDeltas.push_back(totalDelta);
+      }
     }
+    double averageScore, sigmaScore, averageDelta, sigmaDelta, averageTotal,
+        sigmaTotal;
+    std::tie(averageScore, sigmaScore) =
+        place::aveAndStdev(scores.begin(), scores.end());
+    std::tie(averageDelta, sigmaDelta) =
+        place::aveAndStdev(deltas.begin(), deltas.end());
+    std::tie(averageTotal, sigmaTotal) =
+        place::aveAndStdev(totalDeltas.begin(), totalDeltas.end());
+
+    instantCutoff = averageDelta + 6.5 * sigmaDelta;
+    cutOffTotal = averageTotal - 1.5 * sigmaTotal;
+    cutoffScore = averageScore - 2.0 * sigmaScore;
+    cutoffDelta = averageDelta + 4 * sigmaDelta;
+    if (!FLAGS_quietMode) {
+      std::cout << "Score:  " << averageScore << "  " << sigmaScore << std::endl
+                << "Total Delta:  " << averageTotal << "  " << sigmaTotal
+                << std::endl
+                << "Delta:  " << averageDelta << "  " << sigmaDelta << std::endl
+                << std::endl
+                << "Instant: " << instantCutoff << "  "
+                << "Cutoff total: " << cutOffTotal << "  "
+                << "Cutoff score: " << cutoffScore << "  "
+                << "Cutff delta: " << cutoffDelta << std::endl;
+    }
+    first = false;
   }
 
-  double averageScore, sigmaScore, averageDelta, sigmaDelta, averageTotal,
-      sigmaTotal;
-  place::aveAndStdev(scores.begin(), scores.end(), averageScore, sigmaScore);
-  place::aveAndStdev(deltas.begin(), deltas.end(), averageDelta, sigmaDelta);
-  place::aveAndStdev(totalDeltas.begin(), totalDeltas.end(), averageTotal,
-                     sigmaTotal);
-  if (!FLAGS_quietMode) {
-    std::cout << averageScore << "  " << sigmaScore << std::endl
-              << averageTotal << "  " << sigmaTotal << std::endl
-              << averageDelta << "  " << sigmaDelta << std::endl;
-  }
   bool exceeded = false;
-  constexpr int minNodes = 2;
   double prevScore = selector(list[0]);
   const double firstScore = prevScore;
-  for (int i = 1; i < list.size(); ++i) {
+  int i;
+  for (i = 1; i < list.size(); ++i) {
     const double score = selector(list[i]);
-    if (i >= max || score - prevScore > averageDelta + 12 * sigmaDelta ||
+    if (i >= max || score - prevScore > instantCutoff ||
         (i >= minNodes && exceeded))
-      return i;
+      break;
 
-    if (score - firstScore > averageTotal - 1.5 * sigmaTotal ||
-        score > averageScore + 0.1 * sigmaScore ||
-        score - prevScore > averageDelta + 7 * sigmaDelta)
+    if (score - firstScore > cutOffTotal || score > cutoffScore ||
+        score - prevScore > cutoffDelta)
       exceeded = true;
 
     prevScore = score;
   }
 
-  return list.size();
+  return std::min(i != 1 ? i + 1 : i, (int)list.size());
 }
 } // namespace place
 

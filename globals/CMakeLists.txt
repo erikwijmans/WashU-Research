@@ -15,6 +15,7 @@ set(globals_SRC
   scan_typedefs.cpp)
 
 add_library(globals_lib ${globals_SRC})
+cotire(globals_lib)
 
 set(globals_LIBS globals_lib ${OpenCV_LIBS} ${Boost_SYSTEM_LIBRARIES}
                       ${Boost_FILESYSTEM_LIBRARIES} gflags)

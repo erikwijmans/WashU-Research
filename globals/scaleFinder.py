@@ -6,16 +6,18 @@
 from sys import argv
 import subprocess, os
 
-place_exe = './placeScan/placeScan'
-density_exe = './scanDensity/scanDensity'
+place_exe = './build/placeScan/placeScan'
+density_exe = './build/scanDensity/scanDensity'
 
 def inc_scale(current_scores, current_scales, scale, inc):
   current_scores = current_scores[1:]
   current_scores.append(0)
   print current_scores
+
   current_scales = current_scales[1:]
   current_scales.append(scale + inc)
   print current_scales
+
   return current_scores, current_scales
 
 def sub_scale(current_scores, current_scales, scale, inc):
@@ -75,7 +77,6 @@ def main():
 
       if len(result_name) == 0:
         for f in os.listdir(output_dir):
-          print f
           if f.find('{:03d}.txt'.format(number)) != -1:
             result_name = f
             break
@@ -86,10 +87,12 @@ def main():
       #The best score is the first element in a space seperated list
       count = 0
       average = 0
-      for line in iter(lambda: results_file.readline(), ''):
-        average += float(line.split(' ')[0])
-        if ++count == 20:
+      for score in iter(lambda: float(results_file.readline().split(' ')[0]), ''):
+        average += score
+        count += 1
+        if count == 1:
           break
+
       results_file.close()
       current_scores[i] = average/count
 

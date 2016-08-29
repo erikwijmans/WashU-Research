@@ -131,7 +131,7 @@ double NCC(const cv::Mat_<cv::Vec3b> &a, const cv::Mat_<cv::Vec3b> &b) {
   return AB / sqrt(AA * BB);
 }
 
-static constexpr bool viz = false;
+static constexpr bool viz = true;
 
 void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
                        const Eigen::Matrix3d &RA, const Eigen::Matrix3d &RB,
@@ -166,7 +166,8 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       bMaxes(std::min(panoB[0].cols, (int)rMapB.cols()),
              std::min(panoB[0].rows, (int)rMapB.rows()));
 
-#pragma omp parallel reduction(+ : count, score, numSim, numDiff) if (!viz)
+#pragma omp parallel reduction(+ : count, score, numSim,                       \
+                               numDiff) if (!FLAGS_debugMode || !viz)
   {
     cv::Mat_<cv::Vec3b> NCCA, NCCB;
 #pragma omp for nowait
@@ -246,7 +247,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       else
         ++numDiff;
 
-      if (viz) {
+      if (FLAGS_debugMode && viz) {
         cv::Mat_<cv::Vec3b> out1(aLvlImg.size());
         aLvlImg.copyTo(out1);
         cv::Mat_<cv::Vec3b> out2(bLvlImg.size());
@@ -351,7 +352,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       else
         ++numDiff;
 
-      if (viz) {
+      if (FLAGS_debugMode && viz) {
         cv::Mat_<cv::Vec3b> out1(aLvlImg.rows, aLvlImg.cols);
         aLvlImg.copyTo(out1);
         cv::Mat_<cv::Vec3b> out2(bLvlImg.rows, bLvlImg.cols);

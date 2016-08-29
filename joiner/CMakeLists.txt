@@ -19,3 +19,4 @@ file(GLOB src
 
 add_executable( joiner ${src})
 target_link_libraries( joiner ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+cotire(joiner)

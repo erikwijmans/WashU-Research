@@ -325,7 +325,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
   double average, sigma;
   const float *dataPtr = total.data();
-  place::aveAndStdev(dataPtr, dataPtr + total.size(), average, sigma,
+  std::tie(average, sigma) = place::aveAndStdev(dataPtr, dataPtr + total.size(),
                         [](double v) {
                           return v;
                         }, [](double v) -> bool {
@@ -448,7 +448,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
   double average, sigma;
   const double *vPtr = collapsedCount.data();
-  place::aveAndStdev(vPtr, vPtr + collapsedCount.size(), average, sigma,
+  std::tie(average, sigma) = place::aveAndStdev(vPtr, vPtr + collapsedCount.size(),
                         [](double v) {
                           return v;
                         }, [](double v) -> bool {

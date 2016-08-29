@@ -24,3 +24,4 @@ add_executable( placeScan ${place_SRC})
 target_link_libraries( placeScan ${globals_LIBS} ${OpenCV_LIBS}
                       ${Boost_TIMER_LIBRARIES}
                       ${GUROBI_LIBS})
+cotire(placeScan)

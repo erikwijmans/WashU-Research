@@ -33,7 +33,7 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
 
   for (int i = 0, offset = 0; i < numberOfLabels.size();
        offset += numberOfLabels[i], ++i) {
-    const int index = place::getCutoffIndex(
+    int index = place::getCutoffIndex(
         std::vector<place::node>(nodes.begin() + offset,
                                  nodes.begin() + offset + numberOfLabels[i]),
         [](const place::node &n) { return n.s.score; });
@@ -179,6 +179,7 @@ multi::Labeler::Labeler() {
 }
 
 void multi::Labeler::load() {
+  static bool loaded = false;
   if (loaded)
     return;
 
@@ -191,10 +192,6 @@ void multi::Labeler::load() {
   std::vector<std::string> panoDataNames;
   std::string panoDataFolder = FLAGS_panoFolder + "data/";
   parseFolder(panoDataFolder, panoDataNames);
-
-  std::sort(rotationsFiles.begin(), rotationsFiles.end());
-  std::sort(panoFiles.begin(), panoFiles.end());
-  std::sort(panoDataNames.begin(), panoDataNames.end());
 
   rotationMatricies.assign(rotationsFiles.size(),
                            std::vector<Eigen::Matrix3d>(NUM_ROTS));
@@ -253,7 +250,7 @@ void multi::Labeler::solveMIP() {
 
   place::createHigherOrderTerms(scans, zeroZeros, R2Nodes, unwantedNeighbors,
                                 highOrder);
-  // place::displayHighOrder(highOrder, R2Nodes, scans, zeroZeros);
+  place::displayHighOrder(highOrder, R2Nodes, scans, zeroZeros);
   bestNodes.clear();
   place::MIPSolver(adjacencyMatrix, highOrder, R2Nodes, bestNodes);
 }

@@ -25,7 +25,6 @@ def main():
   deltas = []
   totalDeltas = []
   for f in os.listdir(results_file):
-
     if f.find('.txt') != -1:
       file = open('{}/{}'.format(results_file, f), 'r')
       file.readline()
@@ -40,8 +39,11 @@ def main():
         if delta > 0.0001:
           deltas.append(delta)
 
+  print "Scores:"
   analyze(scores)
+  print '\nDeltas:'
   analyze(deltas)
+  print '\nTotal Deltas:'
   analyze(totalDeltas)
   print '\n'
 if __name__ == '__main__':

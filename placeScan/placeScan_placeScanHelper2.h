@@ -49,7 +49,7 @@ place::edge compare3D(const place::VoxelGrid &aPoint,
                       const place::cube &bRect);
 
 void loadInVoxel(const std::string &name, place::VoxelGrid &dst);
-
+place::VoxelGrid loadInVoxel(const std::string &name);
 void loadInScansGraph(const std::vector<std::string> &pointFileNames,
                       const std::vector<std::string> &freeFileNames,
                       const std::vector<std::string> &zerosFileNames,

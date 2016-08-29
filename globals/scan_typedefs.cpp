@@ -321,8 +321,8 @@ double place::edge::getWeight() const {
 
 place::exclusionMap::exclusionMap(double exclusionX, double exclusionY,
                                   int rows, int cols)
-    : exclusionX{exclusionX}, exclusionY{exclusionY}, rows{rows}, cols{cols} {
-  maps = new const place::posInfo **[NUM_ROTS];
+    : maps{new const place::posInfo **[NUM_ROTS]}, exclusionX{exclusionX},
+      exclusionY{exclusionY}, rows{rows}, cols{cols} {
   for (int i = 0; i < NUM_ROTS; ++i)
     // 2d array with one access index:  [<colNumber>*rows + <rowNumber>]
     maps[i] = new const place::posInfo *[rows * cols]();
@@ -332,6 +332,33 @@ place::exclusionMap::~exclusionMap() {
   for (int i = 0; i < NUM_ROTS; ++i)
     delete[] maps[i];
   delete[] maps;
+}
+
+void place::Wall::init(const Eigen::Vector2d &n) {
+  normal = new Eigen::Vector2d(n);
+  *normal /= normal->norm();
+  s = new side[2];
+}
+void place::Wall::changeNormal(const Eigen::Vector2d &n) {
+  *normal = n;
+  *normal /= normal->norm();
+}
+
+const Eigen::Vector2d &place::Wall::getNormal() { return *normal; }
+
+place::Wall::side &place::Wall::getSide(const Eigen::Vector2d &ray) {
+  const double theta = std::acos(normal->dot(ray) / (ray.norm()));
+  if (theta < 0)
+    return s[0];
+  else
+    return s[1];
+}
+
+place::Wall::~Wall() {
+  if (normal)
+    delete normal;
+  if (s)
+    delete[] s;
 }
 
 std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {

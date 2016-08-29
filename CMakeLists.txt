@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.1)
-
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 project(Laser_Scan_Placement)
 
+include(cotire)
 add_subdirectory(globals)
 add_subdirectory(preprocessor)
 add_subdirectory(scanDensity)

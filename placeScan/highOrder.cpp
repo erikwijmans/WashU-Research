@@ -122,12 +122,265 @@ static void dispHMap(Eigen::ArrayXH &hMap) {
   cv::waitKey(0);
 }
 
+static void labelNeighbours(const cv::Mat &image, const int currentLabel,
+                            Eigen::RowMatrixXi &labeledImage,
+                            std::list<std::pair<int, int>> &toLabel,
+                            const int direction) {
+
+  if (toLabel.empty())
+    return;
+
+  int yOffset, xOffset;
+  std::tie(yOffset, xOffset) = toLabel.front();
+  toLabel.pop_front();
+
+  for (int j = -1; j <= 1; ++j) {
+    if (j + yOffset < 0 || j + yOffset >= labeledImage.rows())
+      continue;
+    if (std::abs(j) != direction)
+      continue;
+    for (int i = -1; i <= 1; ++i) {
+      if (std::abs(i) + std::abs(j) == 2)
+        continue;
+      if (std::abs(i) == direction)
+        continue;
+      if (i + xOffset < 0 || i + xOffset >= labeledImage.cols())
+        continue;
+      if (image.at<uchar>(j + yOffset, i + xOffset) != 255 &&
+          labeledImage(j + yOffset, i + xOffset) == 0) {
+        labeledImage(j + yOffset, i + xOffset) = currentLabel;
+        toLabel.emplace_front(j + yOffset, i + xOffset);
+      }
+    }
+  }
+
+  labelNeighbours(image, currentLabel, labeledImage, toLabel, direction);
+}
+
+static cv::Vec3b randomColor() {
+  static cv::RNG rng(0xFFFFFFFF);
+  int icolor = (unsigned)rng;
+  return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
+}
+
+void place::getDirections() {
+  /*Eigen::RowMatrixXi labeledImageX = Eigen::RowMatrixXi::Zero(floorPlan.rows,
+                                                              floorPlan.cols),
+                     labeledImageY = Eigen::RowMatrixXi::Zero(floorPlan.rows,
+                                                              floorPlan.cols);
+  std::list<std::pair<int, int>> toLabel;
+  int currentLabel = 1;
+  for (int j = 0; j < floorPlan.rows; ++j) {
+    const uchar *src = floorPlan.ptr<uchar>(j);
+    for (int i = 0; i < floorPlan.cols; ++i) {
+      if (src[i] != 255 && labeledImageX(j, i) == 0) {
+        labeledImageX(j, i) = currentLabel;
+        toLabel.emplace_front(j, i);
+
+        labelNeighbours(floorPlan, currentLabel, labeledImageX, toLabel, 0);
+
+        ++currentLabel;
+      }
+
+      if (src[i] != 255 && labeledImageY(j, i) == 0) {
+        labeledImageY(j, i) = currentLabel;
+        toLabel.emplace_front(j, i);
+
+        labelNeighbours(floorPlan, currentLabel, labeledImageY, toLabel, 1);
+
+        ++currentLabel;
+      }
+    }
+  }
+
+  Eigen::VectorXi countPerLabel = Eigen::VectorXi::Zero(currentLabel);
+  std::for_each(labeledImageX.data(),
+                labeledImageX.data() + labeledImageX.size(),
+                [&countPerLabel](const int label) { ++countPerLabel[label];
+                });
+  std::for_each(labeledImageY.data(),
+                labeledImageY.data() + labeledImageY.size(),
+                [&countPerLabel](const int label) { ++countPerLabel[label];
+                });
+
+  Eigen::RowMatrixXi labeledImage =
+      Eigen::RowMatrixXi::Zero(floorPlan.rows, floorPlan.cols);
+  auto xPtr = labeledImageX.data();
+  auto yPtr = labeledImageY.data();
+  auto dstPtr = labeledImage.data();
+  for (int i = 0; i < labeledImage.size(); ++i) {
+    if (countPerLabel[xPtr[i]] > countPerLabel[yPtr[i]]) {
+      dstPtr[i] = xPtr[i];
+    } else {
+      dstPtr[i] = yPtr[i];
+    }
+  }
+
+  cv::Vec3b *colors = new cv::Vec3b[currentLabel + 1];
+  for (int i = 0; i < currentLabel + 1; ++i) {
+    colors[i] = randomColor();
+  }
+
+  cv::Mat_<cv::Vec3b> out(floorPlan.size(), cv::Vec3b(255, 255, 255));
+  for (int j = 0; j < floorPlan.rows; ++j) {
+    for (int i = 0; i < floorPlan.cols; ++i) {
+      if (labeledImage(j, i)) {
+        out(j, i) = colors[labeledImage(j, i)];
+      }
+    }
+  }
+  delete[] colors;
+
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  cv::imshow("Preview", out);
+  cv::waitKey(0);*/
+  constexpr int kernelSize = 7;
+  constexpr int midPoint = kernelSize / 2;
+  constexpr double sum = kernelSize;
+  constexpr int numLines = kernelSize / 2;
+
+  std::vector<std::pair<cv::Mat, double>> kernels;
+
+  auto line = [](int x, double slope, double yint) {
+    return std::make_tuple(x, x * slope + yint);
+  };
+  constexpr double startSlope = 0;
+  constexpr double endSlope = 1;
+  constexpr double startyint = midPoint;
+  constexpr double endyint = 0;
+  double slope = startSlope;
+  double yint = startyint;
+
+  for (int k = 0, x, y; k < numLines; ++k) {
+    int index2 = -1;
+    kernels.emplace_back(cv::Mat(kernelSize, kernelSize, CV_32F, cv::Scalar(0)),
+                         slope);
+    int index1 = kernels.size() - 1;
+    for (int i = 0; i < kernelSize; ++i) {
+      std::tie(x, y) = line(i, slope, yint);
+      kernels[index1].first.at<float>(y, x) = 1.0;
+      if (slope != 1) {
+        if (index2 == -1) {
+          kernels.emplace_back(
+              cv::Mat(kernelSize, kernelSize, CV_32F, cv::Scalar(0)),
+              1.0 / slope);
+          index2 = kernels.size() - 1;
+        }
+        kernels[index2].first.at<float>(x, y) = 1.0;
+      }
+    }
+    if (slope != 0) {
+      index2 = -1;
+      kernels.emplace_back(
+          cv::Mat(kernelSize, kernelSize, CV_32F, cv::Scalar(0)), -slope);
+      index1 = kernels.size() - 1;
+      for (int i = 0; i < kernelSize; ++i) {
+        std::tie(x, y) = line(i, -slope, (kernelSize - 1) - yint);
+        kernels[index1].first.at<float>(y, x) = 1.0;
+        if (slope != 1) {
+          if (index2 == -1) {
+            kernels.emplace_back(
+                cv::Mat(kernelSize, kernelSize, CV_32F, cv::Scalar(0)),
+                1.0 / -slope);
+            index2 = kernels.size() - 1;
+          }
+          kernels[index2].first.at<float>(x, y) = 1.0;
+        }
+      }
+    }
+
+    slope += (endSlope - startSlope) / (numLines - 1);
+    yint += static_cast<double>(endyint - startyint) / (numLines - 1);
+  }
+
+  cv::Point anchor(-1, -1);
+  double delta = 0;
+  int ddepth = -1;
+  cv::Mat_<cv::Vec3b> out(floorPlan.size(), cv::Vec3b(255, 255, 255));
+  cv::Mat maxResponse(floorPlan.size(), CV_8UC1, cv::Scalar(0));
+
+  for (auto &k : kernels) {
+    auto &kernel = k.first;
+    const double slope = k.second;
+    kernel /= sum;
+    cv::Mat dst;
+    cv::Mat src = cv::Scalar::all(255) - floorPlan;
+
+    for (int i = 0; i < 5; ++i) {
+      cv::filter2D(src, dst, ddepth, kernel, anchor, delta, cv::BORDER_DEFAULT);
+      dst.copyTo(src);
+      cv::threshold(src, dst, 0.4 * 255, 255, 3);
+      dst.copyTo(src);
+    }
+    cv::threshold(src, dst, 0.5 * 255, 255, 3);
+    auto color = randomColor();
+
+    for (int j = 0; j < dst.rows; ++j) {
+      uchar *ptr = dst.ptr<uchar>(j);
+      uchar *check = maxResponse.ptr<uchar>(j);
+      for (int i = 0; i < dst.cols; ++i) {
+        if (ptr[i] > check[i]) {
+          out(j, i) = color;
+          check[i] = ptr[i];
+        }
+      }
+    }
+  }
+
+  /*cv::Mat dst, cdst;
+  Canny(floorPlan, dst, 50, 200, 3);
+  cvtColor(dst, cdst, CV_GRAY2BGR);
+
+  std::unordered_map<double, cv::Vec3b> thetaToColor;
+#if 1
+  std::vector<cv::Vec2f> lines;
+  cv::HoughLines(dst, lines, 1, CV_PI / 180, 100, 5, 1);
+
+  for (size_t i = 0; i < lines.size(); i++) {
+    double rho = lines[i][0], theta = lines[i][1];
+    cv::Point pt1, pt2;
+    double a = cos(theta), b = sin(theta);
+    double x0 = a * rho, y0 = b * rho;
+
+    cv::Vec3b color;
+    auto it = thetaToColor.find(theta);
+    if (it == thetaToColor.cend()) {
+      color = randomColor();
+      thetaToColor.emplace(theta, color);
+    } else
+      color = it->second;
+
+    cdst.at<cv::Vec3b>(y0, x0) = color;
+  }
+#else
+  std::vector<cv::Vec4i> lines;
+  cv::HoughLinesP(dst, lines, 1, CV_PI / 180, 10, 10, 10);
+  for (size_t i = 0; i < lines.size(); i++) {
+    cv::Vec4i l = lines[i];
+    cv::line(cdst, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), randomColor(),
+             3, CV_AA);
+  }
+#endif
+  cvNamedWindow("canny", CV_WINDOW_NORMAL);
+  cv::imshow("canny", dst);
+  cvNamedWindow("detected lines", CV_WINDOW_NORMAL);
+  cv::imshow("detected lines", cdst);*/
+
+  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+  cv::imshow("Preview", out);
+  cvNamedWindow("Max", CV_WINDOW_NORMAL);
+  cv::imshow("Max", maxResponse);
+  cv::waitKey(0);
+}
+
 void place::createHigherOrderTerms(
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
     const std::vector<place::R2Node> &nodes,
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
     multi::Labeler::map &highOrder) {
+  getDirections();
+  const double scale = buildingScale.getScale();
   Eigen::ArrayXH hMap(floorPlan.rows, floorPlan.cols);
   for (int a = 0; a < nodes.size(); ++a) {
     auto &currentNode = nodes[a];
@@ -135,6 +388,8 @@ void place::createHigherOrderTerms(
     auto &zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
     const int xOffset = currentNode.s.x - zeroZero[0],
               yOffset = currentNode.s.y - zeroZero[1];
+
+    const Eigen::Vector2d center(currentNode.s.x, currentNode.s.y);
 
     cv::Mat_<uchar> _fp = floorPlan;
     for (int j = 0; j < currentScan.rows(); ++j) {
@@ -145,12 +400,17 @@ void place::createHigherOrderTerms(
           continue;
         if (_fp(j + yOffset, i + xOffset) != 255 &&
             localGroup(currentScan, j, i, 7)) {
+          const Eigen::Vector2d ray =
+              Eigen::Vector2d(i + xOffset, j + yOffset) - center;
           auto &h = hMap(j + yOffset, i + xOffset);
           if (currentNode.locked) {
             h.weight += currentNode.w;
             h.owners.push_back(a);
           } else
             h.incident.push_back(a);
+
+          const double dist = ray.norm() / scale;
+          h.distance = std::min(dist, h.distance);
         }
       }
     }
@@ -160,7 +420,7 @@ void place::createHigherOrderTerms(
 
   for (int i = 0; i < hMap.size(); ++i) {
     auto &owners = (data + i)->owners;
-    std::vector<int> &incident = (data + i)->incident;
+    auto &incident = (data + i)->incident;
     for (auto &o : owners) {
       auto pair = unwantedNeighbors.find(nodes[o].id);
       if (pair == unwantedNeighbors.cend())
@@ -400,7 +660,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
       objective += weight * varList[a] * varList[b];
     }
     // Urnary
-    objective += 0.5 * varList[a] * nodes[a].w;
+    objective += 0.5 * varList[a] * nodes[a].getWeight();
   }
 
   std::list<std::pair<GRBQuadExpr, GRBQuadExpr>> hOrderQs;

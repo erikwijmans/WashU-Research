@@ -18,3 +18,4 @@ file( GLOB scan_SRC
     "driver.cpp")
 add_executable( scanDensity ${scan_SRC})
 target_link_libraries( scanDensity ${globals_LIBS} ${OpenCV_LIBS})
+cotire(scanDensity)

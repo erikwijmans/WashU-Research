@@ -101,8 +101,8 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
   volatile double maxInliers = 0, K = 1e5;
   volatile int k = 0;
 
-  std::random_device seed;
-  std::mt19937_64 gen(seed());
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
   std::uniform_int_distribution<int> dist(0, m - 1);
 
   while (k < K) {
@@ -122,7 +122,7 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
       if (std::acos(std::abs(nest.dot(n))) < 0.02) {
         ++numInliers;
         // NB: All normals that are inliers with the estimate
-        // are averaged together to get the truest estimate
+        // are averaged together to get the best estimate
         // of the dominate direction
         if (nest.dot(n) < 0)
           average -= n;
@@ -158,8 +158,8 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
   volatile double maxInliers = 0, K = 1.0e5;
   volatile int k = 0;
 
-  std::random_device seed;
-  std::mt19937_64 gen(seed());
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
   std::uniform_int_distribution<int> dist(0, m - 1);
 
   while (k < K) {

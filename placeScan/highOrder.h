@@ -35,6 +35,7 @@ void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
 void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
                const std::vector<place::R2Node> &nodes,
                std::vector<place::SelectedNode> &bestNodes);
+void getDirections();
 } // place
 
 #endif // PLACE_SCAN_HIGH_ORDER_H

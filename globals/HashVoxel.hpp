@@ -28,11 +28,19 @@ template <typename K, typename V> class HashVoxel {
 public:
   typedef std::shared_ptr<V> VPtr;
   typedef std::shared_ptr<HashVoxel<K, V>> Ptr;
-  HashVoxel(K &min, K &max) : _min{min}, _max{max} {};
-  HashVoxel(K &&min, K &&max) : _min{min}, _max{max} {};
-  template <typename... Targs> static inline Ptr Create(Targs... args) {
+  typedef const std::shared_ptr<HashVoxel<K, V>> ConstPtr;
+
+  HashVoxel(K &min, K &max) : _min{min}, _max{max}, check{true} {};
+  HashVoxel(K &&min, K &&max) : _min{min}, _max{max}, check{true} {};
+  HashVoxel() : check{false} {};
+
+  template <typename... Targs> static inline Ptr Create(Targs &... args) {
     return std::make_shared<HashVoxel<K, V>>(std::forward<Targs>(args)...);
-  }
+  };
+  template <typename... Targs> static inline Ptr Create(Targs &&... args) {
+    return std::make_shared<HashVoxel<K, V>>(std::forward<Targs>(args)...);
+  };
+
   template <typename... Kargs> VPtr insert(VPtr v, Kargs... args) {
     K key(std::forward<Kargs>(args)...);
     checkBounds(key);
@@ -44,10 +52,12 @@ public:
       return nullptr;
   };
   template <typename... Kargs> VPtr insert(V &v, Kargs... args) {
-    return insert(std::make_shared<V>(v), std::forward<Kargs>(args)...);
+    return insert(std::make_shared<V>(std::forward<V>(v)),
+                  std::forward<Kargs>(args)...);
   };
   template <typename... Kargs> VPtr insert(V &&v, Kargs... args) {
-    return insert(std::make_shared<V>(v), std::forward<Kargs>(args)...);
+    return insert(std::make_shared<V>(std::forward<V>(v)),
+                  std::forward<Kargs>(args)...);
   };
   template <typename... Kargs> VPtr operator()(Kargs... args) {
     K key(std::forward<Kargs>(args)...);
@@ -60,7 +70,7 @@ public:
   };
   template <typename... Kargs> VPtr at(Kargs... args) {
     return operator()(std::forward<Kargs>(args)...);
-  }
+  };
 
   inline K &max() { return _max; };
   inline K &min() { return _min; };
@@ -68,15 +78,18 @@ public:
 private:
   std::unordered_map<K, VPtr> map;
   K _min, _max;
+  const bool check;
   void checkBounds(K key) {
-    auto minPtr = min().data();
-    auto maxPtr = max().data();
-    auto keyPtr = key.data();
-    for (int i = 0; i < key.size(); ++i) {
-      assert(*(keyPtr + i) >= *(minPtr + i));
-      assert(*(keyPtr + i) < *(maxPtr + i));
+    if (check) {
+      auto minPtr = min().data();
+      auto maxPtr = max().data();
+      auto keyPtr = key.data();
+      for (int i = 0; i < key.size(); ++i) {
+        assert(*(keyPtr + i) >= *(minPtr + i));
+        assert(*(keyPtr + i) < *(maxPtr + i));
+      }
     }
-  }
+  };
 };
 } // voxel
 
