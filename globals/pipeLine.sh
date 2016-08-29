@@ -17,7 +17,7 @@ mkdir -p $1/densityMaps/rotations
 mkdir -p $1/densityMaps/R1
 mkdir -p $1/densityMaps/R2
 mkdir -p $1/densityMaps/zeros
-mkdir -p $1/voxelGrids/R3
+mkdir -p $1/voxelGridcs/R3
 mkdir -p $1/voxelGrids/R0
 mkdir -p $1/voxelGrids/R1
 mkdir -p $1/voxelGrids/R2
