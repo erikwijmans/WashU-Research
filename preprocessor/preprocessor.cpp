@@ -29,24 +29,6 @@
 
 int PTXrows, PTXcols;
 
-void convertToBinary(const std::string &fileNameIn, const std::string &,
-                     std::vector<scan::PointXYZRGBA> &pointCloud);
-void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
-                    pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                    pcl::PointCloud<PointType>::Ptr &normals_points,
-                    const std::string &panoName, const std::string &dataName);
-void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
-                 Eigen::Vector3f &pointMin, Eigen::Vector3f &pointMax);
-void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
-                         pcl::PointCloud<PointType>::Ptr &cloud);
-void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
-                pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                pcl::PointCloud<PointType>::Ptr &normals_points,
-                const std::string &outName);
-void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                 pcl::PointCloud<PointType>::Ptr &normals_points,
-                 const std::string &outName);
-
 static inline bool fexists(const std::string &file) {
   std::ifstream in(file, std::ios::in);
   return in.is_open();
@@ -89,7 +71,7 @@ int main(int argc, char *argv[]) {
 
   boost::progress_display *show_progress = nullptr;
   if (FLAGS_quietMode)
-    show_progress = new boost::progress_display(FLAGS_numScans);
+    show_progress = new boost::progress_display(FLAGS_numScans * 5);
 
   for (int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
     const std::string number =
@@ -114,9 +96,13 @@ int main(int argc, char *argv[]) {
           fexists(dataName) && fexists(rotName) && fexists(panoName))) {
       std::vector<scan::PointXYZRGBA> pointCloud;
       convertToBinary(csvFileName, binaryFileName, pointCloud);
+      if (show_progress)
+        ++(*show_progress);
 
       pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
       createPCLPointCloud(pointCloud, cloud);
+      if (show_progress)
+        ++(*show_progress);
 
       if (!FLAGS_quietMode)
         std::cout << "Calculating Normals" << std::endl;
@@ -127,17 +113,24 @@ int main(int argc, char *argv[]) {
           new pcl::PointCloud<PointType>);
       getNormals(cloud, cloud_normals, normals_points, normalsName);
 
+      if (show_progress)
+        ++(*show_progress);
+
       getRotations(cloud_normals, rotName);
+
+      if (show_progress)
+        ++(*show_progress);
 
       if (!FLAGS_quietMode)
         std::cout << "Creating Panorama" << std::endl;
 
       createPanorama(pointCloud, cloud_normals, normals_points, panoName,
                      dataName);
-    }
 
-    if (show_progress)
-      ++(*show_progress);
+      if (show_progress)
+        ++(*show_progress);
+    } else
+      *show_progress += 5;
   }
 
   if (show_progress)
@@ -443,7 +436,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   int col = 0.995 * (PTXcols - 1) / 2.0;
   Eigen::RowMatrixXb touched = Eigen::RowMatrixXb::Zero(PTXrows, PTXcols);
 
-  for (auto element : pointCloud) {
+  for (auto &element : pointCloud) {
     assert(row >= 0 && row < PTXPanorama.rows);
     assert(col >= 0 && col < PTXPanorama.cols);
     _PTXPanorama(row, col)[0] = element.rgb[2];
@@ -498,7 +491,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   fillGaps(surfaceNormals, hasNormal);
   fillGaps(rMap, rMap);
 
-  const double scale = pow(2, -5.0 / 2);
+  const double scale = pow(2, -6.0 / 2);
   cv::Mat scaledTracking, scaledPTX;
   cv::resize(trackingPanorama, scaledTracking, cv::Size(), scale, scale,
              CV_INTER_AREA);
@@ -560,25 +553,29 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   pano.surfaceNormals = scaledSurfNormals;
 
   SIFT->detect(pano.imgs[0], keypoints);
+
   std::sort(
       keypoints.begin(), keypoints.end(),
       [](const auto &a, const auto &b) { return a.response > b.response; });
+
   keypoints.erase(keypoints.begin() + 0.7 * keypoints.size() + 1,
                   keypoints.end());
-
-  pano.imgs[0] =
-      cv::Mat(scaledPTX.size(), scaledPTX.type(), cv::Scalar::all(0));
-  GaussianBlur(scaledPTX, pano.imgs[0], cv::Size(7, 7), 0, 0);
 
   cv::KeyPoint::convert(keypoints, pano.keypoints);
 
   double startSize = pano.keypoints.size();
-  for (auto it = pano.keypoints.begin(); it != pano.keypoints.end();)
-    if (!pano.rMap(it->y, it->x) ||
-        pano.surfaceNormals(it->y, it->x) == Eigen::Vector3f::Zero())
-      pano.keypoints.erase(it);
-    else
-      ++it;
+  pano.keypoints.erase(
+      std::remove_if(pano.keypoints.begin(), pano.keypoints.end(),
+                     [&pano](const auto &kp) {
+                       return !pano.rMap(kp.y, kp.x) ||
+                              pano.surfaceNormals(kp.y, kp.x) ==
+                                  Eigen::Vector3f::Zero();
+                     }),
+      pano.keypoints.end());
+
+  // pano.imgs[0] =
+  //     cv::Mat(scaledPTX.size(), scaledPTX.type(), cv::Scalar::all(0));
+  // GaussianBlur(scaledPTX, pano.imgs[0], cv::Size(5, 5), 0);
 
   if (FLAGS_save)
     pano.writeToFile(panoName, dataName);
@@ -711,23 +708,22 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
                  Eigen::Vector3f &pointMin, Eigen::Vector3f &pointMax) {
   Eigen::Vector3f average = Eigen::Vector3f::Zero();
   Eigen::Vector3f sigma = Eigen::Vector3f::Zero();
-  for (auto &point : points) {
+  for (auto &point : points)
     average += point.point;
-  }
+
   average /= points.size();
 
-  for (auto &point : points)
-    for (int i = 0; i < 3; ++i)
-      sigma[i] += (point.point[i] - average[i]) * (point.point[i] - average[i]);
+  for (auto &point : points) {
+    Eigen::Vector3f tmp = point.point - average;
+    sigma += tmp.cwiseProduct(tmp);
+  }
 
   sigma /= points.size() - 1;
   for (int i = 0; i < 3; ++i)
     sigma[i] = sqrt(sigma[i]);
 
   Eigen::Vector3f range(10, 10, 6);
-  Eigen::Vector3f delta;
-  for (int i = 0; i < delta.size(); ++i)
-    delta[i] = 1.1 * range[i] * sigma[i];
+  Eigen::Vector3f delta = 1.1 * sigma.cwiseProduct(range);
 
   pointMin = average - delta / 2.0;
   pointMax = average + delta / 2.0;

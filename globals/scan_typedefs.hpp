@@ -45,14 +45,15 @@ public:
   double pA, feA, feB, fx;
   double w, wSignificance;
   double panoW, panoSignificance;
+  double distance;
   int numSim = 0, numDiff = 0;
   edge()
       : pA{0}, feA{0}, feB{0}, fx{0}, w{0}, wSignificance{0}, panoW{0},
-        panoSignificance{0} {};
+        panoSignificance{0}, distance{0} {};
   edge(double pA, double feA, double feB, double fx, double w,
        double wSignificance)
       : pA{pA}, feA{feA}, feB{feB}, w{w}, wSignificance{wSignificance},
-        panoW{0}, panoSignificance{0} {};
+        panoW{0}, panoSignificance{0}, distance{0} {};
   double getWeight() const;
   friend std::ostream &operator<<(std::ostream &os, const place::edge &print);
 };
@@ -143,7 +144,7 @@ typedef struct PointXYZRGB {
 } // scan
 
 namespace place {
-typedef struct posInfo {
+struct posInfo {
   double score = 0;
   double scanFP = 0;
   double fpScan = 0;
@@ -157,15 +158,24 @@ typedef struct posInfo {
                                   const place::posInfo *print);
   friend std::ostream &operator<<(std::ostream &os,
                                   const place::posInfo &print);
-} posInfo;
 
-struct exclusionMap {
-  const posInfo ***maps;
+  bool operator==(const posInfo &o) const {
+    return o.rotation == rotation && o.x == x && o.y == y;
+  }
+};
+
+struct ExclusionMap {
+  typedef Eigen::Array<const place::posInfo *, Eigen::Dynamic, Eigen::Dynamic,
+                       Eigen::RowMajor>
+      Map;
+  Map *maps;
   double exclusionX, exclusionY;
   int rows, cols;
 
-  exclusionMap(double exclusionX, double exclusionY, int rows, int cols);
-  ~exclusionMap();
+  ExclusionMap(double exclusionX, double exclusionY, int rows, int cols);
+  ~ExclusionMap();
+
+  Map &operator[](int r);
 };
 
 struct VoxelGrid {
@@ -182,28 +192,29 @@ typedef struct {
   int scanNum;
 } moreInfo;
 
-struct node {
-  posInfo s;
+struct node : public posInfo {
   double w;
   double nw;
   int color, id;
   node(const posInfo &s, double w, double nw, int color, int id)
-      : s{s}, w{w}, nw{nw}, color{color}, id{id} {};
+      : posInfo{s}, w{w}, nw{nw}, color{color}, id{id} {};
   inline double getWeight() const { return nw; };
 };
 
-typedef struct SelectedNode : public node {
+struct SelectedNode : public node {
   double agreement, norm;
-  int label;
+  int label, numberOfCandidates;
   bool locked;
-  SelectedNode(const node &o, double agreement, int label, bool locked)
-      : node{o}, agreement{agreement}, norm{0}, label{label}, locked{locked} {};
+  SelectedNode(const node &o, double agreement, int label, bool locked,
+               int numberOfCandidates)
+      : node{o}, agreement{agreement}, norm{0}, label{label}, locked{locked},
+        numberOfCandidates{numberOfCandidates} {};
 
   friend std::ostream &operator<<(std::ostream &os,
                                   const place::SelectedNode &p);
-} SelectedNode;
+};
 
-typedef struct R2Node : public node {
+struct R2Node : public node {
   double agreement;
   bool locked;
   R2Node(const node &o, bool locked) : node{o}, agreement{0}, locked{locked} {};
@@ -211,9 +222,8 @@ typedef struct R2Node : public node {
   R2Node(const posInfo &s, double w, double nw, int color, int id, bool locked)
       : node{s, w, nw, color, id}, locked{locked} {};
   R2Node(const SelectedNode &s)
-      : node{s.s, s.w, s.nw, s.color, s.id}, agreement{s.agreement},
-        locked{s.locked} {};
-} R2Node;
+      : node{s}, agreement{s.agreement}, locked{s.locked} {};
+};
 
 typedef struct {
   int X1;
@@ -245,7 +255,9 @@ public:
   friend std::ostream &operator<<(std::ostream &os, const place::cube &print);
 };
 
-typedef struct Panorama {
+struct Panorama {
+  static constexpr double ScalingFactor = std::pow(2.0, 1.0 / 3.0);
+
   std::vector<cv::Mat> imgs;
   Eigen::RowMatrixXf rMap;
   std::vector<cv::Point2f> keypoints;
@@ -254,7 +266,7 @@ typedef struct Panorama {
   void loadFromFile(const std::string &imgName, const std::string &dataName);
 
   const cv::Mat &operator[](int n);
-} Panorama;
+};
 
 template <class It, class UnaryFunc, class UnaryPredicate>
 std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
@@ -263,8 +275,11 @@ std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
   int count = 0;
   std::for_each(first, last, [&](auto &e) {
     if (filter(e)) {
-      average += selector(e);
-      ++count;
+      auto val = selector(e);
+      if (Eigen::numext::isfinite(val)) {
+        average += val;
+        ++count;
+      }
     }
   });
   average /= count;
@@ -272,8 +287,9 @@ std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
   double sigma = 0;
   std::for_each(first, last, [&](auto &e) {
     if (filter(e)) {
-      const double value = selector(e);
-      sigma += (value - average) * (value - average);
+      auto val = selector(e);
+      if (Eigen::numext::isfinite(val))
+        sigma += (val - average) * (val - average);
     }
   });
   sigma /= count - 1;
@@ -291,5 +307,17 @@ template <class It> std::tuple<double, double> aveAndStdev(It first, It last) {
 }
 
 } // place
+
+double sigmoidWeight(double seen, double expected);
+
+namespace std {
+template <> struct hash<place::posInfo> {
+  static constexpr double A = 1.6180339887498948482 * 1e5;
+  hash<double> h;
+  size_t operator()(const place::posInfo &e) const;
+};
+} // std
+
+cv::Vec3b randomColor();
 
 #endif // SCAN_TYPEDEFS_HPP

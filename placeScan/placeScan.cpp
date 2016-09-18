@@ -15,9 +15,11 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <unordered_set>
 
 DEFINE_bool(errosion, true,
             "This is used for scale finding only, don't touch!");
+DEFINE_bool(displayGraph, false, "Displays the graph");
 
 static constexpr int errosionKernelSize = 5;
 static_assert(errosionKernelSize % 2 == 1,
@@ -72,16 +74,17 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  place::getDirections();
-  if (FLAGS_debugMode && false) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_047.png", 0);
+
+#if 0
+  if (FLAGS_debugMode) {
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/cse_point_047.png", 0);
     std::vector<Eigen::Vector2i> tmp(4);
     std::vector<cv::Mat> toTrim = {image}, trimmed;
     place::trimScans(toTrim, trimmed, tmp);
     image = trimmed[0];
 
-    const int xOffset = 2106 - image.cols / 2.0;
-    const int yOffset = 1083 - image.rows / 2.0;
+    const int xOffset = 2906 - image.cols / 2.0;
+    const int yOffset = 1483 - image.rows / 2.0;
     std::cout << xOffset << "  " << yOffset << std::endl;
     for (int i = 0; i < image.rows; ++i) {
       uchar *src = image.ptr<uchar>(i);
@@ -99,6 +102,7 @@ int main(int argc, char *argv[]) {
     cv::waitKey(0);
     return 0;
   }
+#endif
 
   std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
 
@@ -140,14 +144,15 @@ int main(int argc, char *argv[]) {
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
-    labeler.displayGraph();
+    if (FLAGS_displayGraph)
+      labeler.displayGraph();
     labeler.solveTRW();
     labeler.saveFinal(0);
-    labeler.displaySolution();
+    // labeler.displaySolution();
     // labeler.solveMIP();
     // labeler.saveFinal(1);
-    while (false)
-      labeler.displaySolution();
+
+    // labeler.displaySolution();
   }
   return 0;
 }
@@ -239,40 +244,26 @@ void place::analyzePlacement(
   if (FLAGS_debugMode || FLAGS_visulization)
     displayScanAndMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS);
 
-  std::vector<Eigen::Vector3i> pointsToAnalyze;
-  for (int k = 0; k < NUM_ROTS; ++k) {
-    const int xStop = fpPyramid[FLAGS_numLevels].cols() -
-                      rSSparsePyramidTrimmed[FLAGS_numLevels][k].cols();
-
-    const int yStop = fpPyramid[FLAGS_numLevels].rows() -
-                      rSSparsePyramidTrimmed[FLAGS_numLevels][k].rows();
-
-    pointsToAnalyze.reserve(xStop * yStop + pointsToAnalyze.size());
-
-    for (int i = 0; i < xStop; ++i)
-      for (int j = 0; j < yStop; ++j)
-        pointsToAnalyze.push_back(Eigen::Vector3i(i, j, k));
-  }
-
   if (FLAGS_debugMode)
     loadInTruePlacement(scanName, zeroZero);
 
-  std::vector<place::posInfo> scores;
-  std::vector<const posInfo *> minima;
-
-  constexpr double numRects = 25;
+  constexpr double numRects = 2048;
   const double divisor = std::sqrt(numRects);
-  if (true && FLAGS_debugMode) {
+
+#if 0
+  if (FLAGS_debugMode) {
     for (int k = FLAGS_numLevels; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp(1878, 781, 2);
+      Eigen::Vector3i tmp(2645, 3554, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
-      for (int i = -20; i <= 20; ++i) {
-        for (int j = -20; j <= 20; ++j) {
+      std::cout << tmp << std::endl << std::endl;
+
+      for (int i = -30; i <= 30; ++i) {
+        for (int j = -30; j <= 30; ++j) {
           tmpPoints.push_back(Eigen::Vector3i(tmp[0] + i, tmp[1] + j, tmp[2]));
         }
       }
@@ -295,15 +286,11 @@ void place::analyzePlacement(
                     rSSparsePyramidTrimmed[k][2].rows(),
                     rSSparsePyramidTrimmed[k][3].rows()}) /
           divisor;
-      const int newRows = std::ceil(fpPyramid[k].rows() / exclusionY);
-      const int newCols = std::ceil(fpPyramid[k].cols() / exclusionX);
-      place::exclusionMap maps(exclusionX, exclusionY, newRows, newCols);
+      const int cols = fpPyramid[k].cols();
+      const int rows = fpPyramid[k].rows();
+      place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
 
-      /*findLocalMinima(trueScores, 0.2, maps);
-      findGlobalMinima(trueScores, maps, tmpMin);*/
-
-      for (auto &t : trueScores)
-        tmpMin.push_back(&t);
+      findLocalMinima(trueScores, 1.0, maps, tmpMin);
 
       bool found = false;
       for (auto &min : tmpMin)
@@ -323,10 +310,34 @@ void place::analyzePlacement(
       place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k], tmpMin);
     }
   }
+#endif
 
-  /* Main work loop.  This takes care of doing all the method calls
+  std::vector<place::posInfo> scores;
+  std::vector<const posInfo *> minima;
+  std::vector<Eigen::Vector3i> pointsToAnalyze;
+  /*
+  * Initializ pointsToAnalyze with every point
+  */
+  pointsToAnalyze.reserve(NUM_ROTS * fpPyramid[FLAGS_numLevels].cols() *
+                          fpPyramid[FLAGS_numLevels].rows());
+  for (int k = 0; k < NUM_ROTS; ++k) {
+    const int xStop = fpPyramid[FLAGS_numLevels].cols() -
+                      rSSparsePyramidTrimmed[FLAGS_numLevels][k].cols();
+
+    const int yStop = fpPyramid[FLAGS_numLevels].rows() -
+                      rSSparsePyramidTrimmed[FLAGS_numLevels][k].rows();
+
+    for (int i = 0; i < xStop; ++i)
+      for (int j = 0; j < yStop; ++j)
+        pointsToAnalyze.push_back(Eigen::Vector3i(i, j, k));
+  }
+  pointsToAnalyze.shrink_to_fit();
+
+  /*
+  * Main work loop.  This takes care of doing all the method calls
   * needed to make pryamiding work.  Each method will take of making sure
-  * the container passed to it for it's output is cleared */
+  * the container passed to it for it's output is cleared
+  */
   for (int k = FLAGS_numLevels; k >= 0; --k) {
     findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k], erodedFpPyramid[k],
                   erodedSparsePyramidTrimmed[k], eMaskPyramidTrimmedNS[k],
@@ -344,19 +355,20 @@ void place::analyzePlacement(
                                         rSSparsePyramidTrimmed[k][2].rows(),
                                         rSSparsePyramidTrimmed[k][3].rows()}) /
                               divisor;
-    const int newRows = std::ceil(fpPyramid[k].rows() / exclusionY);
-    const int newCols = std::ceil(fpPyramid[k].cols() / exclusionX);
-    place::exclusionMap maps(exclusionX, exclusionY, newRows, newCols);
+    const int cols = fpPyramid[k].cols();
+    const int rows = fpPyramid[k].rows();
+    place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
 
     if (k == 0)
-      findLocalMinima(scores, -0.5, maps);
+      findLocalMinima(scores, -0.5, maps, minima);
     else
-      findLocalMinima(scores, 0.5, maps);
-    findGlobalMinima(scores, maps, minima);
+      findLocalMinima(scores, 1.0, maps, minima);
+
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
 
-    if (false && FLAGS_debugMode) {
-      Eigen::Vector3i tmp(110, 2919, 3);
+#if 0
+    if (FLAGS_debugMode) {
+      Eigen::Vector3i tmp(2645, 3554, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -382,6 +394,7 @@ void place::analyzePlacement(
 
       place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k], trueMin);
     }
+#endif
   }
 
   std::sort(minima.begin(), minima.end(),
@@ -404,7 +417,17 @@ void place::analyzePlacement(
 }
 
 void place::findLocalMinima(const std::vector<place::posInfo> &scores,
-                            const float bias, place::exclusionMap &maps) {
+                            const float bias, place::ExclusionMap &maps,
+                            std::vector<const place::posInfo *> &minima) {
+  for (auto &s : scores)
+    maps[s.rotation](s.y, s.x) = &s;
+
+  constexpr int minMinia = 100;
+  constexpr double FF = 1.00, hardFactor = 1.0 / 40.0;
+
+  const double hardY = maps.exclusionY * hardFactor,
+               hardX = maps.exclusionX * hardFactor;
+
   double averageScore, sigScore;
   std::tie(averageScore, sigScore) =
       place::aveAndStdev(scores.begin(), scores.end(),
@@ -415,57 +438,51 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
     std::cout << averageScore << "         " << sigScore << std::endl;
   }
 
-  const double cutOff = averageScore - bias * sigScore;
-  for (int i = 0; i < scores.size(); ++i) {
-    double lHS = i == 0 ? -1e10 : scores[i].score - scores[i - 1].score;
-    double rHS =
-        i == scores.size() - 1 ? 1e10 : scores[i + 1].score - scores[i].score;
-    if (((lHS <= 0 && rHS > 0) || (lHS < 0 && rHS >= 0)) &&
-        scores[i].score < cutOff) {
-      const int mapRow = std::floor(scores[i].y / maps.exclusionY);
-      const int mapCol = std::floor(scores[i].x / maps.exclusionX);
-      const int rot = scores[i].rotation;
+  for (int k = 0; k < 100; ++k) {
+    minima.clear();
+    const double cutOff = averageScore - (bias * sigScore) + k * 0.01;
 
-      if (!maps.maps[rot][mapCol * maps.rows + mapRow] ||
-          scores[i].score < maps.maps[rot][mapCol * maps.rows + mapRow]->score)
-        maps.maps[rot][mapCol * maps.rows + mapRow] = &scores[i];
+    for (auto &s : scores) {
+      const int rot = s.rotation;
+      if (s.score < cutOff) {
+
+        bool isMin = true;
+        for (int j = -maps.exclusionY / 2; j <= maps.exclusionY / 2 && isMin;
+             ++j) {
+          if (s.y + j < 0 || s.y + j >= maps.rows)
+            continue;
+
+          for (int i = -maps.exclusionX / 2; i <= maps.exclusionX / 2 && isMin;
+               ++i) {
+            if (s.x + i < 0 || s.x + i >= maps.cols)
+              continue;
+
+            if (maps[rot](s.y + j, s.x + i) &&
+                maps[rot](s.y + j, s.x + i)->score *
+                        ((std::abs(i) < hardFactor && std::abs(j) < hardFactor)
+                             ? 1.0
+                             : FF) <
+                    s.score)
+              isMin = false;
+          }
+        }
+
+        if (isMin)
+          minima.emplace_back(&s);
+      }
     }
-  }
-}
 
-/*Takes care of freeing maps */
-void place::findGlobalMinima(const std::vector<place::posInfo> &scores,
-                             place::exclusionMap &maps,
-                             std::vector<const place::posInfo *> &minima) {
-  double minScore = 5e30;
-  for (auto &info : scores) {
-    minScore = std::min(info.score, minScore);
+    if (minima.size() >= minMinia)
+      break;
   }
 
-  if (!FLAGS_quietMode)
-    std::cout << "Min score: " << minScore << std::endl;
+  std::unordered_set<place::posInfo> duplicates;
 
-  const int mapSize = maps.rows * maps.cols;
-
-  for (int i = 0; i < scores.size(); ++i) {
-    if (scores[i].score <= 1.05 * minScore) {
-      const int mapRow = std::floor(scores[i].y / maps.exclusionY);
-      const int mapCol = std::floor(scores[i].x / maps.exclusionX);
-      const int rot = scores[i].rotation;
-
-      if (!maps.maps[rot][mapCol * maps.rows + mapRow] ||
-          scores[i].score < maps.maps[rot][mapCol * maps.rows + mapRow]->score)
-        maps.maps[rot][mapCol * maps.rows + mapRow] = &scores[i];
-    }
-  }
-
-  minima.clear();
-  for (int i = 0; i < NUM_ROTS; ++i) {
-    for (int j = 0; j < mapSize; ++j) {
-      if (maps.maps[i][j])
-        minima.push_back(maps.maps[i][j]);
-    }
-  }
+  minima.erase(std::remove_if(minima.begin(), minima.end(),
+                              [&duplicates](auto *p) {
+                                return !duplicates.insert(*p).second;
+                              }),
+               minima.end());
 }
 
 template <typename MatType>
@@ -695,100 +712,99 @@ void place::findPlacement(
   if (!FLAGS_quietMode)
     std::cout << "Start: " << points.size() << std::endl;
 
-  scores.clear();
-  scores.reserve(points.size());
+  scores.resize(points.size());
+  for (auto &s : scores)
+    s.score = -1;
 
-#pragma omp parallel shared(scores)
-  {
-    std::vector<posInfo> privateScores;
-#pragma omp for nowait schedule(static)
-    for (int i = 0; i < points.size(); ++i) {
-      const Eigen::Vector3i &point = points[i];
-      const int scanIndex = point[2];
-      const int xStop = fp.cols() - scans[scanIndex].cols();
-      const int yStop = fp.rows() - scans[scanIndex].rows();
+#pragma omp parallel for schedule(static) shared(scores)
+  for (int i = 0; i < points.size(); ++i) {
+    const Eigen::Vector3i &point = points[i];
+    const int scanIndex = point[2];
+    const int xStop = fp.cols() - scans[scanIndex].cols();
+    const int yStop = fp.rows() - scans[scanIndex].rows();
 
-      if (point[0] < 0 || point[0] >= xStop)
-        continue;
-      if (point[1] < 0 || point[1] >= yStop)
-        continue;
+    if (point[0] < 0 || point[0] >= xStop)
+      continue;
+    if (point[1] < 0 || point[1] >= yStop)
+      continue;
 
-      auto &currentScan = scans[scanIndex];
-      auto &currentScanE = scansE[scanIndex];
-      auto &currentMask = masks[scanIndex];
+    auto &currentScan = scans[scanIndex];
+    auto &currentScanE = scansE[scanIndex];
+    auto &currentMask = masks[scanIndex];
 
-      int numPixelsInside = 0;
-      int numPixelsInMask = 0;
-      for (int i = 0; i < currentScan.cols(); ++i) {
-        for (int j = 0; j < currentScan.rows(); ++j) {
-          if (fpMask(j + point[1], i + point[0]) && currentMask(j, i))
-            ++numPixelsInside;
-          if (currentMask(j, i))
-            ++numPixelsInMask;
-        }
+    int numPixelsInside = 0;
+    int numPixelsInMask = 0;
+    for (int i = 0; i < currentScan.cols(); ++i) {
+      for (int j = 0; j < currentScan.rows(); ++j) {
+        if (fpMask(j + point[1], i + point[0]) && currentMask(j, i))
+          ++numPixelsInside;
+        if (currentMask(j, i))
+          ++numPixelsInMask;
       }
-
-      if (numPixelsInside < 0.7 * numPixelsInMask)
-        continue;
-
-      Eigen::SparseMatrix<double> currentFP =
-          fp.block(point[1], point[0], currentScan.rows(), currentScan.cols());
-      currentFP.prune(1.0);
-
-      double numFPPixelsUM = 0.0;
-      for (int i = 0; i < currentFP.outerSize(); ++i)
-        for (Eigen::SparseMatrix<double>::InnerIterator it(currentFP, i); it;
-             ++it)
-          if (currentMask(it.row(), it.col()))
-            numFPPixelsUM += it.value();
-
-      if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
-        continue;
-
-      double scanFPsetDiff = 0;
-      double fpScanSetDiff = 0;
-
-      Eigen::SparseMatrix<double> currentFPE =
-          fpE.block(point[1], point[0], currentScan.rows(), currentScan.cols());
-      currentFPE.prune(1.0);
-
-      Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
-      for (int i = 0; i < diff.outerSize(); ++i) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
-          if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
-            scanFPsetDiff += it.value();
-      }
-
-      diff = currentFP - currentScanE;
-      for (int i = 0; i < diff.outerSize(); ++i)
-        for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
-          if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
-            fpScanSetDiff += it.value();
-
-      const double score =
-          (1.5 * scanFPsetDiff / numPixelsUnderMask[scanIndex] +
-           fpScanSetDiff / (numFPPixelsUM)) /
-          2.5;
-
-      posInfo tmp;
-      tmp.x = point[0];
-      tmp.y = point[1];
-      tmp.rotation = scanIndex;
-      tmp.score = score;
-      tmp.scanFP = scanFPsetDiff;
-      tmp.fpScan = fpScanSetDiff;
-      tmp.scanPixels = numPixelsUnderMask[scanIndex];
-      tmp.fpPixels = numFPPixelsUM;
-      privateScores.push_back(tmp);
     }
 
-#pragma omp for schedule(static) ordered
-    for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp ordered
-      scores.insert(scores.end(), privateScores.begin(), privateScores.end());
+    if (numPixelsInside < 0.7 * numPixelsInMask)
+      continue;
+
+    Eigen::SparseMatrix<double> currentFP =
+        fp.block(point[1], point[0], currentScan.rows(), currentScan.cols());
+    currentFP.prune(1.0);
+
+    double numFPPixelsUM = 0.0;
+    for (int i = 0; i < currentFP.outerSize(); ++i)
+      for (Eigen::SparseMatrix<double>::InnerIterator it(currentFP, i); it;
+           ++it)
+        if (currentMask(it.row(), it.col()))
+          numFPPixelsUM += it.value();
+
+    if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
+      continue;
+
+    double scanFPsetDiff = 0;
+    double fpScanSetDiff = 0;
+
+    Eigen::SparseMatrix<double> currentFPE =
+        fpE.block(point[1], point[0], currentScan.rows(), currentScan.cols());
+    currentFPE.prune(1.0);
+
+    Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
+    for (int i = 0; i < diff.outerSize(); ++i) {
+      for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
+        if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
+          scanFPsetDiff += it.value();
     }
+
+    diff = currentFP - currentScanE;
+    for (int i = 0; i < diff.outerSize(); ++i)
+      for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
+        if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
+          fpScanSetDiff += it.value();
+
+    const double score = (1.5 * scanFPsetDiff / numPixelsUnderMask[scanIndex] +
+                          fpScanSetDiff / (numFPPixelsUM)) /
+                         2.5;
+
+    if (!Eigen::numext::isfinite(score))
+      continue;
+
+    posInfo tmp;
+    tmp.x = point[0];
+    tmp.y = point[1];
+    tmp.rotation = scanIndex;
+    tmp.score = score;
+    tmp.scanFP = scanFPsetDiff;
+    tmp.fpScan = fpScanSetDiff;
+    tmp.scanPixels = numPixelsUnderMask[scanIndex];
+    tmp.fpPixels = numFPPixelsUM;
+    scores[i] = tmp;
   }
-  scores.shrink_to_fit();
+
+  scores.erase(std::remove_if(scores.begin(), scores.end(),
+                              [](const place::posInfo &s) {
+                                return std::abs(s.score + 1) < 1e-12;
+                              }),
+               scores.end());
+
   if (!FLAGS_quietMode)
     std::cout << "Done: " << scores.size() << std::endl;
 }
@@ -817,7 +833,10 @@ struct Perimeter {
         }
       }
     }
-  }
+  };
+  const int *operator[](int index) const { return coords[index]; };
+
+private:
   int coords[searchKernelSize * 4][2];
 };
 
@@ -841,11 +860,10 @@ void place::findPointsToAnalyzeV2(
     for (int i = 0; i + 1 < searchKernelSize * 4; i += 2)
       if (rand() % 2)
         pointsToAnalyze.push_back(Eigen::Vector3i(
-            x + perimeter.coords[i][0], y + perimeter.coords[i][1], rotIndex));
+            x + perimeter[i][0], y + perimeter[i][1], rotIndex));
       else
-        pointsToAnalyze.push_back(
-            Eigen::Vector3i(x + perimeter.coords[i + 1][0],
-                            y + perimeter.coords[i + 1][1], rotIndex));
+        pointsToAnalyze.push_back(Eigen::Vector3i(
+            x + perimeter[i + 1][0], y + perimeter[i + 1][1], rotIndex));
   }
   pointsToAnalyze.shrink_to_fit();
 }

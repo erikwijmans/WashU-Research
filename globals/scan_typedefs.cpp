@@ -305,34 +305,36 @@ const cv::Mat &place::Panorama::operator[](int n) {
   if (imgs.size() <= n || !imgs[n].data) {
 #pragma omp critical
     {
-      if (imgs.size() <= n)
-        imgs.resize(n + 1);
+      if (imgs.size() <= n || !imgs[n].data) {
+        if (imgs.size() <= n)
+          imgs.resize(n + 1);
 
-      const double scale = pow(2, -n / 2.0);
-      cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
+        const double scale = pow(ScalingFactor, -n);
+        cv::resize(imgs[0], imgs[n], cv::Size(), scale, scale, CV_INTER_AREA);
+      }
     }
   }
   return imgs[n];
 }
 
 double place::edge::getWeight() const {
-  return w * wSignificance + panoW * panoSignificance;
+  return (w * wSignificance + panoW * panoSignificance) *
+         std::max(0.25, std::min(distance, 1.5));
 }
 
-place::exclusionMap::exclusionMap(double exclusionX, double exclusionY,
+place::ExclusionMap::ExclusionMap(double exclusionX, double exclusionY,
                                   int rows, int cols)
-    : maps{new const place::posInfo **[NUM_ROTS]}, exclusionX{exclusionX},
-      exclusionY{exclusionY}, rows{rows}, cols{cols} {
+    : maps{new Map[NUM_ROTS]}, exclusionX{exclusionX}, exclusionY{exclusionY},
+      rows{rows}, cols{cols} {
   for (int i = 0; i < NUM_ROTS; ++i)
-    // 2d array with one access index:  [<colNumber>*rows + <rowNumber>]
-    maps[i] = new const place::posInfo *[rows * cols]();
+    maps[i] = Map::Zero(rows, cols);
 }
 
-place::exclusionMap::~exclusionMap() {
-  for (int i = 0; i < NUM_ROTS; ++i)
-    delete[] maps[i];
-  delete[] maps;
+place::ExclusionMap::Map &place::ExclusionMap::operator[](int r) {
+  return maps[r];
 }
+
+place::ExclusionMap::~ExclusionMap() { delete[] maps; }
 
 void place::Wall::init(const Eigen::Vector2d &n) {
   normal = new Eigen::Vector2d(n);
@@ -361,6 +363,14 @@ place::Wall::~Wall() {
     delete[] s;
 }
 
+size_t std::hash<place::posInfo>::operator()(const place::posInfo &e) const {
+  size_t seed = h(A * e.rotation) + 0x9e3779b9;
+  seed ^= h(A * e.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  seed ^= h(A * e.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+  return seed;
+}
+
 std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {
   os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")"
      << std::endl;
@@ -372,7 +382,8 @@ std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {
 std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
   os << "edge: " << print.w << "  " << print.wSignificance;
   os << "  pano: " << print.panoW << "  " << print.panoSignificance;
-  os << "  " << print.numSim << "  " << print.numDiff << std::endl;
+  os << "  " << print.numSim << "  " << print.numDiff;
+  os << "  Distance: " << print.distance << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
   os << print.fx << "  " << print.feB;
   return os;
@@ -404,3 +415,14 @@ std::ostream &place::operator<<(std::ostream &os,
   os << std::endl;
   return os;
 }
+
+double sigmoidWeight(double seen, double expected) {
+  return 1.0 / (1.0 + std::exp(-(seen / expected - 0.5) * 10.0));
+}
+
+cv::Vec3b randomColor() {
+  static cv::RNG rng(0xFFFFFFFF);
+  int icolor = (unsigned)rng;
+  return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
+} 
+

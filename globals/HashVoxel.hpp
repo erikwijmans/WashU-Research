@@ -85,8 +85,8 @@ private:
       auto maxPtr = max().data();
       auto keyPtr = key.data();
       for (int i = 0; i < key.size(); ++i) {
-        assert(*(keyPtr + i) >= *(minPtr + i));
-        assert(*(keyPtr + i) < *(maxPtr + i));
+        assert(*(keyPtr + i) >= *(minPtr + i) && "Index out of bounds!");
+        assert(*(keyPtr + i) < *(maxPtr + i) && "Index out of bounds!");
       }
     }
   };

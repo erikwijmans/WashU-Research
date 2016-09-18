@@ -1,8 +1,8 @@
 #include "placeScan_panoramaMatcher.h"
+#include "placeScan_placeScanHelper2.h"
 
-#include <fstream>
 #include <iostream>
-// #include <opencv2/xfeatures2d.hpp>
+#include <scan_typedefs.hpp>
 
 static constexpr int NCCSize = 11;
 static_assert(NCCSize % 2 == 1, "NCCSize isn't odd");
@@ -58,7 +58,7 @@ static Eigen::Vector2d voxelSpaceToPanorama(const Eigen::Vector3d &voxelCoord,
 static Eigen::Vector3d panoramaToPointCloud(const Eigen::Vector2d &panoCoord,
                                             const double r,
                                             const cv::Size &resolution) {
-  double theta = (2.0 * panoCoord[0] / (resolution.width - 1.0) - 1.0) * PI;
+  double theta = (2.0 * panoCoord[0] / (resolution.width - 1.0) + 1.0) * PI;
   double phi = panoCoord[1] * maxPhi / (resolution.height - 1.0);
   return polarToCartesian(Eigen::Vector3d(r, theta, phi));
 }
@@ -131,7 +131,7 @@ double NCC(const cv::Mat_<cv::Vec3b> &a, const cv::Mat_<cv::Vec3b> &b) {
   return AB / sqrt(AA * BB);
 }
 
-static constexpr bool viz = true;
+#define viz 1
 
 void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
                        const Eigen::Matrix3d &RA, const Eigen::Matrix3d &RB,
@@ -141,8 +141,8 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
   constexpr double cutoffAngle = degreesToRadians(20);
   constexpr double maxDiff = 0.3;
   constexpr double occulisionCutoff = 0.3;
-  constexpr double roundingOffset = 0.5;
   constexpr int offset = NCCSize / 2;
+  constexpr int maxLvlDiff = 3;
   constexpr double simThreshold = 0.4;
   static_assert(offset * 2 + 1 == NCCSize, "offset isn't correct");
 
@@ -169,7 +169,6 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
 #pragma omp parallel reduction(+ : count, score, numSim,                       \
                                numDiff) if (!FLAGS_debugMode || !viz)
   {
-    cv::Mat_<cv::Vec3b> NCCA, NCCB;
 #pragma omp for nowait
     for (int i = 0; i < truePointsInA.size(); ++i) {
       const cv::Point2f &kp = truePointsInA[i];
@@ -206,8 +205,12 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
           normalAngle > cutoffAngle)
         continue;
 
-      int aLevel = floor(radiusB / radiusA / 2.0 + roundingOffset);
-      int bLevel = floor(radiusA / radiusB / 2.0 + roundingOffset);
+      int aLevel =
+          std::max(0.0, std::round(std::log(radiusB / radiusA) /
+                                   std::log(place::Panorama::ScalingFactor)));
+      int bLevel =
+          std::max(0.0, std::round(std::log(radiusA / radiusB) /
+                                   std::log(place::Panorama::ScalingFactor)));
 
       auto a = voxelSpaceToPanorama(aVoxelSpace, panoA[aLevel].size());
       auto b = voxelSpaceToPanorama(bVoxelSpace, panoB[bLevel].size());
@@ -223,10 +226,10 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
           b[0] - offset < 0 || b[0] + offset >= bLvlImg.cols)
         continue;
 
-      NCCB = bLvlImg(cv::Range(b[1] - offset, b[1] + offset + 1),
-                     cv::Range(b[0] - offset, b[0] + offset + 1));
-      NCCA = aLvlImg(cv::Range(a[1] - offset, a[1] + offset + 1),
-                     cv::Range(a[0] - offset, a[0] + offset + 1));
+      auto NCCB = bLvlImg(cv::Range(b[1] - offset, b[1] + offset + 1),
+                          cv::Range(b[0] - offset, b[0] + offset + 1));
+      auto NCCA = aLvlImg(cv::Range(a[1] - offset, a[1] + offset + 1),
+                          cv::Range(a[0] - offset, a[0] + offset + 1));
 
       auto mean = cv::mean(NCCA);
       if (mean.val[0] > 240 && mean.val[1] > 240 && mean.val[2] > 240)
@@ -247,7 +250,8 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       else
         ++numDiff;
 
-      if (FLAGS_debugMode && viz) {
+#if viz
+      if (FLAGS_debugMode) {
         cv::Mat_<cv::Vec3b> out1(aLvlImg.size());
         aLvlImg.copyTo(out1);
         cv::Mat_<cv::Vec3b> out2(bLvlImg.size());
@@ -264,9 +268,10 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
             out2(j - offset + b[1], i - offset + b[0])[2] = 255;
           }
         }
-        std::cout << "NA: " << panoA.surfaceNormals(coordA[1], coordA[0])
-                  << std::endl;
-        std::cout << "NB: " << bNormal << std::endl;
+        std::cout << "aLevel: " << aLevel << std::endl;
+        std::cout << "bLevel: " << bLevel << std::endl;
+        std::cout << "aRadius: " << radiusA << std::endl;
+        std::cout << "bRadius: " << radiusB << std::endl;
 
         std::cout << "NCC: " << ncc << std::endl;
         cvNamedWindow("A", CV_WINDOW_NORMAL);
@@ -283,7 +288,9 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
 
         cv::waitKey(0);
       }
+#endif
     }
+
 #pragma omp for nowait
     for (int i = 0; i < truePointsInB.size(); ++i) {
       const cv::Point2f &kp = truePointsInB[i];
@@ -319,8 +326,12 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
           std::abs(r - aveDepthB) > maxDiff || normalAngle > cutoffAngle)
         continue;
 
-      int aLevel = floor(radiusB / radiusA / 2.0 + roundingOffset);
-      int bLevel = floor(radiusA / radiusB / 2.0 + roundingOffset);
+      int aLevel =
+          std::max(0.0, std::round(std::log(radiusB / radiusA) /
+                                   std::log(place::Panorama::ScalingFactor)));
+      int bLevel =
+          std::max(0.0, std::round(std::log(radiusA / radiusB) /
+                                   std::log(place::Panorama::ScalingFactor)));
 
       auto a = voxelSpaceToPanorama(aVoxelSpace, panoA[aLevel].size());
       auto b = voxelSpaceToPanorama(bVoxelSpace, panoB[bLevel].size());
@@ -336,10 +347,10 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
           b[0] - offset < 0 || b[0] + offset >= bLvlImg.cols)
         continue;
 
-      NCCB = bLvlImg(cv::Range(b[1] - offset, b[1] + offset + 1),
-                     cv::Range(b[0] - offset, b[0] + offset + 1));
-      NCCA = aLvlImg(cv::Range(a[1] - offset, a[1] + offset + 1),
-                     cv::Range(a[0] - offset, a[0] + offset + 1));
+      auto NCCB = bLvlImg(cv::Range(b[1] - offset, b[1] + offset + 1),
+                          cv::Range(b[0] - offset, b[0] + offset + 1));
+      auto NCCA = aLvlImg(cv::Range(a[1] - offset, a[1] + offset + 1),
+                          cv::Range(a[0] - offset, a[0] + offset + 1));
 
       const double ncc = NCC(NCCA, NCCB);
       if (!Eigen::numext::isfinite(ncc))
@@ -351,8 +362,8 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
         ++numSim;
       else
         ++numDiff;
-
-      if (FLAGS_debugMode && viz) {
+#if viz
+      if (FLAGS_debugMode) {
         cv::Mat_<cv::Vec3b> out1(aLvlImg.rows, aLvlImg.cols);
         aLvlImg.copyTo(out1);
         cv::Mat_<cv::Vec3b> out2(bLvlImg.rows, bLvlImg.cols);
@@ -369,9 +380,9 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
             out2(j - offset + b[1], i - offset + b[0])[2] = 255;
           }
         }
-        std::cout << "NA: " << aNormal << std::endl;
-        std::cout << "NB: " << panoB.surfaceNormals(coordB[1], coordB[0])
-                  << std::endl;
+        std::cout << "aLevel: " << aLevel << std::endl;
+        std::cout << "bLevel: " << bLevel << std::endl;
+
         std::cout << "NCC: " << ncc << std::endl;
         cvNamedWindow("A", CV_WINDOW_NORMAL);
         cv::imshow("A", out1);
@@ -387,15 +398,27 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
 
         cv::waitKey(0);
       }
+#endif
     }
   }
   score /= count;
-  if (!Eigen::numext::isfinite(score))
+
+  constexpr double precent = 0.05;
+  const double expectedCount =
+      (truePointsInA.size() + truePointsInB.size()) / 2.0;
+
+  count /= 2.0;
+  const double significance = sigmoidWeight(count, expectedCount * precent);
+
+#if viz
+  if (FLAGS_debugMode) {
+    std::cout << count << ", " << significance << std::endl;
+    std::cout << score << std::endl;
+  }
+#endif
+
+  if (significance < sigCutoff || !Eigen::numext::isfinite(score))
     return;
-  constexpr double precent = 0.025;
-  const double significance =
-      (1.0 + precent) * count /
-      (count + precent * (truePointsInA.size() + truePointsInB.size()) / 2.0);
 
   e.panoW = score;
   e.panoSignificance = significance;

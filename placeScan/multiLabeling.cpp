@@ -12,7 +12,8 @@
 
 const int minScans = 20;
 static constexpr int minNodes = 2;
-static void selectR1Nodes(const std::vector<place::node> &nodes,
+static void selectR1Nodes(const std::vector<std::string> &names,
+                          const std::vector<place::node> &nodes,
                           std::vector<place::node> &R1Nodes) {
   std::vector<size_t> numberOfLabels;
   {
@@ -33,10 +34,15 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
 
   for (int i = 0, offset = 0; i < numberOfLabels.size();
        offset += numberOfLabels[i], ++i) {
+    const std::string &imageName = names[i];
+    const std::string placementName =
+        imageName.substr(imageName.find("_") - 3, 3) + "_placement_" +
+        imageName.substr(imageName.find(".") - 3, 3) + ".dat";
     int index = place::getCutoffIndex(
+        placementName,
         std::vector<place::node>(nodes.begin() + offset,
                                  nodes.begin() + offset + numberOfLabels[i]),
-        [](const place::node &n) { return n.s.score; });
+        [](const place::node &n) { return n.score; });
 
     R1Nodes.insert(R1Nodes.end(), nodes.begin() + offset,
                    nodes.begin() + offset + index);
@@ -66,13 +72,17 @@ static void calcNeighbors(
     const std::vector<place::node> &nodes,
     std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
   const double scale = buildingScale.getScale();
+
   for (int i = 0; i < nodes.size(); ++i) {
     for (int j = 0; j < nodes.size(); ++j) {
       if (i == j)
         continue;
-      const Eigen::Vector2d a(nodes[i].s.x, nodes[i].s.y);
-      const Eigen::Vector2d b(nodes[j].s.x, nodes[j].s.y);
+
+      const Eigen::Vector2d a(nodes[i].x, nodes[i].y);
+      const Eigen::Vector2d b(nodes[j].x, nodes[j].y);
+
       const double dist = (a - b).norm() / scale;
+
       if (dist < 1.5) {
         const int idA = nodes[i].id;
         const int idB = nodes[j].id;
@@ -89,48 +99,48 @@ static void calcNeighbors(
 static void exclusionLite(
     std::vector<place::SelectedNode> &nodes,
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
+
   for (int i = 0; i < nodes.size(); ++i) {
     const int idA = nodes[i].id;
     auto it = unwantedNeighbors.find(idA);
+
     if (it == unwantedNeighbors.cend())
       continue;
+
     auto &n = it->second;
+
     for (int j = 0; j < nodes.size(); ++j) {
       const int idB = nodes[j].id;
       auto isNeighbor = n.find(idB);
+
       if (isNeighbor != n.cend() && nodes[i].locked && nodes[j].locked) {
-        nodes[i].locked = false;
-        nodes[j].locked = false;
+        if (nodes[i].agreement < nodes[j].agreement)
+          nodes[i].locked = false;
+        else
+          nodes[j].locked = false;
       }
     }
   }
 }
 
 static void unlockNodes(std::vector<place::SelectedNode> &nodes) {
-  double average = 0;
-  int count = 0;
-  for (auto &n : nodes) {
-    if (n.locked) {
-      average += n.agreement;
-      ++count;
-    }
-  }
-  average /= count;
 
-  double sigma = 0;
-  for (auto &n : nodes)
-    if (n.locked)
-      sigma += (n.agreement - average) * (n.agreement - average);
-
-  sigma /= count - 1;
-  sigma = sqrt(sigma);
+  double average, sigma;
+  std::tie(average, sigma) = place::aveAndStdev(
+      nodes.begin(), nodes.end(),
+      [](const place::SelectedNode &n) { return n.agreement; },
+      [](const place::SelectedNode &n) {
+        return n.locked && n.numberOfCandidates > 1;
+      });
 
   std::cout << average << "  " << sigma << std::endl;
   for (auto &n : nodes) {
-    const double norm = (n.agreement - average) / sigma;
-    n.norm = norm;
-    if (norm < -0.75)
-      n.locked = false;
+    if (n.numberOfCandidates > 1) {
+      const double norm = (n.agreement - average) / sigma;
+      n.norm = norm;
+      if (norm < -0.75)
+        n.locked = false;
+    }
   }
 }
 
@@ -174,7 +184,7 @@ multi::Labeler::Labeler() {
   }
 
   R1Nodes.clear();
-  selectR1Nodes(nodes, R1Nodes);
+  selectR1Nodes(pointFileNames, nodes, R1Nodes);
   calcNeighbors(R1Nodes, unwantedNeighbors);
 }
 
@@ -250,13 +260,14 @@ void multi::Labeler::solveMIP() {
 
   place::createHigherOrderTerms(scans, zeroZeros, R2Nodes, unwantedNeighbors,
                                 highOrder);
-  place::displayHighOrder(highOrder, R2Nodes, scans, zeroZeros);
+
+  // place::displayHighOrder(highOrder, R2Nodes, scans, zeroZeros);
   bestNodes.clear();
   place::MIPSolver(adjacencyMatrix, highOrder, R2Nodes, bestNodes);
 }
 
 void multi::Labeler::displaySolution() {
-  place::displayBest(bestNodes, scans, zeroZeros);
+  place::displayBest(bestNodes, scans, masks, zeroZeros);
 }
 
 void multi::Labeler::displayGraph() {
@@ -269,7 +280,7 @@ void multi::Labeler::saveFinal(int index) {
 
   const double scale = buildingScale.getScale();
   const Eigen::Vector3d center =
-      Eigen::Vector3d(bestNodes[0].s.x, bestNodes[0].s.y, 0) / scale;
+      Eigen::Vector3d(bestNodes[0].x, bestNodes[0].y, 0) / scale;
 
   std::ofstream out(FLAGS_outputV2 + "final_" + std::to_string(index) + ".dat",
                     std::ios::out | std::ios::binary);
@@ -278,10 +289,9 @@ void multi::Labeler::saveFinal(int index) {
   Eigen::Matrix3d zeroMat = Eigen::Matrix3d::Zero();
   load();
   for (auto &n : bestNodes) {
-    Eigen::Matrix3d &rotMat = n.agreement != -1000
-                                  ? rotationMatricies[n.color][n.s.rotation]
-                                  : zeroMat;
-    Eigen::Vector3d trans(n.s.x, n.s.y, 0);
+    Eigen::Matrix3d &rotMat =
+        n.agreement != -1000 ? rotationMatricies[n.color][n.rotation] : zeroMat;
+    Eigen::Vector3d trans(n.x, n.y, 0);
     trans /= scale;
     trans = trans - center;
     out.write(reinterpret_cast<const char *>(rotMat.data()),

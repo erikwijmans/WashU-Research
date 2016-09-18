@@ -7,6 +7,10 @@
 #include <FeatureVoxel.hpp>
 #include <scan_typedefs.hpp>
 
+DECLARE_int32(graphColor);
+
+extern const double sigCutoff, scoreCutoff;
+
 namespace place {
 
 void createWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
@@ -40,6 +44,7 @@ void displayGraph(const Eigen::MatrixXE &adjacencyMatrix,
 
 void displayBest(const std::vector<place::SelectedNode> &bestNodes,
                  const std::vector<std::vector<Eigen::MatrixXb>> &scans,
+                 const std::vector<std::vector<Eigen::MatrixXb>> &masks,
                  const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
 
 place::edge compare3D(const place::VoxelGrid &aPoint,

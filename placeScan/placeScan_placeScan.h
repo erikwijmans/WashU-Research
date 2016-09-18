@@ -14,11 +14,8 @@ void analyzePlacement(
     const std::string &zerosFile, const std::string &maskName);
 
 void findLocalMinima(const std::vector<place::posInfo> &scores,
-                     const float bias, place::exclusionMap &maps);
-
-void findGlobalMinima(const std::vector<place::posInfo> &scores,
-                      place::exclusionMap &maps,
-                      std::vector<const place::posInfo *> &minima);
+                     const float bias, place::ExclusionMap &maps,
+                     std::vector<const place::posInfo *> &minima);
 
 template <typename MatType> void createPyramid(std::vector<MatType> &pyramid);
 

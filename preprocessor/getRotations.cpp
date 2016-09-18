@@ -114,20 +114,34 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
     // Count the number of inliers
     double numInliers = 0;
     Eigen::Vector3d average = Eigen::Vector3d::Zero();
-#pragma omp parallel for reduction(+ : average, numInliers)
-    for (int i = 0; i < m; ++i) {
-      auto &n = N[i];
-      // nest and n are both unit vectors, so this is |angle|
-      // between them
-      if (std::acos(std::abs(nest.dot(n))) < 0.02) {
-        ++numInliers;
-        // NB: All normals that are inliers with the estimate
-        // are averaged together to get the best estimate
-        // of the dominate direction
-        if (nest.dot(n) < 0)
-          average -= n;
-        else
-          average += n;
+#pragma omp parallel
+    {
+      double privateInliers = 0;
+      Eigen::Vector3d privateAve = Eigen::Vector3d::Zero();
+#pragma omp for nowait schedule(static)
+      for (int i = 0; i < m; ++i) {
+        auto &n = N[i];
+        // nest and n are both unit vectors, so this is |angle|
+        // between them
+        if (std::acos(std::abs(nest.dot(n))) < 0.02) {
+          ++privateInliers;
+          // NB: All normals that are inliers with the estimate
+          // are averaged together to get the best estimate
+          // of the dominate direction
+          if (nest.dot(n) < 0)
+            privateAve -= n;
+          else
+            privateAve += n;
+        }
+      }
+
+#pragma omp for schedule(static) ordered
+      for (int i = 0; i < omp_get_num_threads(); ++i) {
+#pragma omp ordered
+        {
+          average += privateAve;
+          numInliers += privateInliers;
+        }
       }
     }
 
@@ -173,23 +187,38 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
     // counting inliers and outliers
     double numInliers = 0;
     Eigen::Vector3d average = Eigen::Vector3d::Zero();
-#pragma omp parallel for reduction(+ : average, numInliers)
-    for (int i = 0; i < m; ++i) {
-      auto &n = N[i];
+#pragma omp parallel
+    {
+      double privateInliers = 0;
+      Eigen::Vector3d privateAve = Eigen::Vector3d::Zero();
       Eigen::Vector3d x;
-      if (std::min(std::acos(std::abs(nest.dot(n))),
-                   std::acos(std::abs(nest2.dot(n)))) < 0.02) {
-        if (std::acos(std::abs(nest.dot(n))) < 0.02) {
-          x = n;
-        } else {
-          x = n.cross(n1);
-        }
 
-        if (nest.dot(x) < 0)
-          average -= x;
-        else
-          average += x;
-        ++numInliers;
+#pragma omp for nowait schedule(static)
+      for (int i = 0; i < m; ++i) {
+        auto &n = N[i];
+        if (std::min(std::acos(std::abs(nest.dot(n))),
+                     std::acos(std::abs(nest2.dot(n)))) < 0.02) {
+          if (std::acos(std::abs(nest.dot(n))) < 0.02) {
+            x = n;
+          } else {
+            x = n.cross(n1);
+          }
+
+          if (nest.dot(x) < 0)
+            privateAve -= x;
+          else
+            privateAve += x;
+
+          ++privateInliers;
+        }
+      }
+#pragma omp for schedule(static) ordered
+      for (int i = 0; i < omp_get_num_threads(); ++i) {
+#pragma omp ordered
+        {
+          average += privateAve;
+          numInliers += privateInliers;
+        }
       }
     }
 

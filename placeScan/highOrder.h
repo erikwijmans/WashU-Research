@@ -19,16 +19,16 @@ void createHigherOrderTerms(
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
     const std::vector<place::R2Node> &nodes,
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
-    multi::Labeler::map &highOrder);
+    multi::Labeler::HighOrder &highOrder);
 
 void displayHighOrder(
-    const multi::Labeler::map highOrder,
+    const multi::Labeler::HighOrder highOrder,
     const std::vector<place::R2Node> &nodes,
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
 
 void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
-               const multi::Labeler::map &highOrder,
+               const multi::Labeler::HighOrder &highOrder,
                const std::vector<place::R2Node> &nodes,
                std::vector<place::SelectedNode> &bestNodes);
 

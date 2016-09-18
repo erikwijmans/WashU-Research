@@ -141,31 +141,20 @@ void place::trimScans(const std::vector<cv::Mat> &toTrim,
   }
 }
 
-static int countNumToDeltas(const std::vector<const place::posInfo *> &minima) {
-  int num = 0;
-  const double initailScore = minima[0]->score;
-  for (auto &min : minima) {
-    if (min->score - initailScore < (maxTotal + 0.05))
-      ++num;
-    else
-      break;
-  }
-  return minima.size();
-}
-
 void place::savePlacement(const std::vector<const place::posInfo *> &minima,
                           const std::string &outName,
                           const std::vector<Eigen::Vector2i> &zeroZero) {
+  constexpr int maxToSave = 500;
+
   std::ofstream out(outName, std::ios::out);
   std::ofstream outB(outName.substr(0, outName.find(".")) + ".dat",
                      std::ios::out | std::ios::binary);
-  const int numToDeltas = countNumToDeltas(minima);
-  int num = minWrite > numToDeltas ? minWrite : numToDeltas;
-  num = num > minima.size() ? minima.size() : num;
+
+  const int num = minima.size();
 
   out << "Score x y rotation" << std::endl;
   outB.write(reinterpret_cast<const char *>(&num), sizeof(num));
-  for (int i = 0; i < num; ++i) {
+  for (int i = 0; i < std::min(maxToSave, num); ++i) {
     place::posInfo minScore = *minima[i];
     minScore.x += zeroZero[minScore.rotation][0];
     minScore.y += zeroZero[minScore.rotation][1];
@@ -182,10 +171,10 @@ bool place::reshowPlacement(const std::string &scanName,
                             const std::string &zerosFile,
                             const std::string &preDone) {
   const std::string placementName =
-      preDone + scanName.substr(scanName.find("_") - 3, 3) + "_placement_" +
+      scanName.substr(scanName.find("_") - 3, 3) + "_placement_" +
       scanName.substr(scanName.find(".") - 3, 3) + ".dat";
 
-  std::ifstream in(placementName, std::ios::in | std::ios::binary);
+  std::ifstream in(preDone + placementName, std::ios::in | std::ios::binary);
   if (!in.is_open())
     return false;
   if (!FLAGS_reshow)
@@ -205,17 +194,18 @@ bool place::reshowPlacement(const std::string &scanName,
   for (auto &s : scores)
     in.read(reinterpret_cast<char *>(&s), sizeof(place::posInfo));
 
-  num = place::getCutoffIndex(scores,
-                              [](const place::posInfo &s) { return s.score; }) +
-        1;
-  num = FLAGS_top > 0 && num > FLAGS_top ? FLAGS_top : num;
+  int cutOffNum = place::getCutoffIndex(
+      placementName, scores, [](const place::posInfo &s) { return s.score; });
+  cutOffNum = FLAGS_top > 0 ? FLAGS_top : cutOffNum;
+
+  num = std::min(num, cutOffNum);
 
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
 
   if (!FLAGS_quietMode)
     std::cout << "Showing minima: " << num << std::endl;
 
-  for (int k = 0; k < std::min(num, (int)scores.size()); ++k) {
+  for (int k = 0; k < std::min(num, (int)scores.size());) {
     auto &currentScore = scores[k];
 
     const cv::Mat &bestScan = rotatedScans[currentScore.rotation];
@@ -263,7 +253,14 @@ bool place::reshowPlacement(const std::string &scanName,
                 << std::endl;
     }
     cv::imshow("Preview", output);
-    cv::waitKey(0);
+    const int keyCode = cv::waitKey(0);
+
+    if (keyCode == 27)
+      break;
+    else if (keyCode == 8)
+      k = k > 0 ? k - 1 : k;
+    else
+      ++k;
   }
   return true;
 }
@@ -272,11 +269,8 @@ void place::displayOutput(
     const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
     const std::vector<const place::posInfo *> &minima) {
 
-  const int numToDeltas = countNumToDeltas(minima);
-  int num = minWrite > numToDeltas ? minWrite : numToDeltas;
-  num = num > minima.size() ? minima.size() : num;
   if (!FLAGS_quietMode) {
-    std::cout << "Num minima: " << num << std::endl;
+    std::cout << "Num minima: " << minima.size() << std::endl;
     std::cout << "Press a key to begin displaying placement options"
               << std::endl;
   }
@@ -284,7 +278,6 @@ void place::displayOutput(
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
   cv::imshow("Preview", fpColor);
   cv::waitKey(0);
-  const int cutOff = FLAGS_top > 0 ? FLAGS_top : num;
 
   int currentCount = 0;
   for (auto &min : minima) {
@@ -315,9 +308,9 @@ void place::displayOutput(
     if (!FLAGS_quietMode) {
       std::cout << min << std::endl << std::endl;
     }
-    cv::waitKey(0);
+    const int keyCode = cv::waitKey(0);
     ~output;
-    if (++currentCount == cutOff)
+    if (keyCode == 27)
       break;
   }
 }

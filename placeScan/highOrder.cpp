@@ -7,7 +7,7 @@
 #include <opencv2/imgproc.hpp>
 
 static void dispHMap(const Eigen::ArrayXH &hMap,
-                     const multi::Labeler::map &highOrder) {
+                     const multi::Labeler::HighOrder &highOrder) {
   double average = 0;
   size_t count = 0;
   auto dataPtr = hMap.data();
@@ -157,11 +157,6 @@ static void labelNeighbours(const cv::Mat &image, const int currentLabel,
   labelNeighbours(image, currentLabel, labeledImage, toLabel, direction);
 }
 
-static cv::Vec3b randomColor() {
-  static cv::RNG rng(0xFFFFFFFF);
-  int icolor = (unsigned)rng;
-  return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
-}
 
 void place::getDirections() {
   /*Eigen::RowMatrixXi labeledImageX = Eigen::RowMatrixXi::Zero(floorPlan.rows,
@@ -378,26 +373,29 @@ void place::createHigherOrderTerms(
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
     const std::vector<place::R2Node> &nodes,
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
-    multi::Labeler::map &highOrder) {
+    multi::Labeler::HighOrder &highOrder) {
+
   getDirections();
   const double scale = buildingScale.getScale();
   Eigen::ArrayXH hMap(floorPlan.rows, floorPlan.cols);
   for (int a = 0; a < nodes.size(); ++a) {
     auto &currentNode = nodes[a];
-    auto &currentScan = scans[currentNode.color][currentNode.s.rotation];
-    auto &zeroZero = zeroZeros[currentNode.color][currentNode.s.rotation];
-    const int xOffset = currentNode.s.x - zeroZero[0],
-              yOffset = currentNode.s.y - zeroZero[1];
+    auto &currentScan = scans[currentNode.color][currentNode.rotation];
+    auto &zeroZero = zeroZeros[currentNode.color][currentNode.rotation];
+    const int xOffset = currentNode.x - zeroZero[0],
+              yOffset = currentNode.y - zeroZero[1];
 
-    const Eigen::Vector2d center(currentNode.s.x, currentNode.s.y);
+    const Eigen::Vector2d center(currentNode.x, currentNode.y);
 
     cv::Mat_<uchar> _fp = floorPlan;
     for (int j = 0; j < currentScan.rows(); ++j) {
       if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
         continue;
+
       for (int i = 0; i < currentScan.cols(); ++i) {
         if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
           continue;
+
         if (_fp(j + yOffset, i + xOffset) != 255 &&
             localGroup(currentScan, j, i, 7)) {
           const Eigen::Vector2d ray =
@@ -441,6 +439,7 @@ void place::createHigherOrderTerms(
     h->count = h->owners.size();
     if (h->count) {
       h->weight /= std::pow(h->count, 1.5);
+      h->weight *= 3.0 - std::min(h->distance, 6.0);
     }
   }
 
@@ -455,7 +454,7 @@ void place::createHigherOrderTerms(
         it->second.w += weight;
         ++it->second.c;
       } else
-        highOrder.emplace(key, multi::Labeler::s(weight, 1));
+        highOrder.emplace(key, multi::Labeler::HighOrderEle(weight, 1));
     }
   }
 
@@ -501,7 +500,7 @@ void place::createHigherOrderTerms(
 }
 
 void place::displayHighOrder(
-    const multi::Labeler::map highOrder,
+    const multi::Labeler::HighOrder highOrder,
     const std::vector<place::R2Node> &nodes,
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros) {
@@ -513,12 +512,12 @@ void place::displayHighOrder(
     for (auto &i : key) {
       const place::node &nodeA = nodes[i];
 
-      auto &aScan = scans[nodeA.color][nodeA.s.rotation];
+      auto &aScan = scans[nodeA.color][nodeA.rotation];
 
-      auto &zeroZeroA = zeroZeros[nodeA.color][nodeA.s.rotation];
+      auto &zeroZeroA = zeroZeros[nodeA.color][nodeA.rotation];
 
-      int yOffset = nodeA.s.y - zeroZeroA[1];
-      int xOffset = nodeA.s.x - zeroZeroA[0];
+      int yOffset = nodeA.y - zeroZeroA[1];
+      int xOffset = nodeA.x - zeroZeroA[0];
       for (int k = 0; k < aScan.cols(); ++k) {
         for (int l = 0; l < aScan.rows(); ++l) {
           if (l + yOffset < 0 || l + yOffset >= output.rows)
@@ -594,20 +593,19 @@ stackTerms(const std::vector<int> &toStack, GRBVar *varList, GRBModel &model,
   for (auto &i : toStack)
     stacked.push_back(varList + i);
 
-  while (stacked.size() > 2) {
+  while (stacked.size() > 2)
     stacked = condenseStack(stacked, model, H2toH, hOrderVars, hOrderQs);
-  }
 }
 
 void place::MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
                       const std::vector<place::R2Node> &nodes,
                       std::vector<place::SelectedNode> &bestNodes) {
-  multi::Labeler::map tmp;
+  multi::Labeler::HighOrder tmp;
   MIPSolver(adjacencyMatrix, tmp, nodes, bestNodes);
 }
 
 static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
-                          const multi::Labeler::map &highOrder,
+                          const multi::Labeler::HighOrder &highOrder,
                           const std::vector<place::R2Node> &nodes,
                           const std::vector<int> &numberOfLabels,
                           GRBVar *&varList, GRBModel &model) {
@@ -657,10 +655,12 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
       const double weight = adjacencyMatrix(j, i).getWeight();
       if (weight == 0.0)
         continue;
-      objective += weight * varList[a] * varList[b];
+      constexpr double pairwiseWeight = 0.125;
+      objective += pairwiseWeight * weight * varList[a] * varList[b];
     }
     // Urnary
-    objective += 0.5 * varList[a] * nodes[a].getWeight();
+    constexpr double urnaryWeight = 0.25;
+    objective += urnaryWeight * varList[a] * nodes[a].getWeight();
   }
 
   std::list<std::pair<GRBQuadExpr, GRBQuadExpr>> hOrderQs;
@@ -685,7 +685,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
 }
 
 void place::MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
-                      const multi::Labeler::map &highOrder,
+                      const multi::Labeler::HighOrder &highOrder,
                       const std::vector<place::R2Node> &nodes,
                       std::vector<place::SelectedNode> &bestNodes) {
   std::vector<int> numberOfLabels;
@@ -724,7 +724,7 @@ void place::MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
     std::cout << "Labels: ";
     for (int i = 0, offset = 0, k = 0; i < numOpts; ++i) {
       if (varList[i].get(GRB_DoubleAttr_X) == 1.0) {
-        bestNodes.emplace_back(nodes[i], 1.0, i - offset, nodes[i].locked);
+        bestNodes.emplace_back(nodes[i], 1.0, i - offset, nodes[i].locked, 1);
         std::cout << i - offset << "_";
       }
       if (numberOfLabels[k] == i + 1 - offset)

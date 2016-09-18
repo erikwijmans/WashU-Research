@@ -86,37 +86,35 @@ void displayOutput(
 void removeMinimumConnectedComponents(cv::Mat &image);
 
 template <class E, class UrnaryFunc>
-int getCutoffIndex(const std::vector<E> &list, UrnaryFunc selector) {
+int getCutoffIndex(const std::string &name, const std::vector<E> &list,
+                   UrnaryFunc selector) {
   constexpr int max = 30;
   constexpr int minNodes = 3;
-  static bool first = true;
-  static double cutoffDelta, cutoffScore, cutOffTotal, instantCutoff;
-  if (first) {
-    std::vector<std::string> names;
-    parseFolder(FLAGS_outputV1, names, [](const std::string &s) {
-      return s.find(".dat") != std::string::npos;
-    });
-    std::vector<double> scores, deltas, totalDeltas;
-    for (auto &n : names) {
-      std::ifstream in(FLAGS_outputV1 + n, std::ios::in | std::ios::binary);
-      int num;
-      in.read(reinterpret_cast<char *>(&num), sizeof(num));
-      place::posInfo tmp;
+
+  double cutoffDelta, cutoffScore, cutOffTotal, instantCutoff;
+
+  {
+    std::ifstream in(FLAGS_outputV1 + name, std::ios::in | std::ios::binary);
+    int num;
+    in.read(reinterpret_cast<char *>(&num), sizeof(num));
+    place::posInfo tmp;
+    in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
+    double score = tmp.score;
+    const double firstScore = score;
+
+    std::vector<double> scores, totalDeltas, deltas;
+    scores.push_back(score);
+    for (int i = 0; i < std::min(num - 1, 50); ++i) {
       in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-      double score = tmp.score;
-      const double firstScore = score;
+      score = tmp.score;
+      const double delta = score - scores.back();
+      const double totalDelta = score - firstScore;
+      if (delta > 0.0001)
+        deltas.push_back(delta);
       scores.push_back(score);
-      for (int i = 0; i < std::min(num - 1, 100); ++i) {
-        in.read(reinterpret_cast<char *>(&tmp), sizeof(tmp));
-        score = tmp.score;
-        const double delta = score - scores.back();
-        const double totalDelta = score - firstScore;
-        if (delta > 0.0001)
-          deltas.push_back(delta);
-        scores.push_back(score);
-        totalDeltas.push_back(totalDelta);
-      }
+      totalDeltas.push_back(totalDelta);
     }
+
     double averageScore, sigmaScore, averageDelta, sigmaDelta, averageTotal,
         sigmaTotal;
     std::tie(averageScore, sigmaScore) =
@@ -126,10 +124,10 @@ int getCutoffIndex(const std::vector<E> &list, UrnaryFunc selector) {
     std::tie(averageTotal, sigmaTotal) =
         place::aveAndStdev(totalDeltas.begin(), totalDeltas.end());
 
-    instantCutoff = averageDelta + 6.5 * sigmaDelta;
-    cutOffTotal = averageTotal - 1.5 * sigmaTotal;
-    cutoffScore = averageScore - 2.0 * sigmaScore;
-    cutoffDelta = averageDelta + 4 * sigmaDelta;
+    instantCutoff = std::max(0.02, averageDelta + 3 * sigmaDelta);
+    cutOffTotal = std::max(0.10, averageTotal - 1.5 * sigmaTotal);
+    cutoffScore = averageScore;
+    cutoffDelta = std::max(0.01, averageDelta + 2 * sigmaDelta);
     if (!FLAGS_quietMode) {
       std::cout << "Score:  " << averageScore << "  " << sigmaScore << std::endl
                 << "Total Delta:  " << averageTotal << "  " << sigmaTotal
@@ -141,15 +139,18 @@ int getCutoffIndex(const std::vector<E> &list, UrnaryFunc selector) {
                 << "Cutoff score: " << cutoffScore << "  "
                 << "Cutff delta: " << cutoffDelta << std::endl;
     }
-    first = false;
   }
 
-  bool exceeded = false;
-  double prevScore = selector(list[0]);
+  bool exceeded = false, instant = false;
+  double prevScore = selector(list.front());
   const double firstScore = prevScore;
-  int i;
-  for (i = 1; i < list.size(); ++i) {
-    const double score = selector(list[i]);
+  int i = 0;
+  for (auto &e : list) {
+    const double score = selector(e);
+
+    if (score - prevScore > instantCutoff)
+      instant = true;
+
     if (i >= max || score - prevScore > instantCutoff ||
         (i >= minNodes && exceeded))
       break;
@@ -159,9 +160,11 @@ int getCutoffIndex(const std::vector<E> &list, UrnaryFunc selector) {
       exceeded = true;
 
     prevScore = score;
+    ++i;
   }
 
-  return std::min(i != 1 ? i + 1 : i, (int)list.size());
+  // return std::min(instant ? i : i + 1, (int)list.size());
+  return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));
 }
 } // namespace place
 
