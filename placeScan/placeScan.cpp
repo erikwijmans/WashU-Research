@@ -248,7 +248,6 @@ void place::analyzePlacement(
     loadInTruePlacement(scanName, zeroZero);
 
   constexpr double numRects = 2048;
-  const double divisor = std::sqrt(numRects);
 
 #if 0
   if (FLAGS_debugMode) {
@@ -274,18 +273,18 @@ void place::analyzePlacement(
 
       std::vector<const place::posInfo *> tmpMin;
 
-      const double exclusionX =
-          std::min({rSSparsePyramidTrimmed[k][0].cols(),
-                    rSSparsePyramidTrimmed[k][1].cols(),
-                    rSSparsePyramidTrimmed[k][2].cols(),
-                    rSSparsePyramidTrimmed[k][3].cols()}) /
-          divisor;
-      const double exclusionY =
-          std::min({rSSparsePyramidTrimmed[k][0].rows(),
-                    rSSparsePyramidTrimmed[k][1].rows(),
-                    rSSparsePyramidTrimmed[k][2].rows(),
-                    rSSparsePyramidTrimmed[k][3].rows()}) /
-          divisor;
+      const int scanRows = std::min({rSSparsePyramidTrimmed[k][0].rows(),
+                                     rSSparsePyramidTrimmed[k][1].rows(),
+                                     rSSparsePyramidTrimmed[k][2].rows(),
+                                     rSSparsePyramidTrimmed[k][3].rows()});
+      const int scanCols = std::min({rSSparsePyramidTrimmed[k][0].cols(),
+                                     rSSparsePyramidTrimmed[k][1].cols(),
+                                     rSSparsePyramidTrimmed[k][2].cols(),
+                                     rSSparsePyramidTrimmed[k][3].cols()});
+
+      const double exclusionX = (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
+      const double exclusionY = exclusionX;
+
       const int cols = fpPyramid[k].cols();
       const int rows = fpPyramid[k].rows();
       place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
@@ -345,16 +344,19 @@ void place::analyzePlacement(
     if (scores.size() == 0)
       return;
 
-    const double exclusionX = std::min({rSSparsePyramidTrimmed[k][0].cols(),
-                                        rSSparsePyramidTrimmed[k][1].cols(),
-                                        rSSparsePyramidTrimmed[k][2].cols(),
-                                        rSSparsePyramidTrimmed[k][3].cols()}) /
-                              divisor;
-    const double exclusionY = std::min({rSSparsePyramidTrimmed[k][0].rows(),
-                                        rSSparsePyramidTrimmed[k][1].rows(),
-                                        rSSparsePyramidTrimmed[k][2].rows(),
-                                        rSSparsePyramidTrimmed[k][3].rows()}) /
-                              divisor;
+    const int scanRows = std::min({rSSparsePyramidTrimmed[k][0].rows(),
+                                   rSSparsePyramidTrimmed[k][1].rows(),
+                                   rSSparsePyramidTrimmed[k][2].rows(),
+                                   rSSparsePyramidTrimmed[k][3].rows()});
+    const int scanCols = std::min({rSSparsePyramidTrimmed[k][0].cols(),
+                                   rSSparsePyramidTrimmed[k][1].cols(),
+                                   rSSparsePyramidTrimmed[k][2].cols(),
+                                   rSSparsePyramidTrimmed[k][3].cols()});
+
+    const double exclusionX =
+        (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
+    const double exclusionY = exclusionX;
+
     const int cols = fpPyramid[k].cols();
     const int rows = fpPyramid[k].rows();
     place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
