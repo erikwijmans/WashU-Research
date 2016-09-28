@@ -436,3 +436,32 @@ cv::Vec3b randomColor() {
   int icolor = (unsigned)rng;
   return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
 }
+
+int cv::rectshow(const std::string &name, const cv::Mat &img) {
+  cv::namedWindow(name, CV_WINDOW_NORMAL);
+  cv::Mat bigImg;
+
+  if (img.rows > img.cols) {
+    bigImg =
+        cv::Mat(img.rows, img.rows * 16 / 9, img.type(), cv::Scalar::all(255));
+  } else {
+    bigImg =
+        cv::Mat(img.cols, img.cols * 16 / 9, img.type(), cv::Scalar::all(255));
+  }
+
+  int deltaRows = (bigImg.rows - img.rows) / 2.0;
+  int deltaCols = (bigImg.cols - img.cols) / 2.0;
+
+  for (int j = 0; j < img.rows; ++j) {
+    auto src = img.ptr<uchar>(j);
+    auto dst = bigImg.ptr<uchar>(j + deltaRows);
+    for (int i = 0; i < img.cols * img.channels(); ++i) {
+      dst[i + img.channels() * deltaCols] = src[i];
+    }
+  }
+
+  cv::imshow(name, bigImg);
+  return cv::waitKey(0);
+}
+
+int cv::rectshow(const cv::Mat &img) { return cv::rectshow("Preview", img); }

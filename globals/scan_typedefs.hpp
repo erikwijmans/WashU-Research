@@ -265,7 +265,7 @@ public:
 };
 
 struct Panorama {
-  static constexpr double ScalingFactor = std::pow(2.0, 1.0 / 3.0);
+  static constexpr double ScalingFactor = 1.2599210498948732;
 
   std::vector<cv::Mat> imgs;
   Eigen::RowMatrixXf rMap;
@@ -328,5 +328,10 @@ template <> struct hash<place::posInfo> {
 } // std
 
 cv::Vec3b randomColor();
+
+namespace cv {
+int rectshow(const std::string &name, const cv::Mat &img);
+int rectshow(const cv::Mat &img);
+} // cv
 
 #endif // SCAN_TYPEDEFS_HPP

@@ -63,9 +63,7 @@ void place::loadInScans(const std::string &scanName,
   }
 
   if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-    cv::imshow("Preview", rotatedScans[0]);
-    cv::waitKey(0);
+    cv::rectshow(rotatedScans[0]);
   }
 }
 
@@ -85,9 +83,7 @@ void place::loadInScans(const std::string &scanName,
   }
 
   if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-    cv::imshow("Preview", rotatedScans[0]);
-    cv::waitKey(0);
+    cv::rectshow(rotatedScans[0]);
   }
 }
 
@@ -251,8 +247,8 @@ bool place::reshowPlacement(const std::string &scanName,
                 << "   Index: " << k << std::endl
                 << std::endl;
     }
-    cv::imshow("Preview", output);
-    const int keyCode = cv::waitKey(0);
+
+    const int keyCode = cv::rectshow(output);
 
     if (keyCode == 27)
       break;
@@ -274,9 +270,7 @@ void place::displayOutput(
               << std::endl;
   }
 
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", fpColor);
-  cv::waitKey(0);
+  cv::rectshow(fpColor);
 
   int currentCount = 0;
   for (auto &min : minima) {
@@ -303,11 +297,10 @@ void place::displayOutput(
       }
     }
 
-    cv::imshow("Preview", output);
     if (!FLAGS_quietMode) {
       std::cout << min << std::endl << std::endl;
     }
-    const int keyCode = cv::waitKey(0);
+    const int keyCode = cv::rectshow(output);
     ~output;
     if (keyCode == 27)
       break;
@@ -339,9 +332,7 @@ void place::displayOutput(
     }
   }
 
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", tmpColor);
-  cv::waitKey(0);
+  cv::rectshow(tmpColor);
   const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
 
   int currentCount = 0;
@@ -368,11 +359,10 @@ void place::displayOutput(
       }
     }
 
-    cv::imshow("Preview", output);
     if (!FLAGS_quietMode) {
       std::cout << min << std::endl << std::endl;
     }
-    cv::waitKey(0);
+    cv::rectshow(output);
     ~output;
     if (++currentCount == cutOff)
       break;
@@ -533,9 +523,7 @@ void place::displayScanAndMask(
         }
       }
       out = _out;
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", out);
-      cv::waitKey(0);
+      cv::rectshow(out);
     }
   }
 }

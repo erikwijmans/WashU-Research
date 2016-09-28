@@ -52,7 +52,8 @@ Eigen::MatrixXd distanceTransform(const Eigen::SparseMatrix<double> &image);
 void createFPPyramids(const cv::Mat &floorPlan,
                       std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
                       std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-                      std::vector<Eigen::MatrixXb> &fpMasks);
+                      std::vector<Eigen::MatrixXb> &fpMasks,
+                      bool reload = false);
 
 void findNumPixelsUnderMask(
     const std::vector<std::vector<Eigen::SparseMatrix<double>>>

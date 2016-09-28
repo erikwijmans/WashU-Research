@@ -16,7 +16,6 @@
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
 #include <opengm/graphicalmodel/space/discretespace.hxx>
 #include <opengm/inference/messagepassing/messagepassing.hxx>
-#include <opengm/inference/mqpbo.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>

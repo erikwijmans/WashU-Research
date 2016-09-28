@@ -35,22 +35,37 @@ place::DoorDetector::DoorDetector(
     }
   }
 
-  for (auto &s : symbols)
-    s = cv::Mat(doorSymbol.size() + cv::Size(5, 5), doorSymbol.type());
-
   for (int k = 0; k < NUM_ROTS; ++k) {
     cv::Mat rotMat = cv::getRotationMatrix2D(
         cv::Point2f(widenedDoor.cols / 2.0, widenedDoor.rows / 2.0), k * 90, 1);
 
     cv::Mat tmp;
     cv::warpAffine(widenedDoor, tmp, rotMat, widenedDoor.size());
-    for (int j = 0; j < doorSymbol.rows + 5; ++j) {
-      auto dst = symbols[2 * k].ptr<uchar>(j);
-      auto src = tmp.ptr<uchar>(j + rowDelta - 2);
-      for (int i = 0; i < doorSymbol.cols + 5; ++i) {
-        dst[i] = src[i + rowDelta - 2];
+    int maxRow = 0, minRow = tmp.rows;
+    int maxCol = 0, minCol = tmp.cols;
+    for (int j = 5; j < tmp.rows - 5; ++j) {
+      auto src = tmp.ptr<uchar>(j);
+      for (int i = 5; i < tmp.cols - 5; ++i) {
+        if (src[i] == 0) {
+          maxRow = std::max(j, maxRow);
+          minRow = std::min(j, minRow);
+
+          maxCol = std::max(i, maxCol);
+          minCol = std::min(i, minCol);
+        }
       }
     }
+
+    symbols[2 * k] =
+        cv::Mat(maxRow - minRow + 1, maxCol - minCol + 1, doorSymbol.type());
+    for (int j = minRow; j < maxRow + 1; ++j) {
+      auto src = tmp.ptr<uchar>(j);
+      auto dst = symbols[2 * k].ptr<uchar>(j - minRow);
+      for (int i = minCol; i < maxCol + 1; ++i) {
+        dst[i - minCol] = src[i];
+      }
+    }
+
     cv::flip(symbols[2 * k], symbols[2 * k + 1], 1);
   }
 
@@ -64,9 +79,10 @@ place::DoorDetector::DoorDetector(
 
   std::vector<std::vector<Eigen::MatrixXb>> masks;
   for (int i = 0; i < levels + 1; ++i) {
-    masks.emplace_back(std::vector<Eigen::MatrixXb>(
-        symbolPyr[i].size(),
-        Eigen::MatrixXb::Ones(symbolPyr[i][0].rows(), symbolPyr[i][0].cols())));
+    std::vector<Eigen::MatrixXb> tmp;
+    for (auto &s : symbolPyr[i])
+      tmp.emplace_back(Eigen::MatrixXb::Ones(s.rows(), s.cols()));
+    masks.emplace_back(tmp);
   }
 
   std::vector<Eigen::VectorXd> numPixelsUnderMask;
@@ -139,16 +155,28 @@ place::DoorDetector::DoorDetector(
     response(min->y, min->x) = min->score;
 
   cv::Mat_<cv::Vec3b> out = fpColor.clone();
-  for (int j = 0; j < out.rows; ++j) {
+
+  for (auto &min : minima) {
+    if (min->score >= 0.1)
+      continue;
+
+    auto &img = symbols[min->rotation];
+    for (int j = 0; j < img.rows; ++j) {
+      auto src = img.ptr<uchar>(j);
+      for (int i = 0; i < img.cols; ++i) {
+        out(j + min->y, i + min->x) = cv::Vec3b(0, 0, 255);
+      }
+    }
+  }
+
+  /*for (int j = 0; j < out.rows; ++j) {
     for (int i = 0; i < out.cols; ++i) {
       if (response(j, i) < 0.1) {
         out(cv::Range(j - 10, j + 10), cv::Range(i - 10, i + 10)) =
             cv::Vec3b(0, 255, 0);
       }
     }
-  }
+  }*/
 
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", out);
-  cv::waitKey(0);
+  cv::rectshow(out);
 }

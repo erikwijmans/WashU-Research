@@ -5,7 +5,7 @@ if(APPLE)
 else()
   set(CMAKE_CXX_COMPILER g++)
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g -fopenmp -fcilkplus")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g -fopenmp")
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(OpenCV REQUIRED)
 find_package(Boost COMPONENTS timer REQUIRED)
@@ -14,8 +14,6 @@ find_package( gflags REQUIRED )
 include_directories( ${Boost_INCLUDE_DIRS} )
 include_directories(${globals_INCLUDE})
 include_directories(${GUROBI_INCLUDE_DIRS})
-include_directories("/usr/local/include/opengm/externals/qpbo")
-set(OpenGM_LIBS "/usr/local/lib/opengm/externals/libopengm-external-qpbo-shared.so")
 
 file( GLOB place_SRC
    "place*.cpp"

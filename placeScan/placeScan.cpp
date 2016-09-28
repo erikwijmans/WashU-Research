@@ -127,11 +127,9 @@ int main(int argc, char *argv[]) {
     boost::timer::auto_cpu_timer timer;
     if (FLAGS_quietMode)
       show_progress = new boost::progress_display(FLAGS_numScans);
+
     std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
     std::vector<Eigen::MatrixXb> fpMasks;
-
-    place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
-    place::DoorDetector d(fpPyramid, erodedFpPyramid, fpMasks);
 
     for (int i = FLAGS_startIndex;
          i < std::min(FLAGS_startIndex + FLAGS_numScans,
@@ -144,6 +142,8 @@ int main(int argc, char *argv[]) {
       if (FLAGS_redo ||
           !place::reshowPlacement(scanName, zerosFile, FLAGS_outputV1)) {
 
+        place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
+        place::DoorDetector d(fpPyramid, erodedFpPyramid, fpMasks);
         place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks, scanName,
                                 zerosFile, maskName);
       }
@@ -781,7 +781,7 @@ void place::createFPPyramids(
     const cv::Mat &floorPlan,
     std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    std::vector<Eigen::MatrixXb> &fpMasks) {
+    std::vector<Eigen::MatrixXb> &fpMasks, bool reload) {
 
   /*for (int j = 0; j < floorPlan.rows; ++j) {
     const uchar *w = fpWeights.ptr<uchar>(j);
@@ -793,7 +793,7 @@ void place::createFPPyramids(
   }*/
 
   static bool loaded = false;
-  if (loaded)
+  if (loaded & !reload)
     return;
 
   cv::Mat element = cv::getStructuringElement(
