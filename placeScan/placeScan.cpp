@@ -1,21 +1,25 @@
 #include "highOrder.h"
+#include "placeScan_doorDetector.h"
 #include "placeScan_multiLabeling.h"
 #include "placeScan_placeScan.h"
+
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <random>
+#include <unordered_set>
+
+#include <boost/progress.hpp>
+#include <boost/timer/timer.hpp>
+
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <math.h>
 #include <omp.h>
 #include <signal.h>
 #include <time.h>
-
-#include <algorithm>
-#include <boost/progress.hpp>
-#include <boost/timer/timer.hpp>
-#include <fstream>
-#include <iostream>
-#include <opencv2/core/eigen.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-#include <unordered_set>
 
 DEFINE_bool(errosion, true,
             "This is used for scale finding only, don't touch!");
@@ -75,16 +79,21 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  cv::Mat fpWeights = place::getDirections();
+
 #if 0
   if (FLAGS_debugMode) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/cse_point_047.png", 0);
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R0/cse_point_126.png", 0);
+    if (!image.data) {
+      std::cout <<
+    }
     std::vector<Eigen::Vector2i> tmp(4);
     std::vector<cv::Mat> toTrim = {image}, trimmed;
     place::trimScans(toTrim, trimmed, tmp);
     image = trimmed[0];
 
-    const int xOffset = 2906 - image.cols / 2.0;
-    const int yOffset = 1483 - image.rows / 2.0;
+    const int xOffset = 6799 - image.cols / 2.0;
+    const int yOffset = 2499 - image.rows / 2.0;
     std::cout << xOffset << "  " << yOffset << std::endl;
     for (int i = 0; i < image.rows; ++i) {
       uchar *src = image.ptr<uchar>(i);
@@ -115,10 +124,15 @@ int main(int argc, char *argv[]) {
 
   if (FLAGS_V1) {
     boost::progress_display *show_progress = nullptr;
+    boost::timer::auto_cpu_timer timer;
     if (FLAGS_quietMode)
       show_progress = new boost::progress_display(FLAGS_numScans);
     std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
     std::vector<Eigen::MatrixXb> fpMasks;
+
+    place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
+    place::DoorDetector d(fpPyramid, erodedFpPyramid, fpMasks);
+
     for (int i = FLAGS_startIndex;
          i < std::min(FLAGS_startIndex + FLAGS_numScans,
                       (int)pointFileNames.size());
@@ -130,7 +144,6 @@ int main(int argc, char *argv[]) {
       if (FLAGS_redo ||
           !place::reshowPlacement(scanName, zerosFile, FLAGS_outputV1)) {
 
-        place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
         place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks, scanName,
                                 zerosFile, maskName);
       }
@@ -148,7 +161,7 @@ int main(int argc, char *argv[]) {
       labeler.displayGraph();
     labeler.solveTRW();
     labeler.saveFinal(0);
-    // labeler.displaySolution();
+    labeler.displaySolution();
     // labeler.solveMIP();
     // labeler.saveFinal(1);
 
@@ -196,18 +209,18 @@ void place::analyzePlacement(
   rotatedScans.clear();
   masks.clear();
 
-  std::vector<std::vector<Eigen::SparseMatrix<double>>> eMaskPyramid{
-      eMasksSpare};
+  std::vector<std::vector<Eigen::SparseMatrix<double>>> eMaskPyramid(
+      {eMasksSpare});
   createPyramid(eMaskPyramid);
   eMasksSpare.clear();
 
-  std::vector<std::vector<Eigen::SparseMatrix<double>>> rSSparsePyramid{
-      rSSparse};
+  std::vector<std::vector<Eigen::SparseMatrix<double>>> rSSparsePyramid(
+      {rSSparse});
   createPyramid(rSSparsePyramid);
   rSSparse.clear();
 
-  std::vector<std::vector<Eigen::SparseMatrix<double>>> erodedSparsePyramid{
-      eScanSparse};
+  std::vector<std::vector<Eigen::SparseMatrix<double>>> erodedSparsePyramid(
+      {eScanSparse});
   createPyramid(erodedSparsePyramid);
   eScanSparse.clear();
 
@@ -237,7 +250,7 @@ void place::analyzePlacement(
   }
   eMaskPyramidTrimmed.clear();
 
-  std::vector<Eigen::Vector4d> numPixelsUnderMask;
+  std::vector<Eigen::VectorXd> numPixelsUnderMask;
   findNumPixelsUnderMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS,
                          numPixelsUnderMask);
 
@@ -251,11 +264,11 @@ void place::analyzePlacement(
 
 #if 0
   if (FLAGS_debugMode) {
-    for (int k = FLAGS_numLevels; k >= 0; --k) {
+    for (int k = 0; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp(2645, 3554, 2);
+      Eigen::Vector3i tmp(3197, 1241, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -282,12 +295,12 @@ void place::analyzePlacement(
                                      rSSparsePyramidTrimmed[k][2].cols(),
                                      rSSparsePyramidTrimmed[k][3].cols()});
 
-      const double exclusionX = (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
-      const double exclusionY = exclusionX;
+      const double exclusion =
+          (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
 
       const int cols = fpPyramid[k].cols();
       const int rows = fpPyramid[k].rows();
-      place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
+      place::ExclusionMap maps(exclusion, rows, cols);
 
       findLocalMinima(trueScores, 1.0, maps, tmpMin);
 
@@ -353,13 +366,12 @@ void place::analyzePlacement(
                                    rSSparsePyramidTrimmed[k][2].cols(),
                                    rSSparsePyramidTrimmed[k][3].cols()});
 
-    const double exclusionX =
+    const double exclusion =
         (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
-    const double exclusionY = exclusionX;
 
     const int cols = fpPyramid[k].cols();
     const int rows = fpPyramid[k].rows();
-    place::ExclusionMap maps(exclusionX, exclusionY, rows, cols);
+    place::ExclusionMap maps(exclusion, rows, cols);
 
     if (k == 0)
       findLocalMinima(scores, -0.5, maps, minima);
@@ -370,7 +382,7 @@ void place::analyzePlacement(
 
 #if 0
     if (FLAGS_debugMode) {
-      Eigen::Vector3i tmp(2645, 3554, 2);
+      Eigen::Vector3i tmp(3197, 1241, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -427,8 +439,8 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
   constexpr int minMinia = 100;
   constexpr double FF = 1.00, hardFactor = 1.0 / 40.0;
 
-  const double hardY = maps.exclusionY * hardFactor,
-               hardX = maps.exclusionX * hardFactor;
+  const double hardY = maps.exclusionSize * hardFactor,
+               hardX = maps.exclusionSize * hardFactor;
 
   double averageScore, sigScore;
   std::tie(averageScore, sigScore) =
@@ -449,13 +461,13 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
       if (s.score < cutOff) {
 
         bool isMin = true;
-        for (int j = -maps.exclusionY / 2; j <= maps.exclusionY / 2 && isMin;
-             ++j) {
+        for (int j = -maps.exclusionSize / 2;
+             j <= maps.exclusionSize / 2 && isMin; ++j) {
           if (s.y + j < 0 || s.y + j >= maps.rows)
             continue;
 
-          for (int i = -maps.exclusionX / 2; i <= maps.exclusionX / 2 && isMin;
-               ++i) {
+          for (int i = -maps.exclusionSize / 2;
+               i <= maps.exclusionSize / 2 && isMin; ++i) {
             if (s.x + i < 0 || s.x + i >= maps.cols)
               continue;
 
@@ -487,119 +499,6 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
                minima.end());
 }
 
-template <typename MatType>
-void place::createPyramid(std::vector<MatType> &pyramid) {
-  typedef typename MatType::Scalar Scalar;
-  typedef Eigen::Triplet<Scalar> TripType;
-  typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> MatNS;
-
-  std::vector<TripType> tripletList;
-
-  for (int i = 0; i < FLAGS_numLevels; ++i) {
-    auto &currentLevel = pyramid[i];
-    MatType newLevel(ceil(currentLevel.rows() / 2) + 1,
-                     ceil(currentLevel.cols() / 2) + 1);
-
-    MatNS currentLevelNS = MatNS(currentLevel);
-
-    int j;
-    for (j = 0; j < (currentLevel.rows() - 1); j += 2) {
-      int k;
-      for (k = 0; k < (currentLevel.cols() - 1); k += 2) {
-        double maxV =
-            std::max({currentLevelNS(j, k), currentLevelNS(j, k + 1),
-                      currentLevelNS(j + 1, k), currentLevelNS(j + 1, k + 1)});
-        tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
-      }
-      for (; k < currentLevel.cols(); ++k) {
-        tripletList.push_back(
-            TripType(floor(j / 2), floor(k / 2), currentLevelNS(j, k)));
-      }
-    }
-
-    for (; j < currentLevel.rows(); ++j) {
-      int k;
-      for (k = 0; k < (currentLevel.cols() - 1); k += 2) {
-        double maxV = std::max(currentLevelNS(j, k), currentLevelNS(j, k + 1));
-        tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
-      }
-      for (; k < currentLevel.cols(); ++k) {
-        tripletList.push_back(
-            TripType(floor(j / 2), floor(k / 2), currentLevelNS(j, k)));
-      }
-    }
-    newLevel.setFromTriplets(tripletList.begin(), tripletList.end());
-    pyramid.push_back(newLevel);
-    tripletList.clear();
-  }
-
-  if (FLAGS_visulization) {
-    for (auto &level : pyramid) {
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", place::sparseToImage(level));
-      cv::waitKey(0);
-    }
-  }
-}
-
-template <typename MatType>
-void place::createPyramid(std::vector<std::vector<MatType>> &pyramid) {
-  typedef typename MatType::Scalar Scalar;
-  typedef Eigen::Triplet<Scalar> TripType;
-  typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> MatNS;
-
-  std::vector<TripType> tripletList;
-
-  for (int i = 0; i < FLAGS_numLevels; ++i) {
-    std::vector<MatType> newLevel;
-    for (auto &scan : pyramid[i]) {
-      MatType newScan(ceil(scan.rows() / 2) + 1, ceil(scan.cols() / 2) + 1);
-      MatNS scanNS = MatNS(scan);
-
-      int j;
-      for (j = 0; j < (scan.rows() - 1); j += 2) {
-        int k;
-        for (k = 0; k < (scan.cols() - 1); k += 2) {
-          double maxV = std::max({scanNS(j, k), scanNS(j, k + 1),
-                                  scanNS(j + 1, k), scanNS(j + 1, k + 1)});
-          tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
-        }
-        for (; k < scan.cols(); ++k) {
-          tripletList.push_back(
-              TripType(floor(j / 2), floor(k / 2), scanNS(j, k)));
-        }
-      }
-
-      for (; j < scan.rows(); ++j) {
-        int k;
-        for (k = 0; k < (scan.cols() - 1); k += 2) {
-          double maxV = std::max(scanNS(j, k), scanNS(j, k + 1));
-          tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
-        }
-        for (; k < scan.cols(); ++k) {
-          tripletList.push_back(
-              TripType(floor(j / 2), floor(k / 2), scanNS(j, k)));
-        }
-      }
-
-      newScan.setFromTriplets(tripletList.begin(), tripletList.end());
-      newLevel.push_back(newScan);
-      tripletList.clear();
-    }
-    pyramid.push_back(newLevel);
-  }
-
-  if (FLAGS_visulization) {
-    for (auto &level : pyramid) {
-      for (auto &scan : level) {
-        cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-        cv::imshow("Preview", place::sparseToImage(scan));
-        cv::waitKey(0);
-      }
-    }
-  }
-}
-
 void place::trimScanPryamids(
     const std::vector<std::vector<Eigen::SparseMatrix<double>>>
         &rSSparsePyramid,
@@ -612,6 +511,7 @@ void place::trimScanPryamids(
     const std::vector<std::vector<Eigen::SparseMatrix<double>>> &eMaskPyramid,
     std::vector<std::vector<Eigen::SparseMatrix<double>>> &eMaskPyramidTrimmed,
     std::vector<Eigen::Vector2i> &zeroZero) {
+
   std::vector<Eigen::Triplet<double>> tripletList;
   for (int level = 0; level < rSSparsePyramid.size(); ++level) {
     std::vector<Eigen::SparseMatrix<double>> levelTrimmed, erodedLevelTrimed,
@@ -708,7 +608,7 @@ void place::findPlacement(
     const Eigen::SparseMatrix<double> &fpE,
     const std::vector<Eigen::SparseMatrix<double>> &scansE,
     const std::vector<Eigen::MatrixXb> &masks,
-    const Eigen::Vector4d &numPixelsUnderMask, const Eigen::MatrixXb &fpMask,
+    const Eigen::VectorXd &numPixelsUnderMask, const Eigen::MatrixXb &fpMask,
     const std::vector<Eigen::Vector3i> &points,
     std::vector<place::posInfo> &scores) {
   if (!FLAGS_quietMode)
@@ -811,14 +711,16 @@ void place::findPlacement(
     std::cout << "Done: " << scores.size() << std::endl;
 }
 
-struct Perimeter {
+template <int w> class Perimeter {
+public:
   constexpr Perimeter() : coords() {
-    int x = 0;
-    int y = 0;
+    constexpr int range = w / 2;
+    int x = -range;
+    int y = -range;
     for (int i = 0; i < 4; ++i) {
-      for (int j = 0; j < searchKernelSize; ++j) {
-        coords[i * searchKernelSize + j][0] = x;
-        coords[i * searchKernelSize + j][1] = y;
+      for (int j = 0; j < w; ++j) {
+        coords[i * w + j][0] = x;
+        coords[i * w + j][1] = y;
         switch (i) {
         case 0:
           ++x;
@@ -836,17 +738,22 @@ struct Perimeter {
       }
     }
   };
-  const int *operator[](int index) const { return coords[index]; };
+  constexpr int operator()(int x, int y) const { return coords[x][y]; };
 
 private:
-  int coords[searchKernelSize * 4][2];
+  int coords[w * 4][2];
 };
 
 void place::findPointsToAnalyzeV2(
     const std::vector<const place::posInfo *> &minima,
     std::vector<Eigen::Vector3i> &pointsToAnalyze) {
-  static constexpr auto perimeter = Perimeter();
+  constexpr Perimeter<searchKernelSize> perimeter;
   constexpr int range = searchKernelSize / 2;
+
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
+  static std::uniform_int_distribution<int> dist(0, 1);
+
   pointsToAnalyze.clear();
   pointsToAnalyze.reserve(minima.size() * (searchKernelSize * searchKernelSize -
                                            2 * searchKernelSize + 4));
@@ -860,12 +767,12 @@ void place::findPointsToAnalyzeV2(
         pointsToAnalyze.push_back(Eigen::Vector3i(x + i, y + j, rotIndex));
 
     for (int i = 0; i + 1 < searchKernelSize * 4; i += 2)
-      if (rand() % 2)
+      if (dist(gen))
         pointsToAnalyze.push_back(Eigen::Vector3i(
-            x + perimeter[i][0], y + perimeter[i][1], rotIndex));
+            x + perimeter(i, 0), y + perimeter(i, 1), rotIndex));
       else
         pointsToAnalyze.push_back(Eigen::Vector3i(
-            x + perimeter[i + 1][0], y + perimeter[i + 1][1], rotIndex));
+            x + perimeter(i + 1, 0), y + perimeter(i + 1, 1), rotIndex));
   }
   pointsToAnalyze.shrink_to_fit();
 }
@@ -876,13 +783,22 @@ void place::createFPPyramids(
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     std::vector<Eigen::MatrixXb> &fpMasks) {
 
+  /*for (int j = 0; j < floorPlan.rows; ++j) {
+    const uchar *w = fpWeights.ptr<uchar>(j);
+    uchar *dst = floorPlan.ptr<uchar>(j);
+    for (int i = 0; i < floorPlan.cols; ++i) {
+      if (dst[i] != 255)
+        dst[i] = std::max(w[i], dst[i]);
+    }
+  }*/
+
   static bool loaded = false;
   if (loaded)
     return;
 
   cv::Mat element = cv::getStructuringElement(
       cv::MORPH_RECT, cv::Size(errosionKernelSize, errosionKernelSize));
-  cv::Mat fpEroded(floorPlan.rows, floorPlan.cols, CV_8UC1);
+  cv::Mat fpEroded(floorPlan.size(), CV_8UC1);
   if (FLAGS_errosion)
     cv::erode(floorPlan, fpEroded, element);
   else
@@ -973,9 +889,11 @@ void place::findNumPixelsUnderMask(
     const std::vector<std::vector<Eigen::SparseMatrix<double>>>
         &rSSparsePyramidTrimmed,
     const std::vector<std::vector<Eigen::MatrixXb>> &eMaskPyramidTrimmedNS,
-    std::vector<Eigen::Vector4d> &numPixelsUnderMask) {
+    std::vector<Eigen::VectorXd> &numPixelsUnderMask) {
+
   for (int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
-    Eigen::Vector4d numPixelsLevel = Eigen::Vector4d::Zero();
+    Eigen::VectorXd numPixelsLevel =
+        Eigen::VectorXd::Zero(rSSparsePyramidTrimmed[i].size());
     for (int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
       const Eigen::MatrixXb &currentMask = eMaskPyramidTrimmedNS[i][j];
       const Eigen::SparseMatrix<double> &currentScan =

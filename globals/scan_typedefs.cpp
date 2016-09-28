@@ -318,14 +318,24 @@ const cv::Mat &place::Panorama::operator[](int n) {
 }
 
 double place::edge::getWeight() const {
-  return (w * wSignificance + panoW * panoSignificance) *
-         std::max(0.25, std::min(distance, 1.5));
+  return (0.5 * w * wSignificance + panoW * panoSignificance) *
+             std::max(0.25, std::min(distance, 1.5)) +
+         hWeight;
 }
 
-place::ExclusionMap::ExclusionMap(double exclusionX, double exclusionY,
-                                  int rows, int cols)
-    : maps{new Map[NUM_ROTS]}, exclusionX{exclusionX}, exclusionY{exclusionY},
-      rows{rows}, cols{cols} {
+double place::node::getWeight() const { return nw; };
+
+place::ExclusionMap::ExclusionMap(double exclusionSize, int rows, int cols,
+                                  int numRots)
+    : maps{new Map[numRots]}, exclusionSize{exclusionSize}, rows{rows},
+      cols{cols} {
+  for (int i = 0; i < numRots; ++i)
+    maps[i] = Map::Zero(rows, cols);
+}
+
+place::ExclusionMap::ExclusionMap(double exclusionSize, int rows, int cols)
+    : maps{new Map[NUM_ROTS]}, exclusionSize{exclusionSize}, rows{rows},
+      cols{cols} {
   for (int i = 0; i < NUM_ROTS; ++i)
     maps[i] = Map::Zero(rows, cols);
 }
@@ -383,7 +393,8 @@ std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
   os << "edge: " << print.w << "  " << print.wSignificance;
   os << "  pano: " << print.panoW << "  " << print.panoSignificance;
   os << "  " << print.numSim << "  " << print.numDiff;
-  os << "  Distance: " << print.distance << std::endl;
+  os << "  Distance: " << print.distance;
+  os << "  HighOrder: " << print.hWeight << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
   os << print.fx << "  " << print.feB;
   return os;
@@ -424,5 +435,4 @@ cv::Vec3b randomColor() {
   static cv::RNG rng(0xFFFFFFFF);
   int icolor = (unsigned)rng;
   return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
-} 
-
+}

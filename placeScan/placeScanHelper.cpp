@@ -57,7 +57,7 @@ void place::loadInScans(const std::string &scanName,
     rotatedScans.push_back(cv::imread(fullScanName, 0));
 
     if (!rotatedScans[i].data) {
-      std::cout << "Error reading scan" << std::endl;
+      std::cout << "Error reading scan: " << fullScanName << std::endl;
       exit(1);
     }
   }
@@ -70,7 +70,6 @@ void place::loadInScans(const std::string &scanName,
 }
 
 void place::loadInScans(const std::string &scanName,
-                        const std::string &zerosFile,
                         std::vector<cv::Mat> &rotatedScans) {
 
   for (int i = 0; i < NUM_ROTS; ++i) {
@@ -100,7 +99,7 @@ void place::loadInScansAndMasks(const std::string &scanName,
                                 std::vector<Eigen::Vector2i> &zeroZero) {
 
   place::loadInScans(scanName, zerosFile, rotatedScans, zeroZero);
-  place::loadInScans(maskName, zerosFile, masks);
+  place::loadInScans(maskName, masks);
 }
 
 void place::trimScans(const std::vector<cv::Mat> &toTrim,

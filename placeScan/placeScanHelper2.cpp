@@ -2,23 +2,28 @@
 #include "placeScan_panoramaMatcher.h"
 #include "placeScan_placeScanHelper2.h"
 
-#include <dirent.h>
-#include <math.h>
-#include <omp.h>
+#include <fstream>
+#include <iostream>
 
 #include <boost/progress.hpp>
 #include <boost/timer/timer.hpp>
-#include <fstream>
-#include <iostream>
+
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
 #include <opengm/functions/explicit_function.hxx>
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
 #include <opengm/graphicalmodel/space/discretespace.hxx>
+#include <opengm/inference/messagepassing/messagepassing.hxx>
+#include <opengm/inference/mqpbo.hxx>
 #include <opengm/inference/trws/trws_trws.hxx>
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/maximizer.hxx>
+
+#include <dirent.h>
+#include <math.h>
+#include <omp.h>
 
 DEFINE_int32(graphColor, -1, "Color of the graph to display");
 
@@ -399,7 +404,7 @@ void place::weightEdges(
     const place::node &nodeA = nodes[i];
     const place::node &nodeB = nodes[j];
 
-    if (FLAGS_debugMode && (j != 54 || i != 41))
+    if (FLAGS_debugMode && (j != 331 || i != 321))
       continue;
 
     auto &aPoint =
@@ -549,95 +554,121 @@ void place::displayGraph(
   const int rows = adjacencyMatrix.rows();
   const int cols = adjacencyMatrix.cols();
 
+  std::vector<std::pair<int, int>> usablePairs;
+
   for (int i = 0; i < cols; ++i) {
-    const place::node &nodeA = nodes[i];
-    if (FLAGS_graphColor != -1 && nodeA.color != FLAGS_graphColor)
-      continue;
-    for (int j = 0; j < rows;) {
+    for (int j = 0; j < rows; ++j) {
+      const place::node &nodeA = nodes[i];
       const place::node &nodeB = nodes[j];
-      /*if (i > j)
-        continue;*/
-      if (adjacencyMatrix(j, i).w == 0 && adjacencyMatrix(j, i).panoW == 0) {
-        ++j;
+      if (adjacencyMatrix(j, i).w == 0 && adjacencyMatrix(j, i).panoW == 0)
         continue;
-      }
-      std::cout << "(" << i << ", " << j << ")" << std::endl;
 
-      const Eigen::MatrixXb &aScan = scans[nodeA.color][nodeA.rotation];
-      const Eigen::MatrixXb &bScan = scans[nodeB.color][nodeB.rotation];
-
-      const Eigen::Vector2i &zeroZeroA = zeroZeros[nodeA.color][nodeA.rotation];
-      const Eigen::Vector2i &zeroZeroB = zeroZeros[nodeB.color][nodeB.rotation];
-
-      cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
-      fpColor.copyTo(output);
-
-      cv::Mat_<cv::Vec3b> _output = output;
-
-      int yOffset = nodeA.y - zeroZeroA[1];
-      int xOffset = nodeA.x - zeroZeroA[0];
-      for (int k = 0; k < aScan.cols(); ++k) {
-        for (int l = 0; l < aScan.rows(); ++l) {
-          if (l + yOffset < 0 || l + yOffset >= output.rows)
-            continue;
-          if (k + xOffset < 0 || k + xOffset >= output.cols)
-            continue;
-
-          if (aScan(l, k) != 0) {
-            _output(l + yOffset, k + xOffset)[0] = 0;
-            _output(l + yOffset, k + xOffset)[1] = 0;
-            _output(l + yOffset, k + xOffset)[2] = 255;
-          }
-        }
-      }
-
-      yOffset = nodeB.y - zeroZeroB[1];
-      xOffset = nodeB.x - zeroZeroB[0];
-      for (int k = 0; k < bScan.cols(); ++k) {
-        for (int l = 0; l < bScan.rows(); ++l) {
-          if (l + yOffset < 0 || l + yOffset >= output.rows)
-            continue;
-          if (k + xOffset < 0 || k + xOffset >= output.cols)
-            continue;
-
-          if (bScan(l, k) != 0) {
-            _output(l + yOffset, k + xOffset)[0] = 255;
-            _output(l + yOffset, k + xOffset)[1] = 0;
-            _output(l + yOffset, k + xOffset)[2] = 0;
-          }
-        }
-      }
-
-      for (int l = -10; l <= 10; ++l) {
-        for (int k = -10; k <= 10; ++k) {
-          _output(l + nodeA.y, k + nodeA.x)[0] = 0;
-          _output(l + nodeA.y, k + nodeA.x)[1] = 255;
-          _output(l + nodeA.y, k + nodeA.x)[2] = 0;
-
-          _output(l + nodeB.y, k + nodeB.x)[0] = 0;
-          _output(l + nodeB.y, k + nodeB.x)[1] = 255;
-          _output(l + nodeB.y, k + nodeB.x)[2] = 0;
-        }
-      }
-
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-
-      cv::imshow("Preview", output);
-
-      std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color
-                << std::endl;
-      std::cout << adjacencyMatrix(j, i) << std::endl;
-      std::cout << "urnary: " << nodeA.getWeight() << "   " << nodeB.getWeight()
-                << std::endl;
-
-      int kc = cv::waitKey(0);
-      if (kc == 27)
-        break;
-      else if (kc == 8)
-        j = j > 0 ? j - 1 : 0;
-      else
-        ++j;
+      usablePairs.emplace_back(i, j);
     }
+  }
+
+  bool nextI = false;
+  int currentI = 0;
+  for (int k = 0; k < usablePairs.size();) {
+    int i, j;
+    std::tie(i, j) = usablePairs[k];
+
+    const place::node &nodeA = nodes[i];
+    const place::node &nodeB = nodes[j];
+
+    if (nextI) {
+      if (i == currentI) {
+        ++k;
+        continue;
+      } else
+        nextI = false;
+    }
+
+    if (FLAGS_graphColor != -1 &&
+        (nodeA.color != FLAGS_graphColor && nodeB.color != FLAGS_graphColor)) {
+      ++k;
+      continue;
+    }
+    /*if (i > j)
+      continue;*/
+
+    std::cout << "(" << i << ", " << j << ")" << std::endl;
+
+    const Eigen::MatrixXb &aScan = scans[nodeA.color][nodeA.rotation];
+    const Eigen::MatrixXb &bScan = scans[nodeB.color][nodeB.rotation];
+
+    const Eigen::Vector2i &zeroZeroA = zeroZeros[nodeA.color][nodeA.rotation];
+    const Eigen::Vector2i &zeroZeroB = zeroZeros[nodeB.color][nodeB.rotation];
+
+    cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
+    fpColor.copyTo(output);
+
+    cv::Mat_<cv::Vec3b> _output = output;
+
+    int yOffset = nodeA.y - zeroZeroA[1];
+    int xOffset = nodeA.x - zeroZeroA[0];
+    for (int k = 0; k < aScan.cols(); ++k) {
+      for (int l = 0; l < aScan.rows(); ++l) {
+        if (l + yOffset < 0 || l + yOffset >= output.rows)
+          continue;
+        if (k + xOffset < 0 || k + xOffset >= output.cols)
+          continue;
+
+        if (aScan(l, k) != 0) {
+          _output(l + yOffset, k + xOffset)[0] = 0;
+          _output(l + yOffset, k + xOffset)[1] = 0;
+          _output(l + yOffset, k + xOffset)[2] = 255;
+        }
+      }
+    }
+
+    yOffset = nodeB.y - zeroZeroB[1];
+    xOffset = nodeB.x - zeroZeroB[0];
+    for (int k = 0; k < bScan.cols(); ++k) {
+      for (int l = 0; l < bScan.rows(); ++l) {
+        if (l + yOffset < 0 || l + yOffset >= output.rows)
+          continue;
+        if (k + xOffset < 0 || k + xOffset >= output.cols)
+          continue;
+
+        if (bScan(l, k) != 0) {
+          _output(l + yOffset, k + xOffset)[0] = 255;
+          _output(l + yOffset, k + xOffset)[1] = 0;
+          _output(l + yOffset, k + xOffset)[2] = 0;
+        }
+      }
+    }
+
+    for (int l = -10; l <= 10; ++l) {
+      for (int k = -10; k <= 10; ++k) {
+        _output(l + nodeA.y, k + nodeA.x)[0] = 0;
+        _output(l + nodeA.y, k + nodeA.x)[1] = 255;
+        _output(l + nodeA.y, k + nodeA.x)[2] = 0;
+
+        _output(l + nodeB.y, k + nodeB.x)[0] = 0;
+        _output(l + nodeB.y, k + nodeB.x)[1] = 255;
+        _output(l + nodeB.y, k + nodeB.x)[2] = 0;
+      }
+    }
+
+    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+
+    cv::imshow("Preview", output);
+
+    std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color
+              << std::endl
+              << adjacencyMatrix(j, i) << std::endl
+              << "urnary: " << nodeA.nw << "  " << nodeA.hWeight << "   "
+              << nodeB.nw << "  " << nodeB.hWeight << std::endl;
+
+    int kc = cv::waitKey(0);
+    if (kc == 27) {
+      nextI = true;
+      currentI = i;
+    } else if (kc == 8) {
+      k = k == 0 ? 0 : k - 1;
+    } else
+      ++k;
   }
 }
 
@@ -703,45 +734,44 @@ void place::displayBest(
   for (int i = 0; i < bestNodes.size();) {
     auto &n = bestNodes[i];
     std::cout << n << std::endl;
-    if (n.agreement == -1000)
-      continue;
-
     cv::Mat output = fpColor.clone();
+    if (n.agreement != -1000) {
 
-    cv::Mat_<cv::Vec3b> _output = output;
-    auto &scan = scans[n.color][n.rotation];
-    auto &zeroZero = zeroZeros[n.color][n.rotation];
-    const int xOffset = n.x - zeroZero[0];
-    const int yOffset = n.y - zeroZero[1];
+      cv::Mat_<cv::Vec3b> _output = output;
+      auto &scan = scans[n.color][n.rotation];
+      auto &zeroZero = zeroZeros[n.color][n.rotation];
+      const int xOffset = n.x - zeroZero[0];
+      const int yOffset = n.y - zeroZero[1];
 
-    for (int i = 0; i < scan.cols(); ++i) {
-      if (i + xOffset < 0 || i + xOffset >= output.cols)
-        continue;
-
-      for (int j = 0; j < scan.rows(); ++j) {
-        if (j + yOffset < 0 || j + yOffset >= output.rows)
+      for (int i = 0; i < scan.cols(); ++i) {
+        if (i + xOffset < 0 || i + xOffset >= output.cols)
           continue;
-        if (scan(j, i) != 0) {
-          if (!n.locked) {
-            _output(yOffset + j, xOffset + i)[0] = 0;
-            _output(yOffset + j, xOffset + i)[1] = 0;
-            _output(yOffset + j, xOffset + i)[2] = 255;
-          } else {
-            _output(yOffset + j, xOffset + i)[0] = 255;
-            _output(yOffset + j, xOffset + i)[1] = 0;
-            _output(yOffset + j, xOffset + i)[2] = 0;
+
+        for (int j = 0; j < scan.rows(); ++j) {
+          if (j + yOffset < 0 || j + yOffset >= output.rows)
+            continue;
+          if (scan(j, i) != 0) {
+            if (!n.locked) {
+              _output(yOffset + j, xOffset + i)[0] = 0;
+              _output(yOffset + j, xOffset + i)[1] = 0;
+              _output(yOffset + j, xOffset + i)[2] = 255;
+            } else {
+              _output(yOffset + j, xOffset + i)[0] = 255;
+              _output(yOffset + j, xOffset + i)[1] = 0;
+              _output(yOffset + j, xOffset + i)[2] = 0;
+            }
           }
         }
       }
-    }
 
-    for (int j = -10; j < 10; ++j) {
-      uchar *dst = output.ptr<uchar>(j + n.y);
-      for (int i = -10; i < 10; ++i) {
-        const int col = 3 * (i + n.x);
-        dst[col + 0] = 0;
-        dst[col + 1] = 255;
-        dst[col + 2] = 0;
+      for (int j = -10; j < 10; ++j) {
+        uchar *dst = output.ptr<uchar>(j + n.y);
+        for (int i = -10; i < 10; ++i) {
+          const int col = 3 * (i + n.x);
+          dst[col + 0] = 0;
+          dst[col + 1] = 255;
+          dst[col + 2] = 0;
+        }
       }
     }
 
@@ -863,9 +893,10 @@ typedef opengm::DiscreteSpace<> Space;
 typedef opengm::ExplicitFunction<double> Function;
 typedef opengm::GraphicalModel<double, opengm::Adder> Model;
 
-Model createModel(const Eigen::MatrixXE &adjacencyMatrix,
-                  const std::vector<place::node> &nodes,
-                  std::vector<size_t> &numberOfLabels, size_t *&labelSize) {
+static Model createModel(const Eigen::MatrixXE &adjacencyMatrix,
+                         const std::vector<place::node> &nodes,
+                         std::vector<size_t> &numberOfLabels,
+                         size_t *&labelSize) {
   {
     size_t i = 0;
     const place::node *prevNode = &nodes[0];
@@ -895,10 +926,10 @@ Model createModel(const Eigen::MatrixXE &adjacencyMatrix,
   return Model(Space(labelSize, labelSize + numberOfLabels.size()));
 }
 
-void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
-                   const std::vector<place::node> &nodes,
-                   const std::vector<size_t> &numberOfLabels,
-                   const size_t *labelSize, Model &gm) {
+static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
+                          const std::vector<place::node> &nodes,
+                          const std::vector<size_t> &numberOfLabels,
+                          const size_t *labelSize, Model &gm) {
   const int numVars = numberOfLabels.size();
   // Add urnary terms
   for (size_t i = 0, offset = 0; i < numVars; ++i) {
@@ -958,6 +989,7 @@ void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
 void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
                       const std::vector<place::node> &nodes,
                       std::vector<place::SelectedNode> &bestNodes) {
+  std::cout << "Solving" << std::endl;
   // Figure out how many different variables and
   // labels per variable
   std::vector<size_t> numberOfLabels;
@@ -965,14 +997,41 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   Model gm = createModel(adjacencyMatrix, nodes, numberOfLabels, labelSize);
   populateModel(adjacencyMatrix, nodes, numberOfLabels, labelSize, gm);
 
+  constexpr size_t numIters = 60000;
+
+  /*typedef opengm::TrbpUpdateRules<Model, opengm::Maximizer> UpdateRules;
+  typedef opengm::MessagePassing<Model, opengm::Maximizer, UpdateRules,
+                                 opengm::MaxDistance>
+      Solver;
+  constexpr double convergenceBound = 1e-7;
+  constexpr double damping = 0.0;
+  Solver::Parameter parameter(numIters, convergenceBound, damping);*/
+
   // set up the optimizer (TRW)
   typedef opengm::TRWSi_Parameter<Model> Parameter;
   typedef opengm::TRWSi<Model, opengm::Maximizer> Solver;
-
-  Parameter parameter(500);
+  Parameter parameter(numIters);
   Solver solver(gm, parameter);
-  Solver::TimingVisitorType verboseVisitor;
-  solver.infer(verboseVisitor);
+
+  // Set up MQPBO
+  /*typedef opengm::MQPBO<Model, opengm::Maximizer> Solver;
+  Solver::Parameter parameter;
+  parameter.useKovtunsMethod_ = false;
+  parameter.rounds_ = 100;
+  parameter.strongPersistency_ = true;
+  parameter.permutationType_ = Solver::MINMARG;
+  Solver solver(gm, parameter);*/
+
+  Solver::EmptyVisitorType visitor;
+
+  boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer;
+  solver.infer(visitor);
+  delete timer;
+
+  std::cout << std::endl
+            << solver.name() << " found a solution with a value of "
+            << solver.value() << " bound " << solver.bound() << std::endl
+            << std::endl;
 
   const int numVars = numberOfLabels.size();
   std::vector<Model::LabelType> labeling(numVars);
@@ -1054,6 +1113,15 @@ void place::saveGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
   out.close();
 }
 
+static double clampedNorm(double val, double center, double average,
+                          double sigma) {
+  constexpr double clampVal = 2.5;
+
+  const double norm = (val - average) / sigma;
+  return val > center ? std::max(0.0, std::min(clampVal, norm))
+                      : std::max(-clampVal / 2.0, std::min(0.0, norm));
+}
+
 void place::normalizeWeights(Eigen::MatrixXE &adjacencyMatrix,
                              std::vector<place::node> &nodes) {
   std::vector<int> numberOfLabels;
@@ -1115,18 +1183,21 @@ void place::normalizeWeights(Eigen::MatrixXE &adjacencyMatrix,
     sigmaP /= countP - 1;
     sigmaP = sqrt(sigmaP);
 
-    averageW = std::max(0.1, averageW);
-    averageP = std::max(0.3, averageP);
+    constexpr double geoCenter = 0.1, panoCenter = 0.3;
+    averageW = std::max(geoCenter, averageW);
+    averageP = std::max(panoCenter, averageP);
 
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
         if (weight && countW > 1 && Eigen::numext::isfinite(sigmaW))
-          adjacencyMatrix(j + rowOffset, i).w = (weight - averageW) / sigmaW;
+          adjacencyMatrix(j + rowOffset, i).w =
+              clampedNorm(weight, geoCenter, averageW, sigmaW);
 
         if (pano && countP > 1 && Eigen::numext::isfinite(sigmaP))
-          adjacencyMatrix(j + rowOffset, i).panoW = (pano - averageP) / sigmaP;
+          adjacencyMatrix(j + rowOffset, i).panoW =
+              clampedNorm(pano, panoCenter, averageP, sigmaP);
       }
     }
     rowOffset += numberOfLabels[a];

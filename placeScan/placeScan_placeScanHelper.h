@@ -29,7 +29,7 @@ void loadInScans(const std::string &scanName, const std::string &zerosFile,
                  std::vector<cv::Mat> &rotatedScans,
                  std::vector<Eigen::Vector2i> &zeroZero);
 
-void loadInScans(const std::string &scanName, const std::string &zerosFile,
+void loadInScans(const std::string &scanName,
                  std::vector<cv::Mat> &rotatedScans);
 
 void loadInScansAndMasks(const std::string &scanName,
@@ -164,7 +164,8 @@ int getCutoffIndex(const std::string &name, const std::vector<E> &list,
   }
 
   // return std::min(instant ? i : i + 1, (int)list.size());
-  return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));
+  // return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));
+  return std::min(5, (int)list.size());
 }
 } // namespace place
 

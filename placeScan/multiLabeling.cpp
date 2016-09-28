@@ -246,9 +246,36 @@ void multi::Labeler::weightEdges() {
       place::saveGraph(adjacencyMatrix, 0);
   }
   place::normalizeWeights(adjacencyMatrix, R1Nodes);
+
+  place::createHigherOrderTermsV2(masks, zeroZeros, R1Nodes, highOrderV2);
+
+  for (auto &pair : highOrderV2) {
+    auto &incident = pair.first;
+    auto &weights = pair.second;
+    for (int i = 0; i < incident.size(); ++i) {
+      // R1Nodes[incident[i]].hWeight += weights[i];
+
+      for (int j = 0; j < incident.size(); ++j) {
+        const int id1 = incident[i];
+        const int id2 = incident[j];
+
+        if (R1Nodes[id1].color == R1Nodes[id2].color)
+          continue;
+
+        const double weight = -0.5 * std::max(weights[i], weights[j]);
+        adjacencyMatrix(id1, id2).hWeight += weight;
+        adjacencyMatrix(id2, id1).hWeight += weight;
+      }
+    }
+  }
+  highOrderV2.clear();
 }
 
 void multi::Labeler::solveTRW() {
+  std::vector<place::R2Node> tmp;
+  for (auto &n : R1Nodes)
+    tmp.emplace_back(n, false);
+
   place::TRWSolver(adjacencyMatrix, R1Nodes, bestNodes);
   unlockNodes(bestNodes);
   exclusionLite(bestNodes, unwantedNeighbors);

@@ -9,25 +9,45 @@
 #include "getRotations.h"
 
 #include <algorithm>
-#include <eigen3/Eigen/Dense>
-#include <eigen3/Eigen/StdVector>
 #include <fstream>
 #include <iostream>
+#include <string>
+
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/StdVector>
+
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/xfeatures2d.hpp>
-#include <string>
 
 #include <boost/progress.hpp>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/uniform_sampling.h>
+#include <pcl/visualization/pcl_visualizer.h>
 
 #include <dirent.h>
 
-int PTXrows, PTXcols;
+pcl::visualization::PCLVisualizer::Ptr
+rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
+  // --------------------------------------------
+  // -----Open 3D viewer and add point cloud-----
+  // --------------------------------------------
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
+      new pcl::visualization::PCLVisualizer("3D Viewer"));
+  viewer->setBackgroundColor(0, 0, 0);
+  pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(cloud);
+  viewer->addPointCloud<PointType>(cloud, rgb, "sample cloud");
+  viewer->setPointCloudRenderingProperties(
+      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
+  viewer->addCoordinateSystem(1.0);
+  viewer->initCameraParameters();
+  return (viewer);
+}
+
+static int PTXrows, PTXcols;
 
 static inline bool fexists(const std::string &file) {
   std::ifstream in(file, std::ios::in);
@@ -589,7 +609,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
     cvNamedWindow("Tracking", CV_WINDOW_NORMAL);
     cv::imshow("Tracking", scaledTracking);
     cvNamedWindow("PTX", CV_WINDOW_NORMAL);
-    cv::imshow("PTX", scaledPTX);
+    cv::imshow("PTX", PTXPanorama);
     cv::Mat out;
     cv::drawKeypoints(scaledPTX, keypoints, out);
     cvNamedWindow("KP", CV_WINDOW_NORMAL);
@@ -663,11 +683,18 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
 
   pcl::PointCloud<PointType>::Ptr filtered_cloud(
       new pcl::PointCloud<PointType>);
+
   pcl::UniformSampling<PointType> uniform_sampling;
   uniform_sampling.setInputCloud(cloud);
   // 85 mm
   uniform_sampling.setRadiusSearch(0.0085f);
   uniform_sampling.filter(*filtered_cloud);
+
+  // pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(filtered_cloud);
+  // while (!viewer->wasStopped()) {
+  //   viewer->spinOnce(100);
+  //   boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+  // }
 
   pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
   pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>);

@@ -526,3 +526,47 @@ Leaving: 63687032  19463293
 Enter: cse_binary_165.dat
 Leaving: 63254310  18678951
 Saving
+Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor1
+[ 11%] Built target globals_lib
+[ 22%] Built target preprocessor
+[ 51%] Built target scanDensity
+[ 92%] Built target placeScan
+[100%] Built target joiner
+Running placeScan
+
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor2
+[ 11%] Built target globals_lib
+[ 22%] Built target preprocessor
+[ 51%] Built target scanDensity
+[ 92%] Built target placeScan
+[100%] Built target joiner
+Running placeScan
+
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor3
+[ 11%] Built target globals_lib
+[ 22%] Built target preprocessor
+[ 51%] Built target scanDensity
+[ 92%] Built target placeScan
+[100%] Built target joiner
+Running placeScan
+
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor4
+[ 11%] Built target globals_lib
+[ 22%] Built target preprocessor
+[ 51%] Built target scanDensity
+[ 92%] Built target placeScan
+[100%] Built target joiner
+Running placeScan
+
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************

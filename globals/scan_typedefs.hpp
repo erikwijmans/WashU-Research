@@ -46,6 +46,7 @@ public:
   double w, wSignificance;
   double panoW, panoSignificance;
   double distance;
+  double hWeight = 0.0;
   int numSim = 0, numDiff = 0;
   edge()
       : pA{0}, feA{0}, feB{0}, fx{0}, w{0}, wSignificance{0}, panoW{0},
@@ -77,12 +78,18 @@ private:
   Eigen::Vector2d *normal;
   side *s;
 };
+
+struct H {
+  std::vector<int> incident;
+  std::vector<double> weights;
+};
 } // place
 
 namespace Eigen {
 typedef Array<Eigen::Vector3f, Dynamic, Dynamic, RowMajor> ArrayXV3f;
 typedef Array<place::edge, Dynamic, Dynamic> MatrixXE;
 typedef Array<place::Wall::side, Dynamic, Dynamic> ArrayXH;
+typedef Array<place::H, Dynamic, Dynamic> ArrayXH2;
 typedef Matrix<char, Dynamic, Dynamic> MatrixXb;
 typedef Matrix<int, Dynamic, Dynamic, RowMajor> RowMatrixXi;
 typedef Matrix<char, Dynamic, Dynamic, RowMajor> RowMatrixXb;
@@ -169,10 +176,11 @@ struct ExclusionMap {
                        Eigen::RowMajor>
       Map;
   Map *maps;
-  double exclusionX, exclusionY;
+  double exclusionSize;
   int rows, cols;
 
-  ExclusionMap(double exclusionX, double exclusionY, int rows, int cols);
+  ExclusionMap(double exclusionSize, int rows, int cols);
+  ExclusionMap(double exclusionSize, int rows, int cols, int numRots);
   ~ExclusionMap();
 
   Map &operator[](int r);
@@ -195,10 +203,11 @@ typedef struct {
 struct node : public posInfo {
   double w;
   double nw;
+  double hWeight = 0.0;
   int color, id;
   node(const posInfo &s, double w, double nw, int color, int id)
       : posInfo{s}, w{w}, nw{nw}, color{color}, id{id} {};
-  inline double getWeight() const { return nw; };
+  double getWeight() const;
 };
 
 struct SelectedNode : public node {

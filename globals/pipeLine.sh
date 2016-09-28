@@ -37,10 +37,10 @@ make || exit 1
 #scanDensity=$2/scanDensity/scanDensity
 #$scanDensity -dataPath=$1 || exit 1
 #
-#echo "Running placeScan"
-#placeScan=$2/placeScan/placeScan
-#$placeScan -dataPath=$1 -V1 -noreshow || exit 1
+echo "Running placeScan"
+placeScan=$2/placeScan/placeScan
+$placeScan -dataPath=$1 -V2 -redo || exit 1
 
-echo "Running joiner"
-joiner=$2/joiner/joiner
-$joiner -dataPath=$1 -redo || exit 1
+#echo "Running joiner"
+#joiner=$2/joiner/joiner
+#$joiner -dataPath=$1 -redo || exit 1

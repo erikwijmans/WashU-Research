@@ -403,7 +403,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
   }
   score /= count;
 
-  constexpr double precent = 0.05;
+  constexpr double precent = 0.025;
   const double expectedCount =
       (truePointsInA.size() + truePointsInB.size()) / 2.0;
 

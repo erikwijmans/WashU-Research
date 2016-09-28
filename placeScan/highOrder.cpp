@@ -157,82 +157,11 @@ static void labelNeighbours(const cv::Mat &image, const int currentLabel,
   labelNeighbours(image, currentLabel, labeledImage, toLabel, direction);
 }
 
-
-void place::getDirections() {
-  /*Eigen::RowMatrixXi labeledImageX = Eigen::RowMatrixXi::Zero(floorPlan.rows,
-                                                              floorPlan.cols),
-                     labeledImageY = Eigen::RowMatrixXi::Zero(floorPlan.rows,
-                                                              floorPlan.cols);
-  std::list<std::pair<int, int>> toLabel;
-  int currentLabel = 1;
-  for (int j = 0; j < floorPlan.rows; ++j) {
-    const uchar *src = floorPlan.ptr<uchar>(j);
-    for (int i = 0; i < floorPlan.cols; ++i) {
-      if (src[i] != 255 && labeledImageX(j, i) == 0) {
-        labeledImageX(j, i) = currentLabel;
-        toLabel.emplace_front(j, i);
-
-        labelNeighbours(floorPlan, currentLabel, labeledImageX, toLabel, 0);
-
-        ++currentLabel;
-      }
-
-      if (src[i] != 255 && labeledImageY(j, i) == 0) {
-        labeledImageY(j, i) = currentLabel;
-        toLabel.emplace_front(j, i);
-
-        labelNeighbours(floorPlan, currentLabel, labeledImageY, toLabel, 1);
-
-        ++currentLabel;
-      }
-    }
-  }
-
-  Eigen::VectorXi countPerLabel = Eigen::VectorXi::Zero(currentLabel);
-  std::for_each(labeledImageX.data(),
-                labeledImageX.data() + labeledImageX.size(),
-                [&countPerLabel](const int label) { ++countPerLabel[label];
-                });
-  std::for_each(labeledImageY.data(),
-                labeledImageY.data() + labeledImageY.size(),
-                [&countPerLabel](const int label) { ++countPerLabel[label];
-                });
-
-  Eigen::RowMatrixXi labeledImage =
-      Eigen::RowMatrixXi::Zero(floorPlan.rows, floorPlan.cols);
-  auto xPtr = labeledImageX.data();
-  auto yPtr = labeledImageY.data();
-  auto dstPtr = labeledImage.data();
-  for (int i = 0; i < labeledImage.size(); ++i) {
-    if (countPerLabel[xPtr[i]] > countPerLabel[yPtr[i]]) {
-      dstPtr[i] = xPtr[i];
-    } else {
-      dstPtr[i] = yPtr[i];
-    }
-  }
-
-  cv::Vec3b *colors = new cv::Vec3b[currentLabel + 1];
-  for (int i = 0; i < currentLabel + 1; ++i) {
-    colors[i] = randomColor();
-  }
-
-  cv::Mat_<cv::Vec3b> out(floorPlan.size(), cv::Vec3b(255, 255, 255));
-  for (int j = 0; j < floorPlan.rows; ++j) {
-    for (int i = 0; i < floorPlan.cols; ++i) {
-      if (labeledImage(j, i)) {
-        out(j, i) = colors[labeledImage(j, i)];
-      }
-    }
-  }
-  delete[] colors;
-
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", out);
-  cv::waitKey(0);*/
-  constexpr int kernelSize = 7;
+cv::Mat place::getDirections() {
+  constexpr int kernelSize = 25;
   constexpr int midPoint = kernelSize / 2;
   constexpr double sum = kernelSize;
-  constexpr int numLines = kernelSize / 2;
+  constexpr int numLines = 1;
 
   std::vector<std::pair<cv::Mat, double>> kernels;
 
@@ -292,29 +221,29 @@ void place::getDirections() {
   double delta = 0;
   int ddepth = -1;
   cv::Mat_<cv::Vec3b> out(floorPlan.size(), cv::Vec3b(255, 255, 255));
-  cv::Mat maxResponse(floorPlan.size(), CV_8UC1, cv::Scalar(0));
+  cv::Mat maxResponse(floorPlan.size(), CV_8UC1, cv::Scalar(255));
 
   for (auto &k : kernels) {
     auto &kernel = k.first;
     const double slope = k.second;
     kernel /= sum;
     cv::Mat dst;
-    cv::Mat src = cv::Scalar::all(255) - floorPlan;
+    cv::Mat src = floorPlan.clone();
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 1; ++i) {
       cv::filter2D(src, dst, ddepth, kernel, anchor, delta, cv::BORDER_DEFAULT);
       dst.copyTo(src);
-      cv::threshold(src, dst, 0.4 * 255, 255, 3);
-      dst.copyTo(src);
+      // cv::threshold(src, dst, 0.2 * 255, 255, cv::THRESH_TOZERO);
+      // dst.copyTo(src);
     }
-    cv::threshold(src, dst, 0.5 * 255, 255, 3);
+
     auto color = randomColor();
 
     for (int j = 0; j < dst.rows; ++j) {
       uchar *ptr = dst.ptr<uchar>(j);
       uchar *check = maxResponse.ptr<uchar>(j);
       for (int i = 0; i < dst.cols; ++i) {
-        if (ptr[i] > check[i]) {
+        if (ptr[i] < check[i]) {
           out(j, i) = color;
           check[i] = ptr[i];
         }
@@ -322,50 +251,15 @@ void place::getDirections() {
     }
   }
 
-  /*cv::Mat dst, cdst;
-  Canny(floorPlan, dst, 50, 200, 3);
-  cvtColor(dst, cdst, CV_GRAY2BGR);
-
-  std::unordered_map<double, cv::Vec3b> thetaToColor;
-#if 1
-  std::vector<cv::Vec2f> lines;
-  cv::HoughLines(dst, lines, 1, CV_PI / 180, 100, 5, 1);
-
-  for (size_t i = 0; i < lines.size(); i++) {
-    double rho = lines[i][0], theta = lines[i][1];
-    cv::Point pt1, pt2;
-    double a = cos(theta), b = sin(theta);
-    double x0 = a * rho, y0 = b * rho;
-
-    cv::Vec3b color;
-    auto it = thetaToColor.find(theta);
-    if (it == thetaToColor.cend()) {
-      color = randomColor();
-      thetaToColor.emplace(theta, color);
-    } else
-      color = it->second;
-
-    cdst.at<cv::Vec3b>(y0, x0) = color;
+  if (FLAGS_visulization) {
+    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
+    cv::imshow("Preview", out);
+    cvNamedWindow("Max", CV_WINDOW_NORMAL);
+    cv::imshow("Max", maxResponse);
+    cv::waitKey(0);
   }
-#else
-  std::vector<cv::Vec4i> lines;
-  cv::HoughLinesP(dst, lines, 1, CV_PI / 180, 10, 10, 10);
-  for (size_t i = 0; i < lines.size(); i++) {
-    cv::Vec4i l = lines[i];
-    cv::line(cdst, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), randomColor(),
-             3, CV_AA);
-  }
-#endif
-  cvNamedWindow("canny", CV_WINDOW_NORMAL);
-  cv::imshow("canny", dst);
-  cvNamedWindow("detected lines", CV_WINDOW_NORMAL);
-  cv::imshow("detected lines", cdst);*/
 
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", out);
-  cvNamedWindow("Max", CV_WINDOW_NORMAL);
-  cv::imshow("Max", maxResponse);
-  cv::waitKey(0);
+  return maxResponse;
 }
 
 void place::createHigherOrderTerms(
@@ -375,7 +269,6 @@ void place::createHigherOrderTerms(
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
     multi::Labeler::HighOrder &highOrder) {
 
-  getDirections();
   const double scale = buildingScale.getScale();
   Eigen::ArrayXH hMap(floorPlan.rows, floorPlan.cols);
   for (int a = 0; a < nodes.size(); ++a) {
@@ -497,6 +390,86 @@ void place::createHigherOrderTerms(
       ++it;
 
   // dispHMap(hMap, highOrder);
+}
+
+void place::createHigherOrderTermsV2(
+    const std::vector<std::vector<Eigen::MatrixXb>> &freeSpace,
+    const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
+    const std::vector<place::node> &nodes,
+    multi::Labeler::HighOrderV2 &highOrder) {
+
+  const double scale = buildingScale.getScale();
+  Eigen::ArrayXH2 hMap(floorPlan.rows, floorPlan.cols);
+
+  for (int a = 0; a < nodes.size(); ++a) {
+    auto &currentNode = nodes[a];
+    auto &currentScan = freeSpace[currentNode.color][currentNode.rotation];
+    auto &zeroZero = zeroZeros[currentNode.color][currentNode.rotation];
+    const int xOffset = currentNode.x - zeroZero[0],
+              yOffset = currentNode.y - zeroZero[1];
+
+    double weight = 0;
+
+    constexpr double maxRadius = 500.0;
+
+    for (int j = 0; j < currentScan.rows(); ++j) {
+      if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+        continue;
+      for (int i = 0; i < currentScan.cols(); ++i) {
+        if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
+          continue;
+
+        const double radius = std::sqrt((j - zeroZero[1]) * (j - zeroZero[1]) +
+                                        (i - zeroZero[0]) * (i - zeroZero[0])) /
+                              scale;
+
+        weight += radius <= maxRadius && currentScan(j, i) ? 1 : 0;
+      }
+    }
+
+    weight = 1.0 / weight;
+
+    for (int j = 0; j < currentScan.rows(); ++j) {
+      if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+        continue;
+      for (int i = 0; i < currentScan.cols(); ++i) {
+        if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
+          continue;
+
+        const double radius = std::sqrt((j - zeroZero[1]) * (j - zeroZero[1]) +
+                                        (i - zeroZero[0]) * (i - zeroZero[0])) /
+                              scale;
+
+        if (radius <= maxRadius && currentScan(j, i)) {
+          auto &h = hMap(j + yOffset, i + xOffset);
+
+          h.incident.emplace_back(a);
+          h.weights.emplace_back(weight);
+        }
+      }
+    }
+  }
+
+  auto const data = hMap.data();
+
+  for (int i = 0; i < hMap.size(); ++i) {
+
+    auto &key = (data + i)->incident;
+
+    if (key.size()) {
+
+      auto &w = (data + i)->weights;
+      Eigen::VectorXd weights(w.size());
+      for (int i = 0; i < w.size(); ++i)
+        weights[i] = w[i];
+
+      auto it = highOrder.find(key);
+      if (it != highOrder.cend())
+        it->second += weights;
+      else
+        highOrder.emplace(key, weights);
+    }
+  }
 }
 
 void place::displayHighOrder(

@@ -28,6 +28,7 @@ public:
     HighOrderEle(double w, int c) : w{w}, c{c} {};
   };
   typedef std::unordered_map<std::vector<int>, HighOrderEle> HighOrder;
+  typedef std::unordered_map<std::vector<int>, Eigen::VectorXd> HighOrderV2;
 
 private:
   Eigen::MatrixXE adjacencyMatrix;
@@ -40,6 +41,7 @@ private:
   std::vector<std::vector<place::MetaData>> voxelInfo;
   std::vector<std::vector<Eigen::MatrixXb>> scans, masks;
   HighOrder highOrder;
+  HighOrderV2 highOrderV2;
   std::vector<std::vector<Eigen::Matrix3d>> rotationMatricies;
   std::vector<place::Panorama> panoramas;
   std::unordered_map<int, std::unordered_set<int>> unwantedNeighbors;

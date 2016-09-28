@@ -21,6 +21,12 @@ void createHigherOrderTerms(
     const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
     multi::Labeler::HighOrder &highOrder);
 
+void createHigherOrderTermsV2(
+    const std::vector<std::vector<Eigen::MatrixXb>> &freeSpace,
+    const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
+    const std::vector<place::node> &nodes,
+    multi::Labeler::HighOrderV2 &highOrder);
+
 void displayHighOrder(
     const multi::Labeler::HighOrder highOrder,
     const std::vector<place::R2Node> &nodes,
@@ -35,7 +41,7 @@ void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
 void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
                const std::vector<place::R2Node> &nodes,
                std::vector<place::SelectedNode> &bestNodes);
-void getDirections();
+cv::Mat getDirections();
 } // place
 
 #endif // PLACE_SCAN_HIGH_ORDER_H

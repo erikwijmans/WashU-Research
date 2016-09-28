@@ -91,13 +91,13 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   }
 
   if (FLAGS_startNumber != -1)
-  	FLAGS_startIndex = numberToIndex(binaryNames, FLAGS_startNumber);
+    FLAGS_startIndex = numberToIndex(binaryNames, FLAGS_startNumber);
 
   if (FLAGS_numScans == -1)
     FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
 
-  if (FLAGS_startIndex + FLAGS_numScans > binaryNames.size()
-    || FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size()) {
+  if (FLAGS_startIndex + FLAGS_numScans > binaryNames.size() ||
+      FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size()) {
     std::cout << "Not enough binary or rot files" << std::endl;
     exit(1);
   }
@@ -325,12 +325,9 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
   double average, sigma;
   const float *dataPtr = total.data();
-  std::tie(average, sigma) = place::aveAndStdev(dataPtr, dataPtr + total.size(),
-                        [](double v) {
-                          return v;
-                        }, [](double v) -> bool {
-                          return v;
-                        });
+  std::tie(average, sigma) = place::aveAndStdev(
+      dataPtr, dataPtr + total.size(), [](double v) { return v; },
+      [](double v) -> bool { return v; });
 
   int newRows = sqrt(2) * std::max(total.rows(), total.cols());
   int newCols = newRows;
@@ -448,12 +445,9 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
   double average, sigma;
   const double *vPtr = collapsedCount.data();
-  std::tie(average, sigma) = place::aveAndStdev(vPtr, vPtr + collapsedCount.size(),
-                        [](double v) {
-                          return v;
-                        }, [](double v) -> bool {
-                          return v;
-                        });
+  std::tie(average, sigma) = place::aveAndStdev(
+      vPtr, vPtr + collapsedCount.size(), [](double v) { return v; },
+      [](double v) -> bool { return v; });
   int newRows =
       sqrt(2) * std::max(collapsedCount.rows(), collapsedCount.cols());
   int newCols = newRows;
