@@ -22,25 +22,27 @@ mkdir -p $1/voxelGrids/R0
 mkdir -p $1/voxelGrids/R1
 mkdir -p $1/voxelGrids/R2
 mkdir -p $1/voxelGrids/metaData
+mkdir -p $1/doors/pointcloud
+mkdir -p $1/doors/floorplan
 
-# Build the project
-cd $2
-make || exit 1
+#run the 4 programs
 
-#run the 3 programs
+echo "Running preprocessor"
+make -j4 -C $2/preprocessor || exit 1
+preprocessor=$2/preprocessor/preprocessor
+$preprocessor -dataPath=$1 -redo || exit 1
 
-#echo "Running preprocessor"
-#preprocessor=$2/preprocessor/preprocessor
-#$preprocessor -dataPath=$1 || exit 1
-#
-#echo "Running scanDensity"
-#scanDensity=$2/scanDensity/scanDensity
-#$scanDensity -dataPath=$1 || exit 1
-#
+echo "Running scanDensity"
+make -j4 -C $2/scanDensity || exit 1
+scanDensity=$2/scanDensity/scanDensity
+$scanDensity -dataPath=$1 -redo || exit 1
+
 echo "Running placeScan"
+make -j4 -C $2/placeScan || exit 1
 placeScan=$2/placeScan/placeScan
-$placeScan -dataPath=$1 -V2 -redo || exit 1
+$placeScan -dataPath=$1 -redo || exit 1
 
-#echo "Running joiner"
-#joiner=$2/joiner/joiner
-#$joiner -dataPath=$1 -redo || exit 1
+echo "Running joiner"
+make -j4 -C $2/joiner || exit 1
+joiner=$2/joiner/joiner
+$joiner -dataPath=$1 -redo || exit 1

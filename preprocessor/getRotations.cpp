@@ -22,15 +22,32 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &,
 void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &,
                              const Eigen::Vector3d &, Eigen::Vector3d &,
                              Eigen::Vector3d &);
-void getMajorAngles(const Eigen::Vector3d &, std::vector<Eigen::Matrix3d> &);
+void getMajorAngles(const Eigen::Vector3d &, const Eigen::Vector3d &,
+                    const Eigen::Vector3d &, std::vector<Eigen::Matrix3d> &);
 
 void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                  const std::string &outName) {
+                  const std::string &outName, Eigen::Vector3d &M1,
+                  Eigen::Vector3d &M2, Eigen::Vector3d &M3) {
 
   if (!FLAGS_redo) {
     std::ifstream in(outName, std::ios::in | std::ios::binary);
-    if (in.is_open())
+    if (in.is_open()) {
+      std::vector<Eigen::Matrix3d> R(NUM_ROTS);
+      std::vector<Eigen::Vector3d> M(3);
+      for (auto &r : R)
+        in.read(reinterpret_cast<char *>(r.data()), sizeof(Eigen::Matrix3d));
+
+      for (auto &m : M)
+        in.read(reinterpret_cast<char *>(m.data()), sizeof(double) * 3);
+
+      M1 = M[0];
+      M2 = M[1];
+      M3 = M[2];
+
+      in.close();
+
       return;
+    }
   }
 
   // NB: Convert pcl to eigen so linear algebra is easier
@@ -42,36 +59,52 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   if (!FLAGS_quietMode)
     std::cout << "N size: " << normals.size() << std::endl;
 
-  Eigen::Vector3d d1, d2, d3;
-  satoshiRansacManhattan1(normals, d1);
+  std::vector<Eigen::Vector3d> M(3);
+  satoshiRansacManhattan1(normals, M[0]);
   if (!FLAGS_quietMode) {
-    std::cout << "D1: " << d1 << std::endl << std::endl;
+    std::cout << "D1: " << M[0] << std::endl << std::endl;
   }
+
   // NB: Select normals that are perpendicular to the first
   // dominate direction
   std::vector<Eigen::Vector3d> N2;
   for (auto &n : normals)
-    if (std::asin(n.cross(d1).norm()) > PI / 2.0 - 0.02)
+    if (std::asin(n.cross(M[0]).norm()) > PI / 2.0 - 0.02)
       N2.push_back(n);
 
   if (!FLAGS_quietMode)
     std::cout << "N2 size: " << N2.size() << std::endl;
 
-  satoshiRansacManhattan2(N2, d1, d2, d3);
+  satoshiRansacManhattan2(N2, M[0], M[1], M[2]);
 
   if (!FLAGS_quietMode) {
-    std::cout << "D2: " << d2 << std::endl << std::endl;
-    std::cout << "D3: " << d3 << std::endl << std::endl;
+    std::cout << "D2: " << M[1] << std::endl << std::endl;
+    std::cout << "D3: " << M[2] << std::endl << std::endl;
   }
+
+  if (std::abs(M[0][2]) > 0.5) {
+    M1 = M[0];
+    M2 = M[1];
+  } else if (std::abs(M[1][2]) > 0.5) {
+    M1 = M[1];
+    M2 = M[0];
+  } else {
+    M1 = M[2];
+    M2 = M[0];
+  }
+
+  if (M1[2] < 0)
+    M1 *= -1.0;
+
+  M3 = M1.cross(M2);
+
+  M[0] = M1;
+  M[1] = M2;
+  M[2] = M3;
 
   std::vector<Eigen::Matrix3d> R(4);
 
-  if (std::abs(d1[2]) < 0.02)
-    getMajorAngles(d1, R);
-  else if (std::abs(d2[2]) < 0.02)
-    getMajorAngles(d2, R);
-  else
-    getMajorAngles(d3, R);
+  getMajorAngles(M1, M2, M3, R);
 
   if (!FLAGS_quietMode) {
     for (auto &r : R)
@@ -80,10 +113,14 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
   if (FLAGS_save) {
     std::ofstream binaryWriter(outName, std::ios::out | std::ios::binary);
-    for (int i = 0; i < R.size(); ++i) {
-      binaryWriter.write(reinterpret_cast<const char *>(R[i].data()),
+    for (auto &r : R)
+      binaryWriter.write(reinterpret_cast<const char *>(r.data()),
                          sizeof(Eigen::Matrix3d));
-    }
+
+    for (auto &m : M)
+      binaryWriter.write(reinterpret_cast<const char *>(m.data()),
+                         sizeof(double) * 3);
+
     binaryWriter.close();
   }
 }
@@ -198,11 +235,10 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
         auto &n = N[i];
         if (std::min(std::acos(std::abs(nest.dot(n))),
                      std::acos(std::abs(nest2.dot(n)))) < 0.02) {
-          if (std::acos(std::abs(nest.dot(n))) < 0.02) {
+          if (std::acos(std::abs(nest.dot(n))) < 0.02)
             x = n;
-          } else {
+          else
             x = n.cross(n1);
-          }
 
           if (nest.dot(x) < 0)
             privateAve -= x;
@@ -237,17 +273,30 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
   }
 }
 
-void getMajorAngles(const Eigen::Vector3d &M, std::vector<Eigen::Matrix3d> &R) {
-  // Angle between the dominate direction and the x-axis
-  const double theta = atan2(M[1], M[0]);
-  // Calculate the rotation matrix require to rotate a given axis onto
-  // the dominate direction.  Order is X, Y, -X, -Y
+void getMajorAngles(const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
+                    const Eigen::Vector3d &M3,
+                    std::vector<Eigen::Matrix3d> &R) {
+  /* List of possible dominate directions that could be the x-axis.
+    It's complimentary y-axis is just the next axis in the list.
+  */
+  const Eigen::Vector3d axises[] = {M2, M3, -M2, -M3};
+  auto &z = M1;
+
   for (int i = 0; i < NUM_ROTS; ++i) {
-    Eigen::Matrix3d out = Eigen::Matrix3d::Identity();
-    out(0, 0) = cos(-theta + 2 * PI / NUM_ROTS * i);
-    out(1, 1) = cos(-theta + 2 * PI / NUM_ROTS * i);
-    out(0, 1) = -sin(-theta + 2 * PI / NUM_ROTS * i);
-    out(1, 0) = sin(-theta + 2 * PI / NUM_ROTS * i);
+    Eigen::Matrix3d out;
+    auto &x = axises[i];
+    auto &y = axises[(i + 1) % NUM_ROTS];
+
+    for (int j = 0; j < 3; ++j) {
+      out(0, j) = x[j];
+      out(1, j) = y[j];
+      out(2, j) = z[j];
+    }
+
     R[i] = out;
+    /*for (int j = 0; j < 3; ++j) {
+      R[i](2, j) = -R[i](2, j);
+      R[i](1, j) = -R[i](1, j);
+    }*/
   }
 }

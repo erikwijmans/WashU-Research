@@ -70,7 +70,7 @@ bool reloadGraph(Eigen::MatrixXE &adjacencyMatrix, int level);
 void saveGraph(Eigen::MatrixXE &adjacencyMatrix, int level);
 
 template <typename T>
-bool localGroup(T &toCheck, const int yOffset, const int xOffset,
+auto localGroup(T &toCheck, const size_t yOffset, const size_t xOffset,
                 const int range) {
   for (int i = -range; i <= range; ++i) {
     if (xOffset + i < 0 || xOffset + i >= toCheck.cols())
@@ -79,10 +79,10 @@ bool localGroup(T &toCheck, const int yOffset, const int xOffset,
       if (yOffset + j < 0 || yOffset + j >= toCheck.rows())
         continue;
       if (toCheck(yOffset + j, xOffset + i))
-        return true;
+        return toCheck(yOffset + j, xOffset + i);
     }
   }
-  return false;
+  return static_cast<typename T::Scalar>(0);
 }
 
 void normalizeWeights(Eigen::MatrixXE &adjacencyMatrix,

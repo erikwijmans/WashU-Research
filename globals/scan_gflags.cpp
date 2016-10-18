@@ -46,6 +46,7 @@ DEFINE_string(voxelFolder, "voxelGrids/",
               "be appended to the dataPath.");
 DEFINE_string(rotFolder, "densityMaps/rotations/",
               "Path from dataPath to rotation files");
+DEFINE_string(doorsFolder, "doors/", "Path from dataPath to doors folder");
 DEFINE_string(panoFolder, "panoramas/", "path from dataPath to panoramas");
 DEFINE_string(PTXFolder, "PTXFiles/", "Path to PTXFiles");
 DEFINE_string(normalsFolder, "cloudNormals/", "name of normalsFolder");
@@ -84,6 +85,7 @@ void prependDataPath() {
   FLAGS_descriptorsFolder = FLAGS_dataPath + "/" + FLAGS_descriptorsFolder;
   FLAGS_SIFTFolder = FLAGS_dataPath + "/" + FLAGS_SIFTFolder;
   FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
+  FLAGS_doorsFolder = FLAGS_dataPath + "/" + FLAGS_doorsFolder;
 }
 
 void parseFolder(const std::string &name, std::vector<std::string> &out) {

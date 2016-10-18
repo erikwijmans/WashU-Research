@@ -262,7 +262,7 @@ void multi::Labeler::weightEdges() {
         if (R1Nodes[id1].color == R1Nodes[id2].color)
           continue;
 
-        const double weight = -0.5 * std::max(weights[i], weights[j]);
+        const double weight = -0.25 * (weights[i] + weights[j]);
         adjacencyMatrix(id1, id2).hWeight += weight;
         adjacencyMatrix(id2, id1).hWeight += weight;
       }

@@ -1,572 +1,227 @@
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor1
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
 Running preprocessor
+make: Entering directory '/home/erik/Projects/c++/build/preprocessor'
+make[1]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[ 50%] Built target globals_lib
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[100%] Built target preprocessor
+make[1]: Leaving directory '/home/erik/Projects/c++/build'
+make: Leaving directory '/home/erik/Projects/c++/build/preprocessor'
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
 Leaving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor2
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running preprocessor
+Running scanDensity
+make: Entering directory '/home/erik/Projects/c++/build/scanDensity'
+make[1]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[ 27%] Built target globals_lib
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[100%] Built target scanDensity
+make[1]: Leaving directory '/home/erik/Projects/c++/build'
+make: Leaving directory '/home/erik/Projects/c++/build/scanDensity'
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-Leaving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor3
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running preprocessor
+Running placeScan
+make: Entering directory '/home/erik/Projects/c++/build/placeScan'
+make[1]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[ 20%] Built target globals_lib
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[100%] Built target placeScan
+make[1]: Leaving directory '/home/erik/Projects/c++/build'
+make: Leaving directory '/home/erik/Projects/c++/build/placeScan'
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-Leaving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor4
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running preprocessor
+ 18086.403063s wall, 134892.390000s user + 63.840000s system = 134956.230000s CPU (746.2%)
+Starting up Labeler
+12889
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-Leaving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor5
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running preprocessor
+ 83.616366s wall, 654.670000s user + 0.150000s system = 654.820000s CPU (783.1%)
+Solving
+Number of labels: 5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_5_
+ 12.768961s wall, 12.760000s user + 0.000000s system = 12.760000s CPU (99.9%)
 
-0%   10   20   30   40   50   60   70   80   90   100%
-|----|----|----|----|----|----|----|----|----|----|
-***************************************************
-Leaving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor1
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
+TRWSi found a solution with a value of 245.011 bound 245.675
+
+Labels : 0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_3_0_0_0_0_0_0_1_1_0_0_0_0_0_1_2_0_0_0_4_0_0_1_0_0_1_0_0_1_0_0_0_0_0_0_0_1_0_0_0_0_2_0_3_0_2_1_0_0_0_0_0_0_1_0_
+0.0755273  0.273013
 Running joiner
-50
-Enter: DUC_binary_000.dat
-Leaving: 43942478  4894360
-Enter: DUC_binary_001.dat
-Leaving: 48645494  10941681
-Enter: DUC_binary_002.dat
-Leaving: 54718978  16004002
-Enter: DUC_binary_003.dat
-Leaving: 59978577  18320719
-Enter: DUC_binary_004.dat
-Leaving: 61904347  18133627
-Enter: DUC_binary_005.dat
-Leaving: 61913666  18128208
-Enter: DUC_binary_006.dat
-Leaving: 61981229  18535209
-Enter: DUC_binary_007.dat
-Leaving: 62421215  18751910
-Enter: DUC_binary_008.dat
-Leaving: 62354266  18735360
-Enter: DUC_binary_009.dat
-Leaving: 62376439  18135338
-Enter: DUC_binary_010.dat
-Leaving: 62075889  21742114
-Enter: DUC_binary_011.dat
-Leaving: 65669239  19273752
-Enter: DUC_binary_012.dat
-Leaving: 63245622  18480507
-Enter: DUC_binary_013.dat
-Leaving: 62034336  19869259
-Enter: DUC_binary_014.dat
-Leaving: 63713253  17792881
-Enter: DUC_binary_015.dat
-Leaving: 61574674  19195621
-Enter: DUC_binary_016.dat
-Leaving: 63195357  17701251
-Enter: DUC_binary_017.dat
-Leaving: 61471833  18948405
-Enter: DUC_binary_018.dat
-Leaving: 63056146  18135837
-Enter: DUC_binary_019.dat
-Leaving: 61759241  19300773
-Enter: DUC_binary_020.dat
-Leaving: 63149559  17816946
-Enter: DUC_binary_021.dat
-Leaving: 61632421  18436705
-Enter: DUC_binary_022.dat
-Leaving: 62418318  19141176
-Enter: DUC_binary_023.dat
-Leaving: 63099661  19680808
-Enter: DUC_binary_024.dat
-Leaving: 63572806  17971897
-Enter: DUC_binary_025.dat
-Leaving: 61716402  18499318
-Enter: DUC_binary_068.dat
-Leaving: 62332096  19476673
-Enter: DUC_binary_069.dat
-Leaving: 63340057  19889401
-Enter: DUC_binary_070.dat
-Leaving: 63862826  18555136
-Enter: DUC_binary_071.dat
-Leaving: 62430536  19603819
-Enter: DUC_binary_072.dat
-Leaving: 63639077  18470367
-Enter: DUC_binary_073.dat
-Leaving: 62393982  19250772
-Enter: DUC_binary_074.dat
-Leaving: 63149579  19566802
-Enter: DUC_binary_075.dat
-Leaving: 63181302  19835914
-Enter: DUC_binary_076.dat
-Leaving: 63621611  19945617
-Enter: DUC_binary_077.dat
-Leaving: 63793122  18623827
-Enter: DUC_binary_078.dat
-Leaving: 62366895  19271321
-Enter: DUC_binary_079.dat
-Leaving: 63076256  19543577
-Enter: DUC_binary_080.dat
-Leaving: 63289456  19348005
-Enter: DUC_binary_081.dat
-Leaving: 63176404  19993966
-Enter: DUC_binary_082.dat
-Leaving: 63886510  18563475
-Enter: DUC_binary_083.dat
-Leaving: 62479075  18899830
-Enter: DUC_binary_084.dat
-Leaving: 62770636  19577534
-Enter: DUC_binary_085.dat
-Leaving: 63567100  18804825
-Enter: DUC_binary_086.dat
-Leaving: 62785622  19137503
-Enter: DUC_binary_087.dat
-Leaving: 62926851  19229611
-Enter: DUC_binary_088.dat
-Leaving: 63061141  19006794
-Enter: DUC_binary_089.dat
-Leaving: 62737655  19706704
-Enter: DUC_binary_090.dat
-Leaving: 63704942  18998521
-Enter: DUC_binary_091.dat
-Leaving: 62844691  18974131
-Saving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor2
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
+make: Entering directory '/home/erik/Projects/c++/build/joiner'
+make[1]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
+[ 60%] Built target globals_lib
+make[2]: Entering directory '/home/erik/Projects/c++/build'
+make[2]: Leaving directory '/home/erik/Projects/c++/build'
 [100%] Built target joiner
-Running joiner
-80
-Enter: DUC_binary_027.dat
-Leaving: 43418464  4744717
-Enter: DUC_binary_028.dat
-Leaving: 48436453  7979982
-Enter: DUC_binary_029.dat
-Leaving: 51799093  10335897
-Enter: DUC_binary_030.dat
-Leaving: 54371088  19069865
-Enter: DUC_binary_031.dat
-Leaving: 62940161  16433065
-Enter: DUC_binary_032.dat
-Leaving: 60408475  17701951
-Enter: DUC_binary_033.dat
-Leaving: 61570034  20594751
-Enter: DUC_binary_034.dat
-Leaving: 64522848  20894483
-Enter: DUC_binary_035.dat
-Leaving: 64455069  18080052
-Enter: DUC_binary_036.dat
-Leaving: 61721454  19997848
-Enter: DUC_binary_037.dat
-Leaving: 63842039  19188246
-Enter: DUC_binary_038.dat
-Leaving: 63030309  18261507
-Enter: DUC_binary_039.dat
-Leaving: 61958415  19177207
-Enter: DUC_binary_040.dat
-Leaving: 63121543  16794070
-Enter: DUC_binary_041.dat
-Leaving: 60583943  18160155
-Enter: DUC_binary_042.dat
-Leaving: 62108177  19259329
-Enter: DUC_binary_043.dat
-Leaving: 63155307  17320501
-Enter: DUC_binary_044.dat
-Leaving: 61064508  17979682
-Enter: DUC_binary_045.dat
-Leaving: 61995936  18566182
-Enter: DUC_binary_046.dat
-Leaving: 62285586  19110115
-Enter: DUC_binary_047.dat
-Leaving: 62926685  19529115
-Enter: DUC_binary_048.dat
-Leaving: 63436547  17965362
-Enter: DUC_binary_049.dat
-Leaving: 61834822  18554981
-Enter: DUC_binary_050.dat
-Leaving: 62303135  19356469
-Enter: DUC_binary_051.dat
-Leaving: 63196768  19996384
-Enter: DUC_binary_052.dat
-Leaving: 64014667  17721486
-Enter: DUC_binary_053.dat
-Leaving: 61526413  18075888
-Enter: DUC_binary_054.dat
-Leaving: 61790584  18748150
-Enter: DUC_binary_055.dat
-Leaving: 62543292  19093879
-Enter: DUC_binary_056.dat
-Leaving: 62961265  19795002
-Enter: DUC_binary_057.dat
-Leaving: 63907163  18160608
-Enter: DUC_binary_058.dat
-Leaving: 61855640  18488160
-Enter: DUC_binary_059.dat
-Leaving: 62200365  19234840
-Enter: DUC_binary_060.dat
-Leaving: 63234253  19985685
-Enter: DUC_binary_061.dat
-Leaving: 63957730  18759503
-Enter: DUC_binary_062.dat
-Leaving: 62642656  19126193
-Enter: DUC_binary_063.dat
-Leaving: 62865394  19474422
-Enter: DUC_binary_064.dat
-Leaving: 63358359  18504460
-Enter: DUC_binary_065.dat
-Leaving: 62296935  19008075
-Enter: DUC_binary_066.dat
-Leaving: 63017824  19352464
-Enter: DUC_binary_092.dat
-Leaving: 62929346  18567196
-Enter: DUC_binary_093.dat
-Leaving: 62534634  19482607
-Enter: DUC_binary_094.dat
-Leaving: 63419738  18724944
-Enter: DUC_binary_095.dat
-Leaving: 62342064  19519310
-Enter: DUC_binary_096.dat
-Leaving: 63233526  18976514
-Enter: DUC_binary_097.dat
-Leaving: 62818075  19642426
-Enter: DUC_binary_098.dat
-Leaving: 63435256  19184594
-Enter: DUC_binary_099.dat
-Leaving: 62994494  18702338
-Enter: DUC_binary_100.dat
-Leaving: 62607277  19535213
-Enter: DUC_binary_101.dat
-Leaving: 63580949  18950935
-Enter: DUC_binary_102.dat
-Leaving: 62729410  19435460
-Enter: DUC_binary_103.dat
-Leaving: 63324528  19995094
-Enter: DUC_binary_104.dat
-Leaving: 63613173  18708380
-Enter: DUC_binary_105.dat
-Leaving: 62396498  19259581
-Enter: DUC_binary_106.dat
-Leaving: 63149615  19960582
-Enter: DUC_binary_107.dat
-Leaving: 63792826  18710119
-Enter: DUC_binary_109.dat
-Leaving: 62640245  19268513
-Enter: DUC_binary_110.dat
-Leaving: 63063965  19706996
-Enter: DUC_binary_111.dat
-Leaving: 63418115  18826030
-Enter: DUC_binary_112.dat
-Leaving: 62472385  19437516
-Enter: DUC_binary_113.dat
-Leaving: 63217085  18910546
-Enter: DUC_binary_114.dat
-Leaving: 62677011  19463454
-Enter: DUC_binary_115.dat
-Leaving: 63222652  19928060
-Enter: DUC_binary_116.dat
-Leaving: 64011390  19125462
-Enter: DUC_binary_117.dat
-Leaving: 63141288  19983043
-Enter: DUC_binary_118.dat
-Leaving: 63583150  19008848
-Enter: DUC_binary_119.dat
-Leaving: 62638279  19800862
-Enter: DUC_binary_120.dat
-Leaving: 63817852  19173608
-Enter: DUC_binary_121.dat
-Leaving: 63046613  19905942
-Enter: DUC_binary_122.dat
-Leaving: 63766650  18714193
-Enter: DUC_binary_123.dat
-Leaving: 62331136  18999499
-Enter: DUC_binary_124.dat
-Leaving: 63005036  19641856
-Enter: DUC_binary_125.dat
-Leaving: 63170546  18947907
-Enter: DUC_binary_126.dat
-Leaving: 62871466  19532853
-Enter: DUC_binary_127.dat
-Leaving: 63537963  18932768
-Enter: DUC_binary_128.dat
-Leaving: 62857016  19417617
-Enter: DUC_binary_129.dat
-Leaving: 63464394  19945105
-Enter: DUC_binary_130.dat
-Leaving: 63723472  19106452
-Enter: DUC_binary_131.dat
-Leaving: 62919631  19425399
-Enter: DUC_binary_132.dat
-Leaving: 63219530  19021223
-Saving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor3
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running joiner
-7
-Enter: cse_binary_000.dat
-Leaving: 43808929  2708751
-Enter: cse_binary_001.dat
-Leaving: 46585620  5179000
-Enter: cse_binary_002.dat
-Leaving: 49052112  7197073
-Enter: cse_binary_003.dat
-Leaving: 50995185  9411812
-Enter: cse_binary_004.dat
-Leaving: 53272385  10678905
-Enter: cse_binary_005.dat
-Leaving: 54611853  12158689
-Enter: cse_binary_006.dat
-Leaving: 56156700  14711089
-Saving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor4
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running joiner
-79
+make[1]: Leaving directory '/home/erik/Projects/c++/build'
+make: Leaving directory '/home/erik/Projects/c++/build/joiner'
+76
 Enter: cse_binary_009.dat
-Leaving: 43661813  2360505
+Leaving: 43661813  2372299
 Enter: cse_binary_010.dat
-Leaving: 46130516  4270922
+Leaving: 46142310  4335351
 Enter: cse_binary_011.dat
-Leaving: 48013329  6506427
+Leaving: 48077758  6516170
 Enter: cse_binary_012.dat
-Leaving: 50459698  8503003
+Leaving: 50469441  8560894
 Enter: cse_binary_013.dat
-Leaving: 52426242  10123860
+Leaving: 52484133  10193166
 Enter: cse_binary_015.dat
-Leaving: 53942769  12573695
+Leaving: 54012075  12614366
 Enter: cse_binary_016.dat
-Leaving: 56707730  14393223
+Leaving: 56748401  14377146
 Enter: cse_binary_017.dat
-Leaving: 58264037  16076677
+Leaving: 58247960  16062110
 Enter: cse_binary_018.dat
-Leaving: 59775659  18242645
+Leaving: 59761092  18245587
 Enter: cse_binary_019.dat
-Leaving: 62095748  19989154
+Leaving: 62098690  16143281
 Enter: cse_binary_020.dat
-Leaving: 63997426  15035706
+Leaving: 60151553  17821831
 Enter: cse_binary_021.dat
-Leaving: 58916561  17316168
+Leaving: 61702686  16122333
 Enter: cse_binary_022.dat
-Leaving: 61223387  18834095
+Leaving: 60029552  17699043
 Enter: cse_binary_023.dat
-Leaving: 62851979  16547575
+Leaving: 61716927  19451103
 Enter: cse_binary_024.dat
-Leaving: 60419707  18717778
+Leaving: 63323235  17615854
 Enter: cse_binary_025.dat
-Leaving: 62577068  16805764
+Leaving: 61475144  19056224
 Enter: cse_binary_026.dat
-Leaving: 60701649  18441489
+Leaving: 62952109  17384247
 Enter: cse_binary_027.dat
-Leaving: 62356829  19561499
+Leaving: 61299587  18442381
 Enter: cse_binary_028.dat
-Leaving: 63493504  18174336
+Leaving: 62374386  17893473
 Enter: cse_binary_029.dat
-Leaving: 62034579  18825931
+Leaving: 61753716  19583439
 Enter: cse_binary_030.dat
-Leaving: 62861204  18386172
+Leaving: 63618712  18279139
 Enter: cse_binary_031.dat
-Leaving: 62419612  19367001
+Leaving: 62312579  19386261
 Enter: cse_binary_032.dat
-Leaving: 63316703  18070069
+Leaving: 63335963  17964869
 Enter: cse_binary_033.dat
-Leaving: 62025818  19438008
+Leaving: 61920618  19356563
 Enter: cse_binary_034.dat
-Leaving: 63421852  18118740
+Leaving: 63340407  18120363
 Enter: cse_binary_035.dat
-Leaving: 61829021  18313256
+Leaving: 61830644  18684807
 Enter: cse_binary_036.dat
-Leaving: 62237469  19549081
+Leaving: 62609020  18364094
 Enter: cse_binary_037.dat
-Leaving: 63422217  18342474
+Leaving: 62237230  19474053
 Enter: cse_binary_038.dat
-Leaving: 62269934  19663719
+Leaving: 63401513  18655869
 Enter: cse_binary_039.dat
-Leaving: 63462251  18585978
+Leaving: 62454401  19868938
 Enter: cse_binary_040.dat
-Leaving: 62159955  18516284
+Leaving: 63442915  19111781
 Enter: cse_binary_041.dat
-Leaving: 62533969  18981252
+Leaving: 63129466  19028384
 Enter: cse_binary_042.dat
-Leaving: 62737536  18617730
+Leaving: 62784668  18628123
 Enter: cse_binary_043.dat
-Leaving: 62508760  18568468
+Leaving: 62519153  18472863
 Enter: cse_binary_044.dat
-Leaving: 62488852  18685396
+Leaving: 62393247  19920000
 Enter: cse_binary_045.dat
-Leaving: 62506976  19852954
+Leaving: 63741580  18715974
 Enter: cse_binary_046.dat
-Leaving: 63770527  19057410
+Leaving: 62633547  19708174
 Enter: cse_binary_047.dat
-Leaving: 62927956  18863281
+Leaving: 63578720  18811064
 Enter: cse_binary_048.dat
-Leaving: 62667904  19872544
+Leaving: 62615687  19707510
 Enter: cse_binary_049.dat
-Leaving: 63733521  19549862
+Leaving: 63568487  19189605
 Enter: cse_binary_050.dat
-Leaving: 63491092  18806330
+Leaving: 63130835  18344465
 Enter: cse_binary_051.dat
-Leaving: 62853689  19455847
+Leaving: 62391824  18931794
 Enter: cse_binary_052.dat
-Leaving: 63223215  18607941
+Leaving: 62699162  19888288
 Enter: cse_binary_053.dat
-Leaving: 62446741  19371769
+Leaving: 63727088  18595953
 Enter: cse_binary_054.dat
-Leaving: 63347091  18530388
+Leaving: 62571275  19378591
 Enter: cse_binary_055.dat
-Leaving: 62394623  19183689
-Enter: cse_binary_126.dat
-Leaving: 63157680  18875933
-Enter: cse_binary_127.dat
-Leaving: 62851206  19696154
-Enter: cse_binary_128.dat
-Leaving: 63585992  18715727
+Leaving: 63242826  18550582
 Enter: cse_binary_129.dat
-Leaving: 62712115  19122923
+Leaving: 62546970  18960903
 Enter: cse_binary_130.dat
-Leaving: 63055627  19499174
+Leaving: 62893607  19293188
 Enter: cse_binary_131.dat
-Leaving: 63282891  19104986
+Leaving: 63076905  18921856
 Enter: cse_binary_132.dat
-Leaving: 62942278  19643850
+Leaving: 62759148  19640218
 Enter: cse_binary_133.dat
-Leaving: 63596822  18164079
+Leaving: 63593190  18229386
 Enter: cse_binary_134.dat
-Leaving: 62211504  19230633
+Leaving: 62276811  19316168
 Enter: cse_binary_136.dat
-Leaving: 63103891  19883612
+Leaving: 63189426  18805022
 Enter: cse_binary_137.dat
-Leaving: 63879333  18865730
+Leaving: 62800743  19862822
 Enter: cse_binary_138.dat
-Leaving: 62808689  19361748
+Leaving: 63805781  18648036
 Enter: cse_binary_139.dat
-Leaving: 63095304  19770571
+Leaving: 62381592  19093460
 Enter: cse_binary_140.dat
-Leaving: 63800790  18396108
+Leaving: 63123679  19486791
 Enter: cse_binary_141.dat
-Leaving: 62142462  18984077
+Leaving: 63233145  18674644
 Enter: cse_binary_142.dat
-Leaving: 62701795  19659053
+Leaving: 62392362  19377538
 Enter: cse_binary_143.dat
-Leaving: 63588602  19015960
+Leaving: 63307087  18996996
 Enter: cse_binary_144.dat
-Leaving: 62845730  19446710
+Leaving: 62826766  19445095
 Enter: cse_binary_145.dat
-Leaving: 63478403  19944876
+Leaving: 63476788  19954344
 Enter: cse_binary_146.dat
-Leaving: 63844996  18635430
+Leaving: 63854464  18802729
 Enter: cse_binary_147.dat
-Leaving: 62713595  19948605
+Leaving: 62880894  19079726
 Enter: cse_binary_148.dat
-Leaving: 63949628  19159723
+Leaving: 63080749  19876241
 Enter: cse_binary_149.dat
-Leaving: 63054890  18845181
+Leaving: 63771408  19265054
 Enter: cse_binary_150.dat
-Leaving: 62837721  19322513
+Leaving: 63257594  19798073
 Enter: cse_binary_151.dat
-Leaving: 63195474  19760116
+Leaving: 63671034  18879656
 Enter: cse_binary_152.dat
-Leaving: 63575725  18661430
+Leaving: 62695265  19273778
 Enter: cse_binary_153.dat
-Leaving: 62131408  19353450
+Leaving: 62743756  19978828
 Enter: cse_binary_154.dat
-Leaving: 63490607  18962018
+Leaving: 64115985  19322985
 Enter: cse_binary_155.dat
-Leaving: 62970550  19463787
+Leaving: 63331517  19859963
 Enter: cse_binary_156.dat
-Leaving: 63243950  19923898
-Enter: cse_binary_163.dat
-Leaving: 63892247  19757694
-Enter: cse_binary_164.dat
-Leaving: 63687032  19463293
-Enter: cse_binary_165.dat
-Leaving: 63254310  18678951
+Leaving: 63640126  18917629
+Enter: cse_binary_157.dat
+Leaving: 62697483  19776631
+Enter: cse_binary_158.dat
+Leaving: 63287410  19118167
+Enter: cse_binary_159.dat
+Leaving: 62705264  19719821
 Saving
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor1
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running placeScan
-
-0%   10   20   30   40   50   60   70   80   90   100%
-|----|----|----|----|----|----|----|----|----|----|
-***************************************************
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/DUC/Floor2
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running placeScan
-
-0%   10   20   30   40   50   60   70   80   90   100%
-|----|----|----|----|----|----|----|----|----|----|
-***************************************************
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor3
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running placeScan
-
-0%   10   20   30   40   50   60   70   80   90   100%
-|----|----|----|----|----|----|----|----|----|----|
-***************************************************
-Starting pipline with dataPath=/home/erik/Projects/3DScanData/CSE/Floor4
-[ 11%] Built target globals_lib
-[ 22%] Built target preprocessor
-[ 51%] Built target scanDensity
-[ 92%] Built target placeScan
-[100%] Built target joiner
-Running placeScan
-
-0%   10   20   30   40   50   60   70   80   90   100%
-|----|----|----|----|----|----|----|----|----|----|
-***************************************************

@@ -44,10 +44,10 @@ void place::loadInScans(const std::string &scanName,
 
   zeroZero.resize(NUM_ROTS);
   std::ifstream binaryReader(zerosFile, std::ios::in | std::ios::binary);
-  for (int i = 0; i < NUM_ROTS; ++i) {
-    binaryReader.read(reinterpret_cast<char *>(zeroZero[i].data()),
+  for (auto &z : zeroZero)
+    binaryReader.read(reinterpret_cast<char *>(z.data()),
                       sizeof(Eigen::Vector2i));
-  }
+
   binaryReader.close();
 
   for (int i = 0; i < NUM_ROTS; ++i) {
@@ -164,10 +164,13 @@ void place::savePlacement(const std::vector<const place::posInfo *> &minima,
 
 bool place::reshowPlacement(const std::string &scanName,
                             const std::string &zerosFile,
+                            const std::string &doorName,
+                            const place::DoorDetector &d,
                             const std::string &preDone) {
+  const std::string buildName = scanName.substr(scanName.find("_") - 3, 3);
+  const std::string scanNumber = scanName.substr(scanName.find(".") - 3, 3);
   const std::string placementName =
-      scanName.substr(scanName.find("_") - 3, 3) + "_placement_" +
-      scanName.substr(scanName.find(".") - 3, 3) + ".dat";
+      buildName + "_placement_" + scanNumber + ".dat";
 
   std::ifstream in(preDone + placementName, std::ios::in | std::ios::binary);
   if (!in.is_open())
@@ -182,6 +185,8 @@ bool place::reshowPlacement(const std::string &scanName,
   std::vector<Eigen::Vector2i> zeroZero;
   place::loadInScans(scanName, zerosFile, toTrim, zeroZero);
   place::trimScans(toTrim, rotatedScans, zeroZero);
+
+  std::vector<std::vector<place::Door>> doors = loadInDoors(doorName, zeroZero);
 
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
@@ -208,35 +213,45 @@ bool place::reshowPlacement(const std::string &scanName,
     const int xOffset = currentScore.x - zeroZero[currentScore.rotation][0];
     const int yOffset = currentScore.y - zeroZero[currentScore.rotation][1];
 
-    cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
-    fpColor.copyTo(output);
+    cv::Mat_<cv::Vec3b> output = fpColor.clone();
 
-    for (int i = 0; i < bestScan.rows; ++i) {
-      if (i + yOffset < 0 || i + yOffset >= fpColor.rows)
+    auto &res = d.getResponse(0);
+    for (int i = 0; i < res.outerSize(); ++i)
+      for (Eigen::SparseMatrix<char>::InnerIterator it(res, i); it; ++it)
+        if (it.value() > 1)
+          output(it.row(), it.col()) = cv::Vec3b(0, 255, 0);
+
+    for (int j = 0; j < bestScan.rows; ++j) {
+      if (j + yOffset < 0 || j + yOffset >= fpColor.rows)
         continue;
-
-      const uchar *src = bestScan.ptr<uchar>(i);
-      uchar *dst = output.ptr<uchar>(i + yOffset);
-      for (int j = 0; j < bestScan.cols; ++j) {
-        if (j + xOffset < 0 || j + xOffset >= fpColor.cols)
+      const uchar *src = bestScan.ptr<uchar>(j);
+      for (int i = 0; i < bestScan.cols; ++i) {
+        if (i + xOffset < 0 || i + xOffset >= fpColor.cols)
           continue;
 
-        if (src[j] != 255) {
-          const int x = 3 * (j + xOffset);
-          dst[x + 0] = 0;
-          dst[x + 1] = 0;
-          dst[x + 2] = 255 - src[j];
+        if (src[i] != 255) {
+          output(j + yOffset, i + xOffset) = cv::Vec3b(0, 0, 255 - src[i]);
         }
       }
     }
 
-    for (int i = -10; i < 10; ++i) {
-      uchar *dst = output.ptr<uchar>(i + currentScore.y);
-      for (int j = -10; j < 10; ++j) {
-        const int x = 3 * (j + currentScore.x);
-        dst[x + 0] = 255;
-        dst[x + 1] = 0;
-        dst[x + 2] = 0;
+    for (int j = -10; j < 10; ++j)
+      for (int i = -10; i < 10; ++i)
+        output(j + currentScore.y, i + currentScore.x) = cv::Vec3b(255, 0, 0);
+
+    for (auto &d : doors[currentScore.rotation]) {
+      auto color = randomColor();
+      for (double x = 0; x < d.w; ++x) {
+        Eigen::Vector3i index =
+            (d.corner + x * d.xAxis + Eigen::Vector3d(xOffset, yOffset, 0))
+                .unaryExpr([](auto v) { return std::round(v); })
+                .cast<int>();
+
+        for (int k = -2; k <= 2; ++k) {
+          for (int l = -2; l <= 2; ++l) {
+            output(index[1] + k, index[0] + l) = color;
+          }
+        }
       }
     }
 
@@ -250,9 +265,10 @@ bool place::reshowPlacement(const std::string &scanName,
 
     const int keyCode = cv::rectshow(output);
 
-    if (keyCode == 27)
+    if (keyCode == 27) {
+      cv::imwrite(preDone + buildName + "_ss_" + scanNumber + ".png", output);
       break;
-    else if (keyCode == 8)
+    } else if (keyCode == 8)
       k = k > 0 ? k - 1 : k;
     else
       ++k;
@@ -310,6 +326,8 @@ void place::displayOutput(
 void place::displayOutput(
     const Eigen::SparseMatrix<double> &fp,
     const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
+    const Eigen::MatrixXb &fpDoors,
+    const std::vector<std::vector<place::Door>> &pcDoors,
     const std::vector<const place::posInfo *> &minima) {
   const int num = minima.size() < 20 ? minima.size() : 20;
   if (!FLAGS_quietMode) {
@@ -332,6 +350,17 @@ void place::displayOutput(
     }
   }
 
+  for (int j = 0; j < fpDoors.rows(); ++j) {
+    uchar *dst = tmpColor.ptr<uchar>(j);
+    for (int i = 0; i < fpDoors.cols(); ++i) {
+      if (fpDoors(j, i)) {
+        dst[i * 3] = 0;
+        dst[i * 3 + 1] = 255;
+        dst[i * 3 + 2] = 0;
+      }
+    }
+  }
+
   cv::rectshow(tmpColor);
   const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
 
@@ -341,6 +370,8 @@ void place::displayOutput(
     const int yOffset = min->y;
     const Eigen::SparseMatrix<double> &currentScan =
         rSSparseTrimmed[min->rotation];
+    auto &doors = pcDoors[min->rotation];
+
     cv::Mat output(tmpColor.rows, tmpColor.cols, CV_8UC3, cv::Scalar::all(255));
     tmpColor.copyTo(output);
     cv::Mat_<cv::Vec3b> _output = output;
@@ -356,6 +387,18 @@ void place::displayOutput(
         _output(it.row() + yOffset, it.col() + xOffset)[0] = 0;
         _output(it.row() + yOffset, it.col() + xOffset)[1] = 0;
         _output(it.row() + yOffset, it.col() + xOffset)[2] = 255;
+      }
+    }
+
+    for (auto &d : doors) {
+      auto color = randomColor();
+      for (double x = 0; x < d.w; ++x) {
+        Eigen::Vector3i index =
+            (d.corner + x * d.xAxis + Eigen::Vector3d(min->x, min->y, 0))
+                .unaryExpr([](auto v) { return std::round(v); })
+                .cast<int>();
+
+        _output(index[1], index[0]) = color;
       }
     }
 
@@ -404,44 +447,6 @@ void place::displayTruePlacement(
 
   std::cout << "displaying true placement" << std::endl;
   place::displayOutput(rSSparseTrimmed, tmp);
-}
-
-void place::sparseToImage(const Eigen::SparseMatrix<double> &toImage,
-                          cv::Mat &imageOut) {
-
-  imageOut =
-      cv::Mat(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
-
-  double maxV = 0;
-  for (int i = 0; i < toImage.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-      maxV = std::max(maxV, it.value());
-    }
-  }
-
-  for (int i = 0; i < toImage.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-      imageOut.at<uchar>(it.row(), it.col()) = 255 - 255 * it.value() / maxV;
-    }
-  }
-}
-
-cv::Mat place::sparseToImage(const Eigen::SparseMatrix<double> &toImage) {
-
-  cv::Mat image(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
-  double maxV = 0;
-  for (int i = 0; i < toImage.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-      maxV = std::max(maxV, it.value());
-    }
-  }
-
-  for (int i = 0; i < toImage.outerSize(); ++i) {
-    for (Eigen::SparseMatrix<double>::InnerIterator it(toImage, i); it; ++it) {
-      image.at<uchar>(it.row(), it.col()) = 255 - 255 * it.value() / maxV;
-    }
-  }
-  return image;
 }
 
 void place::scanToSparse(const cv::Mat &scan,
@@ -623,4 +628,26 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
       }
     }
   }
+}
+
+std::vector<std::vector<place::Door>>
+place::loadInDoors(const std::string &name,
+                   const std::vector<Eigen::Vector2i> &zeroZero) {
+  std::ifstream in(name, std::ios::in | std::ios::binary);
+  std::vector<std::vector<place::Door>> tmp(NUM_ROTS);
+  for (int r = 0; r < NUM_ROTS; ++r) {
+    int num;
+    in.read(reinterpret_cast<char *>(&num), sizeof(num));
+    tmp[r].resize(num);
+    for (auto &d : tmp[r]) {
+      d.loadFromFile(in);
+      d.corner *= buildingScale.getScale();
+      d.corner += Eigen::Vector3d(zeroZero[r][0], zeroZero[r][1], 0);
+
+      d.w *= buildingScale.getScale();
+    }
+  }
+  in.close();
+
+  return tmp;
 }

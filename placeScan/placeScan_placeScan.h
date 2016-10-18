@@ -1,17 +1,20 @@
+#pragma once
 #ifndef PLACESCAN_PLACE_SCAN_H_
 #define PLACESCAN_PLACE_SCAN_H_
 
+#include <scan_typedefs.hpp>
+
+#include "placeScan_doorDetector.h"
 #include "placeScan_placeScanHelper.h"
 #include "placeScan_placeScanHelper2.h"
-
-#include <scan_typedefs.hpp>
 
 namespace place {
 void analyzePlacement(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     const std::vector<Eigen::MatrixXb> &fpMasks, const std::string &scanName,
-    const std::string &zerosFile, const std::string &maskName);
+    const std::string &zerosFile, const std::string &maskName,
+    const std::string &doorName, const place::DoorDetector &d);
 
 void findLocalMinima(const std::vector<place::posInfo> &scores,
                      const float bias, place::ExclusionMap &maps,
@@ -38,6 +41,8 @@ void findPlacement(const Eigen::SparseMatrix<double> &fp,
                    const Eigen::VectorXd &numPixelsUnderMask,
                    const Eigen::MatrixXb &fpMask,
                    const std::vector<Eigen::Vector3i> &points,
+                   const Eigen::MatrixXb &fpDoors,
+                   const std::vector<std::vector<place::Door>> &pcDoors,
                    std::vector<place::posInfo> &scores);
 
 void findPointsToAnalyze(const std::vector<posInfo> &scores,
@@ -77,20 +82,19 @@ void createFPPyramidsWeighted(
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid);
 
 template <typename MatType>
-void createPyramid(std::vector<MatType> &pyramid,
-                   int levels = FLAGS_numLevels) {
+void createPyramid(std::vector<MatType> &pyramid, int levels) {
   typedef typename MatType::Scalar Scalar;
   typedef Eigen::Triplet<Scalar> TripType;
   typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> MatNS;
 
-  std::vector<TripType> tripletList;
+  std::list<TripType> tripletList;
 
   for (int i = 0; i < levels; ++i) {
     auto &currentLevel = pyramid[i];
     MatType newLevel(ceil(currentLevel.rows() / 2) + 1,
                      ceil(currentLevel.cols() / 2) + 1);
 
-    MatNS currentLevelNS = MatNS(currentLevel);
+    MatNS currentLevelNS(currentLevel);
 
     int j;
     for (j = 0; j < (currentLevel.rows() - 1); j += 2) {
@@ -99,11 +103,11 @@ void createPyramid(std::vector<MatType> &pyramid,
         double maxV =
             std::max({currentLevelNS(j, k), currentLevelNS(j, k + 1),
                       currentLevelNS(j + 1, k), currentLevelNS(j + 1, k + 1)});
-        tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
+        tripletList.emplace_back(floor(j / 2), floor(k / 2), maxV);
       }
       for (; k < currentLevel.cols(); ++k) {
-        tripletList.push_back(
-            TripType(floor(j / 2), floor(k / 2), currentLevelNS(j, k)));
+        tripletList.emplace_back(floor(j / 2), floor(k / 2),
+                                 currentLevelNS(j, k));
       }
     }
 
@@ -111,11 +115,11 @@ void createPyramid(std::vector<MatType> &pyramid,
       int k;
       for (k = 0; k < (currentLevel.cols() - 1); k += 2) {
         double maxV = std::max(currentLevelNS(j, k), currentLevelNS(j, k + 1));
-        tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
+        tripletList.emplace_back(floor(j / 2), floor(k / 2), maxV);
       }
       for (; k < currentLevel.cols(); ++k) {
-        tripletList.push_back(
-            TripType(floor(j / 2), floor(k / 2), currentLevelNS(j, k)));
+        tripletList.emplace_back(floor(j / 2), floor(k / 2),
+                                 currentLevelNS(j, k));
       }
     }
     newLevel.setFromTriplets(tripletList.begin(), tripletList.end());
@@ -133,13 +137,12 @@ void createPyramid(std::vector<MatType> &pyramid,
 }
 
 template <typename MatType>
-void createPyramid(std::vector<std::vector<MatType>> &pyramid,
-                   int levels = FLAGS_numLevels) {
+void createPyramid(std::vector<std::vector<MatType>> &pyramid, int levels) {
   typedef typename MatType::Scalar Scalar;
   typedef Eigen::Triplet<Scalar> TripType;
   typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> MatNS;
 
-  std::vector<TripType> tripletList;
+  std::list<TripType> tripletList;
 
   for (int i = 0; i < levels; ++i) {
     std::vector<MatType> newLevel;
@@ -153,11 +156,10 @@ void createPyramid(std::vector<std::vector<MatType>> &pyramid,
         for (k = 0; k < (scan.cols() - 1); k += 2) {
           double maxV = std::max({scanNS(j, k), scanNS(j, k + 1),
                                   scanNS(j + 1, k), scanNS(j + 1, k + 1)});
-          tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
+          tripletList.emplace_back(floor(j / 2), floor(k / 2), maxV);
         }
         for (; k < scan.cols(); ++k) {
-          tripletList.push_back(
-              TripType(floor(j / 2), floor(k / 2), scanNS(j, k)));
+          tripletList.emplace_back(floor(j / 2), floor(k / 2), scanNS(j, k));
         }
       }
 
@@ -165,11 +167,10 @@ void createPyramid(std::vector<std::vector<MatType>> &pyramid,
         int k;
         for (k = 0; k < (scan.cols() - 1); k += 2) {
           double maxV = std::max(scanNS(j, k), scanNS(j, k + 1));
-          tripletList.push_back(TripType(floor(j / 2), floor(k / 2), maxV));
+          tripletList.emplace_back(floor(j / 2), floor(k / 2), maxV);
         }
         for (; k < scan.cols(); ++k) {
-          tripletList.push_back(
-              TripType(floor(j / 2), floor(k / 2), scanNS(j, k)));
+          tripletList.emplace_back(floor(j / 2), floor(k / 2), scanNS(j, k));
         }
       }
 

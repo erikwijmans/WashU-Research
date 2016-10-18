@@ -97,7 +97,7 @@ typedef Matrix<double, Dynamic, Dynamic, RowMajor> RowMatrixXd;
 typedef Matrix<float, Dynamic, Dynamic, RowMajor> RowMatrixXf;
 } // Eigen
 
-typedef struct SHOT1344WithXYZ {
+struct SHOT1344WithXYZ {
   std::shared_ptr<Eigen::VectorXf> descriptor;
   Eigen::Vector3d position;
 
@@ -105,10 +105,9 @@ typedef struct SHOT1344WithXYZ {
 
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
+};
 
-} SHOT1344WithXYZ;
-
-typedef struct SPARSE352WithXYZ {
+struct SPARSE352WithXYZ {
   typedef Eigen::SparseVector<float> VecType;
   std::shared_ptr<VecType> descriptor;
   Eigen::Vector3d position;
@@ -116,10 +115,9 @@ typedef struct SPARSE352WithXYZ {
   SPARSE352WithXYZ() : descriptor{std::make_shared<VecType>(352)} {};
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
+};
 
-} SPARSE352WithXYZ;
-
-typedef struct SPARSE1344WithXYZ {
+struct SPARSE1344WithXYZ {
   typedef Eigen::SparseVector<float> VecType;
   std::shared_ptr<VecType> descriptor;
   Eigen::Vector3d position;
@@ -128,26 +126,25 @@ typedef struct SPARSE1344WithXYZ {
 
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
-
-} SPARSE1344WithXYZ;
+};
 
 namespace scan {
-typedef struct PointXYZRGBA {
+struct PointXYZRGBA {
   Eigen::Vector3f point;
   float intensity;
   unsigned char rgb[3];
 
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
-} PointXYZRGBA;
+};
 
-typedef struct PointXYZRGB {
+struct PointXYZRGB {
   Eigen::Vector3f point;
   unsigned char rgb[3];
 
   void writeToFile(std::ofstream &out);
   void loadFromFile(std::ifstream &in);
-} PointXYZRGB;
+};
 } // scan
 
 namespace place {
@@ -155,6 +152,8 @@ struct posInfo {
   double score = 0;
   double scanFP = 0;
   double fpScan = 0;
+  double doorCount = 0;
+  double doorUxp = 0;
   int rotation = 0;
   int fpPixels = 0;
   int scanPixels = 0;
@@ -195,10 +194,10 @@ struct VoxelGrid {
   void loadFromFile(std::ifstream &in);
 };
 
-typedef struct {
+struct moreInfo {
   posInfo s;
   int scanNum;
-} moreInfo;
+};
 
 struct node : public posInfo {
   double w;
@@ -234,12 +233,12 @@ struct R2Node : public node {
       : node{s}, agreement{s.agreement}, locked{s.locked} {};
 };
 
-typedef struct {
+struct rect {
   int X1;
   int Y1;
   int X2;
   int Y2;
-} rect;
+};
 
 struct MetaData {
   Eigen::Vector3i zZ;
@@ -273,6 +272,7 @@ struct Panorama {
   Eigen::ArrayXV3f surfaceNormals;
   void writeToFile(const std::string &imgName, const std::string &dataName);
   void loadFromFile(const std::string &imgName, const std::string &dataName);
+  Panorama();
 
   const cv::Mat &operator[](int n);
 };
@@ -315,6 +315,20 @@ template <class It> std::tuple<double, double> aveAndStdev(It first, It last) {
   return aveAndStdev(first, last, [](auto &e) { return e; });
 }
 
+struct Door {
+  Eigen::Vector3d corner;
+  Eigen::Vector3d xAxis;
+  Eigen::Vector3d zAxis;
+  double h, w;
+  Door(){};
+  Door(const Eigen::Vector3d &c, const Eigen::Vector3d &x,
+       const Eigen::Vector3d &z, double h, double w)
+      : corner{c}, xAxis{x}, zAxis{z}, h{h}, w{w} {};
+
+  void writeToFile(std::ofstream &out) const;
+  void loadFromFile(std::ifstream &in);
+};
+
 } // place
 
 double sigmoidWeight(double seen, double expected);
@@ -333,5 +347,146 @@ namespace cv {
 int rectshow(const std::string &name, const cv::Mat &img);
 int rectshow(const cv::Mat &img);
 } // cv
+
+template <typename MatrixType>
+void saveMatrixAsSparse(const MatrixType &mat, std::ofstream &out) {
+  typedef typename MatrixType::Scalar Scalar;
+  int numNonZeros = 0, rows = mat.rows(), cols = mat.cols();
+  const Scalar *dataPtr = mat.data();
+  for (int i = 0; i < mat.size(); ++i)
+    if (*(dataPtr + i))
+      ++numNonZeros;
+
+  out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+  out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+  out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+
+  for (int i = 0; i < mat.size(); ++i) {
+    if (*(dataPtr + i)) {
+      out.write(reinterpret_cast<const char *>(&i), sizeof(i));
+      out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(Scalar));
+    }
+  }
+}
+
+template <typename MatrixType>
+void loadMatrixFromSparse(MatrixType &mat, std::ifstream &in) {
+  typedef typename MatrixType::Scalar Scalar;
+  int numNonZeros, rows, cols;
+
+  in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
+  in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+  in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+
+  mat = MatrixType::Zero(rows, cols);
+  Scalar *dataPtr = mat.data();
+
+  for (int i = 0; i < numNonZeros; ++i) {
+    int index;
+    in.read(reinterpret_cast<char *>(&index), sizeof(index));
+    in.read(reinterpret_cast<char *>(dataPtr + index), sizeof(Scalar));
+  }
+}
+
+template <typename SparseMatrixType>
+void saveSparseMatrix(SparseMatrixType &mat, std::ofstream &out) {
+  typedef typename SparseMatrixType::Scalar Scalar;
+
+  int rows = mat.rows(), cols = mat.cols(), numNonZeros = mat.nonZeros();
+  out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
+  out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
+  out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
+
+  for (int i = 0; i < mat.outerSize(); ++i) {
+    for (typename SparseMatrixType::InnerIterator it(mat, i); it; ++it) {
+      int index = it.col() * rows + it.row();
+      Scalar value = it.value();
+      out.write(reinterpret_cast<const char *>(&index), sizeof(index));
+      out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
+    }
+  }
+}
+
+template <typename SparseMatrixType>
+void loadSparseMatrix(SparseMatrixType &mat, std::ifstream &in) {
+  typedef typename SparseMatrixType::Scalar Scalar;
+  typedef Eigen::Triplet<Scalar> TripType;
+
+  int rows, cols, numNonZeros;
+  in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
+  in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
+  in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+  mat.resize(rows, cols);
+  mat.reserve(numNonZeros);
+  std::vector<TripType> tripletList;
+  tripletList.reserve(numNonZeros);
+
+  for (int i = 0; i < numNonZeros; ++i) {
+    int index;
+    Scalar value;
+    in.read(reinterpret_cast<char *>(&index), sizeof(index));
+    in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
+    int col = floor(index / rows);
+    int row = index % rows;
+    tripletList.push_back(TripType(row, col, value));
+  }
+  mat.setFromTriplets(tripletList.begin(), tripletList.end());
+}
+
+template <typename SparseVectorType>
+void saveSpareVector(const SparseVectorType &vec, std::ofstream &out) {
+  typedef typename SparseVectorType::Scalar Scalar;
+  int nonZeros = vec.nonZeros(), size = vec.size();
+  out.write(reinterpret_cast<const char *>(&nonZeros), sizeof(nonZeros));
+  out.write(reinterpret_cast<const char *>(&size), sizeof(size));
+  for (int i = 0; i < vec.outerSize(); ++i) {
+    for (typename SparseVectorType::InnerIterator it(vec, i); it; ++it) {
+      Scalar value = it.value();
+      short row = it.row();
+      out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
+      out.write(reinterpret_cast<const char *>(&row), sizeof(row));
+    }
+  }
+}
+
+template <typename SparseVectorType>
+void loadSparseVetor(SparseVectorType &vec, std::ifstream &in) {
+  typedef typename SparseVectorType::Scalar Scalar;
+  int nonZeros, size;
+  in.read(reinterpret_cast<char *>(&nonZeros), sizeof(nonZeros));
+  in.read(reinterpret_cast<char *>(&size), sizeof(size));
+  vec.resize(size);
+  vec.reserve(nonZeros);
+  for (int i = 0; i < nonZeros; ++i) {
+    Scalar value;
+    short row;
+    in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
+    in.read(reinterpret_cast<char *>(&row), sizeof(row));
+    vec.coeffRef(row) = value;
+  }
+}
+
+inline bool fexists(const std::string &file) {
+  std::ifstream in(file, std::ios::in);
+  return in.is_open();
+}
+
+namespace std {
+template <typename _Scalar, int _Rows, int _Cols, int _Options, int _MaxRows,
+          int _MaxCols>
+struct hash<
+    Eigen::Matrix<_Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols>> {
+  hash<_Scalar> h;
+  std::size_t operator()(const Eigen::Matrix<_Scalar, _Rows, _Cols, _Options,
+                                             _MaxRows, _MaxCols> &k) const {
+    size_t seed = 0;
+    auto dataPtr = k.data();
+    for (int i = 0; i < k.size(); ++i) {
+      seed ^= h(*(dataPtr + i)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+  }
+};
+} // std
 
 #endif // SCAN_TYPEDEFS_HPP

@@ -2,19 +2,25 @@
 #ifndef PLACE_SCAN_DOOR_DETECTOR_H
 #define PLACE_SCAN_DOOR_DETECTOR_H
 
-#include "placeScan_placeScan.h"
+#include <scan_typedefs.hpp>
+
+#include <eigen3/Eigen/Eigen>
 #include <opencv/cv.hpp>
 
 namespace place {
 class DoorDetector {
 public:
-  DoorDetector(const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
-               const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-               const std::vector<Eigen::MatrixXb> &fpMasks);
+  DoorDetector();
+  void run(const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
+           const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
+           const std::vector<Eigen::MatrixXb> &fpMasks);
+  const Eigen::SparseMatrix<char> &getResponse(int level) const;
 
 private:
-  cv::Mat_<double> response;
+  std::vector<Eigen::SparseMatrix<char>> responsePyr;
   std::vector<cv::Mat> symbols;
+  bool loaded;
+  const std::string name;
 };
 } // place
 

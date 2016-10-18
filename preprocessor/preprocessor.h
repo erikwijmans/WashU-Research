@@ -31,4 +31,8 @@ void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                  pcl::PointCloud<PointType>::Ptr &normals_points,
                  const std::string &outName);
 
+void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
+               const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
+               const Eigen::Vector3d &M3, const std::string &outName);
+
 #endif // PREPROCESSOR_H

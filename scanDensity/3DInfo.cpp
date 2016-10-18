@@ -10,8 +10,7 @@ voxel::CloudAnalyzer3D::CloudAnalyzer3D(
     const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     const std::shared_ptr<const std::vector<Eigen::Matrix3d>> &R,
     const std::shared_ptr<const BoundingBox> &bBox)
-    : points{points}, R{R}, bBox{bBox} {
-}
+    : points{points}, R{R}, bBox{bBox} {}
 
 void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
   bBox->getBoundingBox(pointMin, pointMax);
@@ -55,18 +54,15 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
         if (!pointsPerVoxel[k](j, i))
           continue;
 
-        float ray[3];
+        Eigen::Vector3d ray;
         ray[0] = i - cameraCenter[0] * voxelsPerMeter;
         ray[1] = j - cameraCenter[1] * voxelsPerMeter;
         ray[2] = k - cameraCenter[2] * zScale;
-        float length =
-            sqrt(ray[0] * ray[0] + ray[1] * ray[1] + ray[2] * ray[2]);
-        float unitRay[3];
-        unitRay[0] = ray[0] / length;
-        unitRay[1] = ray[1] / length;
-        unitRay[2] = ray[2] / length;
+        double length = ray.norm();
+        Eigen::Vector3d unitRay = ray / length;
+
         int stop = floor(0.85 * length - 3);
-        int voxelHit[3];
+        Eigen::Vector3i voxelHit;
         for (int a = 0; a < stop; ++a) {
           voxelHit[0] =
               floor(cameraCenter[0] * voxelsPerMeter + a * unitRay[0]);
@@ -88,21 +84,21 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
     }
   }
 
-  zeroZeroD = Eigen::Vector3d(-pointMin[0] * voxelsPerMeter,
-                              -pointMin[1] * voxelsPerMeter, 0);
+  zeroZeroD =
+      Eigen::Vector3d(-pointMin[0] * voxelsPerMeter,
+                      -pointMin[1] * voxelsPerMeter, -pointMin[2] * zScale);
   zeroZero =
       Eigen::Vector3i(-pointMin[0] * voxelsPerMeter,
                       -pointMin[1] * voxelsPerMeter, -pointMin[2] * zScale);
 }
-template<typename T>
-static void displayVoxelGrid(const T &voxelB) {
+template <typename T> static void displayVoxelGrid(const T &voxelB) {
   Eigen::MatrixXd collapsed =
-      Eigen::MatrixXd::Zero(voxelB[0].rows(), voxelB[0].cols());
+      Eigen::MatrixXd::Zero(voxelB.v[0].rows(), voxelB.v[0].cols());
 
-  for (int k = 0; k < voxelB.size(); ++k)
-    for (int i = 0; i < voxelB[0].cols(); ++i)
-      for (int j = 0; j < voxelB[0].rows(); ++j)
-        collapsed(j, i) += voxelB[k](j, i) ? 1 : 0;
+  for (int k = 0; k < voxelB.v.size(); ++k)
+    for (int i = 0; i < voxelB.v[0].cols(); ++i)
+      for (int j = 0; j < voxelB.v[0].rows(); ++j)
+        collapsed(j, i) += voxelB.v[k](j, i) ? 1 : 0;
 
   double average, sigma;
   average = sigma = 0;
@@ -168,8 +164,8 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
   int countP = 0, countF = 0;
 
   for (int i = 0; i < z; ++i) {
-    const int *dataPtr = pointGrid[i].data();
-    const int *fPtr = freeSpace[i].data();
+    const auto *dataPtr = pointGrid[i].data();
+    const auto *fPtr = freeSpace[i].data();
     for (int j = 0; j < pointGrid[i].size(); ++j) {
       const int value = *(dataPtr + j);
       if (value) {
@@ -186,8 +182,8 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
   averageF /= countF;
   double sigmaP = 0.0, sigmaF = 0.0;
   for (int i = 0; i < z; ++i) {
-    const int *dataPtr = pointGrid[i].data();
-    const int *fPtr = freeSpace[i].data();
+    const auto *dataPtr = pointGrid[i].data();
+    const auto *fPtr = freeSpace[i].data();
     for (int j = 0; j < pointGrid[i].size(); ++j) {
       const int value = *(dataPtr + j);
       if (value)
@@ -201,15 +197,15 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
   sigmaF /= countF - 1;
   sigmaF = sqrt(sigmaF);
 
-  std::vector<Eigen::MatrixXi> threshHoldedPoint(z,
-                                                 Eigen::MatrixXi::Zero(y, x));
+  std::vector<Eigen::MatrixXb> threshHoldedPoint(z,
+                                                 Eigen::MatrixXb::Zero(y, x));
   std::vector<Eigen::MatrixXb> threshHoldedFree(z, Eigen::MatrixXb::Zero(y, x));
   size_t numNonZeros = 0, nonZeroPoint = 0;
   for (int k = 0; k < z; ++k) {
-    const int *pointSrc = pointGrid[k].data();
-    int *pointDst = threshHoldedPoint[k].data();
+    const auto *pointSrc = pointGrid[k].data();
+    auto *pointDst = threshHoldedPoint[k].data();
 
-    const int *freeSrc = freeSpace[k].data();
+    const auto *freeSrc = freeSpace[k].data();
     char *freeDst = threshHoldedFree[k].data();
     for (int i = 0; i < x * y; ++i) {
       if (*(pointSrc + i)) {
@@ -249,16 +245,18 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     for (int k = 0; k < z; ++k) {
       for (int i = 0; i < newCols; ++i) {
         for (int j = 0; j < newRows; ++j) {
-          Eigen::Vector3d point(i, j, 0);
+          Eigen::Vector3d point(i, j, k);
           Eigen::Vector3d src = R->at(r) * (point - newZZ) + zeroZeroD;
 
           if (src[0] < 0 || src[0] >= x)
             continue;
           if (src[1] < 0 || src[1] >= y)
             continue;
+          if (src[2] < 0 || src[2] >= z)
+            continue;
 
-          rotatedFree.v[k](j, i) = threshHoldedFree[k](src[1], src[0]);
-          rotatedPoint.v[k](j, i) = threshHoldedPoint[k](src[1], src[0]);
+          rotatedFree.v[k](j, i) = threshHoldedFree[src[2]](src[1], src[0]);
+          rotatedPoint.v[k](j, i) = threshHoldedPoint[src[2]](src[1], src[0]);
         }
       }
     }
@@ -305,6 +303,11 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     }
     rotatedFree.v.clear();
     rotatedPoint.v.clear();
+
+    if (FLAGS_visulization) {
+      displayVoxelGrid(trimmedPoint);
+      displayVoxelGrid(trimmedFree);
+    }
 
     place::MetaData meta{zeroZero, newX,           newY,
                          newZ,     voxelsPerMeter, pixelsPerMeter};

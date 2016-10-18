@@ -1,14 +1,36 @@
 #include "placeScan_doorDetector.h"
+#include "placeScan_placeScan.h"
 #include "placeScan_placeScanHelper.h"
 
 #include <scan_gflags.h>
 
-place::DoorDetector::DoorDetector(
+#include <Eigen/Geometry>
+
+place::DoorDetector::DoorDetector()
+    : loaded{false}, name{FLAGS_doorsFolder + "fpDoors.dat"} {
+  if (fexists(name) && !FLAGS_redo) {
+    std::ifstream in(name, std::ios::in | std::ios::binary);
+    int length;
+    in.read(reinterpret_cast<char *>(&length), sizeof(length));
+    if (length == FLAGS_numLevels + 1) {
+      loaded = true;
+      responsePyr.resize(FLAGS_numLevels + 1);
+      for (auto &r : responsePyr)
+        loadSparseMatrix(r, in);
+    }
+    in.close();
+  }
+}
+
+void place::DoorDetector::run(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    const std::vector<Eigen::MatrixXb> &fpMasks)
-    : response{floorPlan.size(), 255}, symbols{NUM_ROTS * 2} {
+    const std::vector<Eigen::MatrixXb> &fpMasks) {
 
+  if (loaded)
+    return;
+
+  symbols.resize(NUM_ROTS * 2);
   constexpr int levels = 3;
   const cv::Mat doorSymbol = cv::imread(FLAGS_dataPath + "/doorSymbol.png", 0);
   if (!doorSymbol.data) {
@@ -35,9 +57,15 @@ place::DoorDetector::DoorDetector(
     }
   }
 
+  std::vector<Eigen::Vector2d> toDoor(NUM_ROTS * 2);
+  toDoor[0] = Eigen::Vector2d::UnitX();
+
   for (int k = 0; k < NUM_ROTS; ++k) {
     cv::Mat rotMat = cv::getRotationMatrix2D(
         cv::Point2f(widenedDoor.cols / 2.0, widenedDoor.rows / 2.0), k * 90, 1);
+
+    Eigen::Rotation2D<double> R(-k * M_PI / 2.0);
+    toDoor[2 * k] = R * toDoor[0];
 
     cv::Mat tmp;
     cv::warpAffine(widenedDoor, tmp, rotMat, widenedDoor.size());
@@ -67,6 +95,19 @@ place::DoorDetector::DoorDetector(
     }
 
     cv::flip(symbols[2 * k], symbols[2 * k + 1], 1);
+
+    toDoor[2 * k + 1] = toDoor[2 * k];
+    toDoor[2 * k + 1][0] *= -1.0;
+
+    for (int i = 0; i < 2 && FLAGS_previewOut; ++i) {
+      cv::Mat_<uchar> tmp = symbols[2 * k + i].clone();
+      const auto &d = toDoor[2 * k + i];
+      for (int j = 0; j < tmp.rows / 4.0; ++j)
+        tmp(tmp.rows / 2.0 + d[1] * j, tmp.cols / 2.0 + d[0] * j) =
+            255 - j * 255.0 / (tmp.rows / 4.0);
+
+      cv::rectshow(tmp);
+    }
   }
 
   std::vector<Eigen::SparseMatrix<double>> sparseSymbols;
@@ -115,9 +156,12 @@ place::DoorDetector::DoorDetector(
   * the container passed to it for it's output is cleared
   */
   for (int k = levels; k >= 0; --k) {
+    Eigen::MatrixXb doors =
+        Eigen::MatrixXb::Zero(fpPyramid[k].rows(), fpPyramid[k].cols());
+    std::vector<std::vector<place::Door>> pcDoors(NUM_ROTS * 2);
     findPlacement(fpPyramid[k], symbolPyr[k], erodedFpPyramid[k], symbolPyr[k],
                   masks[k], numPixelsUnderMask[k], fpMasks[k], pointsToAnalyze,
-                  scores);
+                  doors, pcDoors, scores);
     if (scores.size() == 0)
       return;
 
@@ -148,35 +192,61 @@ place::DoorDetector::DoorDetector(
               return (a->score < b->score);
             });
 
-  if (FLAGS_visulization || FLAGS_previewOut)
-    place::displayOutput(fpPyramid[0], symbolPyr[0], minima);
-
-  for (auto &min : minima)
-    response(min->y, min->x) = min->score;
+  double average, sigma;
+  std::tie(average, sigma) = place::aveAndStdev(
+      minima.begin(), minima.end(), [](auto &m) { return m->score; });
 
   cv::Mat_<cv::Vec3b> out = fpColor.clone();
+  Eigen::RowMatrixXb denseMap =
+      Eigen::RowMatrixXb::Zero(fpPyramid[0].rows(), fpPyramid[0].cols());
+
+  for (int j = 0; j < denseMap.rows(); ++j)
+    for (int i = 0; i < denseMap.cols(); ++i)
+      if (out(j, i) == cv::Vec3b(255, 255, 255))
+        denseMap(j, i) = 1;
 
   for (auto &min : minima) {
-    if (min->score >= 0.1)
+    if (min->score >= (average - 1.2 * sigma))
       continue;
 
     auto &img = symbols[min->rotation];
-    for (int j = 0; j < img.rows; ++j) {
-      auto src = img.ptr<uchar>(j);
-      for (int i = 0; i < img.cols; ++i) {
-        out(j + min->y, i + min->x) = cv::Vec3b(0, 0, 255);
+    auto offset = toDoor[min->rotation];
+    offset[0] *= img.cols / 2.0;
+    offset[1] *= img.rows / 2.0;
+
+    const int rows = img.rows;
+    const int cols = img.cols;
+
+    for (int j = 0; j < rows; ++j) {
+      for (int i = 0; i < cols; ++i) {
+        out(j + min->y + offset[1], i + min->x + offset[0]) =
+            cv::Vec3b(0, 0, 255);
+        denseMap(j + min->y + offset[1], i + min->x + offset[0]) = 2;
       }
     }
   }
 
-  /*for (int j = 0; j < out.rows; ++j) {
-    for (int i = 0; i < out.cols; ++i) {
-      if (response(j, i) < 0.1) {
-        out(cv::Range(j - 10, j + 10), cv::Range(i - 10, i + 10)) =
-            cv::Vec3b(0, 255, 0);
-      }
-    }
-  }*/
+  Eigen::SparseMatrix<char> response = denseMap.sparseView();
 
-  cv::rectshow(out);
+  responsePyr.assign({response});
+  place::createPyramid(responsePyr, FLAGS_numLevels);
+
+  if (FLAGS_save) {
+    std::ofstream binaryWriter(name, std::ios::out | std::ios::binary);
+    int length = responsePyr.size();
+    binaryWriter.write(reinterpret_cast<const char *>(&length), sizeof(length));
+    for (auto &r : responsePyr)
+      saveSparseMatrix(r, binaryWriter);
+    binaryWriter.close();
+  }
+
+  if (FLAGS_previewOut)
+    cv::rectshow(out);
+
+  loaded = true;
+}
+
+const Eigen::SparseMatrix<char> &
+place::DoorDetector::getResponse(int level) const {
+  return responsePyr[level];
 }

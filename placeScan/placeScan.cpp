@@ -2,6 +2,7 @@
 #include "placeScan_doorDetector.h"
 #include "placeScan_multiLabeling.h"
 #include "placeScan_placeScan.h"
+#include "placeScan_placeScanHelper2.h"
 
 #include <algorithm>
 #include <fstream>
@@ -79,21 +80,22 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  cv::Mat fpWeights = place::getDirections();
+// cv::Mat fpWeights = place::getDirections();
 
 #if 0
   if (FLAGS_debugMode) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R0/cse_point_126.png", 0);
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_032.png", 0);
     if (!image.data) {
-      std::cout <<
+      std::cout << "Could not load image" << std::endl;
+      return 1;
     }
     std::vector<Eigen::Vector2i> tmp(4);
     std::vector<cv::Mat> toTrim = {image}, trimmed;
     place::trimScans(toTrim, trimmed, tmp);
     image = trimmed[0];
 
-    const int xOffset = 6799 - image.cols / 2.0;
-    const int yOffset = 2499 - image.rows / 2.0;
+    const int xOffset = 3900;
+    const int yOffset = 508;
     std::cout << xOffset << "  " << yOffset << std::endl;
     for (int i = 0; i < image.rows; ++i) {
       uchar *src = image.ptr<uchar>(i);
@@ -108,14 +110,17 @@ int main(int argc, char *argv[]) {
     }
     cvNamedWindow("Preview", CV_WINDOW_NORMAL);
     cv::imshow("Preview", fpColor);
-    cv::waitKey(0);
+    std::cout << cv::waitKey(0) << std::endl;
+
     return 0;
   }
 #endif
 
-  std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
+  std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames,
+      doorsNames;
 
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
+  parseFolder(FLAGS_doorsFolder + "/floorplan", doorsNames);
 
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(pointFileNames, FLAGS_startNumber);
@@ -130,6 +135,10 @@ int main(int argc, char *argv[]) {
 
     std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
     std::vector<Eigen::MatrixXb> fpMasks;
+    place::DoorDetector d;
+
+    place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
+    d.run(fpPyramid, erodedFpPyramid, fpMasks);
 
     for (int i = FLAGS_startIndex;
          i < std::min(FLAGS_startIndex + FLAGS_numScans,
@@ -138,14 +147,17 @@ int main(int argc, char *argv[]) {
       const std::string scanName = pointFileNames[i];
       const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
       const std::string maskName = freeFileNames[i];
+      const std::string doorName =
+          FLAGS_doorsFolder + "floorplan/" + doorsNames[i];
 
       if (FLAGS_redo ||
-          !place::reshowPlacement(scanName, zerosFile, FLAGS_outputV1)) {
+          !place::reshowPlacement(scanName, zerosFile, doorName, d,
+                                  FLAGS_outputV1)) {
 
         place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
-        place::DoorDetector d(fpPyramid, erodedFpPyramid, fpMasks);
+        d.run(fpPyramid, erodedFpPyramid, fpMasks);
         place::analyzePlacement(fpPyramid, erodedFpPyramid, fpMasks, scanName,
-                                zerosFile, maskName);
+                                zerosFile, maskName, doorName, d);
       }
       if (show_progress)
         ++(*show_progress);
@@ -161,7 +173,9 @@ int main(int argc, char *argv[]) {
       labeler.displayGraph();
     labeler.solveTRW();
     labeler.saveFinal(0);
-    labeler.displaySolution();
+
+    if (!FLAGS_redo || FLAGS_previewOut)
+      labeler.displaySolution();
     // labeler.solveMIP();
     // labeler.saveFinal(1);
 
@@ -174,7 +188,8 @@ void place::analyzePlacement(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     const std::vector<Eigen::MatrixXb> &fpMasks, const std::string &scanName,
-    const std::string &zerosFile, const std::string &maskName) {
+    const std::string &zerosFile, const std::string &maskName,
+    const std::string &doorName, const place::DoorDetector &d) {
   boost::timer::auto_cpu_timer *timer = nullptr;
 
   if (!FLAGS_quietMode) {
@@ -211,17 +226,17 @@ void place::analyzePlacement(
 
   std::vector<std::vector<Eigen::SparseMatrix<double>>> eMaskPyramid(
       {eMasksSpare});
-  createPyramid(eMaskPyramid);
+  createPyramid(eMaskPyramid, FLAGS_numLevels);
   eMasksSpare.clear();
 
   std::vector<std::vector<Eigen::SparseMatrix<double>>> rSSparsePyramid(
       {rSSparse});
-  createPyramid(rSSparsePyramid);
+  createPyramid(rSSparsePyramid, FLAGS_numLevels);
   rSSparse.clear();
 
   std::vector<std::vector<Eigen::SparseMatrix<double>>> erodedSparsePyramid(
       {eScanSparse});
-  createPyramid(erodedSparsePyramid);
+  createPyramid(erodedSparsePyramid, FLAGS_numLevels);
   eScanSparse.clear();
 
   std::vector<std::vector<Eigen::SparseMatrix<double>>>
@@ -257,10 +272,21 @@ void place::analyzePlacement(
   if (FLAGS_debugMode || FLAGS_visulization)
     displayScanAndMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS);
 
-  if (FLAGS_debugMode)
-    loadInTruePlacement(scanName, zeroZero);
+  std::vector<std::vector<std::vector<place::Door>>> doors(
+      {loadInDoors(doorName, zeroZero)});
 
-  constexpr double numRects = 2048;
+  for (int i = 0; i < FLAGS_numLevels; ++i) {
+    doors.emplace_back(std::vector<std::vector<place::Door>>(doors[i].begin(),
+                                                             doors[i].end()));
+    for (auto &ds : doors[i + 1]) {
+      for (auto &d : ds) {
+        d.corner /= 2;
+        d.w /= 2;
+      }
+    }
+  }
+
+  constexpr double numRects = 1024 * 1.5;
 
 #if 0
   if (FLAGS_debugMode) {
@@ -268,7 +294,7 @@ void place::analyzePlacement(
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp(3197, 1241, 2);
+      Eigen::Vector3i tmp(3900, 500, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -282,7 +308,8 @@ void place::analyzePlacement(
 
       findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k], erodedFpPyramid[k],
                     erodedSparsePyramidTrimmed[k], eMaskPyramidTrimmedNS[k],
-                    numPixelsUnderMask[k], fpMasks[k], tmpPoints, trueScores);
+                    numPixelsUnderMask[k], fpMasks[k], tmpPoints,
+                    d.getResponse(k), doors[k], trueScores);
 
       std::vector<const place::posInfo *> tmpMin;
 
@@ -319,7 +346,8 @@ void place::analyzePlacement(
                   return (a->score < b->score);
                 });
 
-      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k], tmpMin);
+      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k],
+                           d.getResponse(k), doors[k], tmpMin);
     }
   }
 #endif
@@ -353,7 +381,8 @@ void place::analyzePlacement(
   for (int k = FLAGS_numLevels; k >= 0; --k) {
     findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k], erodedFpPyramid[k],
                   erodedSparsePyramidTrimmed[k], eMaskPyramidTrimmedNS[k],
-                  numPixelsUnderMask[k], fpMasks[k], pointsToAnalyze, scores);
+                  numPixelsUnderMask[k], fpMasks[k], pointsToAnalyze,
+                  d.getResponse(k), doors[k], scores);
     if (scores.size() == 0)
       return;
 
@@ -382,7 +411,7 @@ void place::analyzePlacement(
 
 #if 0
     if (FLAGS_debugMode) {
-      Eigen::Vector3i tmp(3197, 1241, 2);
+      /*Eigen::Vector3i tmp(3197, 1241, 2);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
@@ -399,14 +428,16 @@ void place::analyzePlacement(
       }
 
       if (!found)
-        std::cout << "Lost at level: " << k << std::endl;
+        std::cout << "Lost at level: " << k << std::endl;*/
 
+      std::vector<const place::posInfo *> trueMin(minima.begin(), minima.end());
       std::sort(trueMin.begin(), trueMin.end(),
                 [](const place::posInfo *a, const place::posInfo *b) {
                   return (a->score < b->score);
                 });
 
-      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k], trueMin);
+      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k],
+                           d.getResponse(k), doors[k], trueMin);
     }
 #endif
   }
@@ -427,7 +458,8 @@ void place::analyzePlacement(
   }
 
   if (FLAGS_visulization || FLAGS_previewOut)
-    place::displayOutput(fpPyramid[0], rSSparsePyramidTrimmed[0], minima);
+    place::displayOutput(fpPyramid[0], rSSparsePyramidTrimmed[0],
+                         d.getResponse(0), doors[0], minima);
 }
 
 void place::findLocalMinima(const std::vector<place::posInfo> &scores,
@@ -602,6 +634,31 @@ void place::trimScanPryamids(
   }
 }
 
+static std::tuple<double, double>
+computeDoorIntersections(const Eigen::MatrixXb &fpDoors,
+                         const std::vector<std::vector<place::Door>> &pcDoors,
+                         const Eigen::Vector3i &point) {
+  auto &doors = pcDoors[point[2]];
+
+  double unexplained = 0, total = 0;
+  for (auto &d : doors) {
+    total += std::ceil(d.w);
+    unexplained += std::ceil(d.w);
+
+    for (int x = 0; x < std::ceil(d.w); ++x) {
+      Eigen::Vector3d index =
+          (d.corner + x * d.xAxis + point.cast<double>()).unaryExpr([](auto v) {
+            return std::round(v);
+          });
+      char val;
+      if ((val = place::localGroup(fpDoors, index[1], index[0], 2)))
+        unexplained -= val / 2.0;
+    }
+  }
+
+  return std::make_tuple(unexplained, std::max(1.0, total));
+}
+
 void place::findPlacement(
     const Eigen::SparseMatrix<double> &fp,
     const std::vector<Eigen::SparseMatrix<double>> &scans,
@@ -609,7 +666,8 @@ void place::findPlacement(
     const std::vector<Eigen::SparseMatrix<double>> &scansE,
     const std::vector<Eigen::MatrixXb> &masks,
     const Eigen::VectorXd &numPixelsUnderMask, const Eigen::MatrixXb &fpMask,
-    const std::vector<Eigen::Vector3i> &points,
+    const std::vector<Eigen::Vector3i> &points, const Eigen::MatrixXb &fpDoors,
+    const std::vector<std::vector<place::Door>> &pcDoors,
     std::vector<place::posInfo> &scores) {
   if (!FLAGS_quietMode)
     std::cout << "Start: " << points.size() << std::endl;
@@ -670,11 +728,10 @@ void place::findPlacement(
     currentFPE.prune(1.0);
 
     Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
-    for (int i = 0; i < diff.outerSize(); ++i) {
+    for (int i = 0; i < diff.outerSize(); ++i)
       for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
         if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
           scanFPsetDiff += it.value();
-    }
 
     diff = currentFP - currentScanE;
     for (int i = 0; i < diff.outerSize(); ++i)
@@ -682,9 +739,13 @@ void place::findPlacement(
         if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
           fpScanSetDiff += it.value();
 
-    const double score = (1.5 * scanFPsetDiff / numPixelsUnderMask[scanIndex] +
-                          fpScanSetDiff / (numFPPixelsUM)) /
-                         2.5;
+    double doorUxp, doorCount;
+    std::tie(doorUxp, doorCount) =
+        computeDoorIntersections(fpDoors, pcDoors, point);
+    const double doorScore = doorUxp / doorCount;
+    const double scanScore = scanFPsetDiff / numPixelsUnderMask[scanIndex];
+    const double fpScore = fpScanSetDiff / numFPPixelsUM;
+    const double score = (1.5 * scanScore + fpScore + doorScore) / 3.5;
 
     if (!Eigen::numext::isfinite(score))
       continue;
@@ -698,6 +759,8 @@ void place::findPlacement(
     tmp.fpScan = fpScanSetDiff;
     tmp.scanPixels = numPixelsUnderMask[scanIndex];
     tmp.fpPixels = numFPPixelsUM;
+    tmp.doorUxp = doorUxp;
+    tmp.doorCount = doorCount;
     scores[i] = tmp;
   }
 
@@ -829,10 +892,10 @@ void place::createFPPyramids(
   erodedFpTresh.setFromTriplets(erodedTrip.begin(), erodedTrip.end());
 
   fpPyramid.push_back(fpTresh);
-  createPyramid(fpPyramid);
+  createPyramid(fpPyramid, FLAGS_numLevels);
 
   erodedFpPyramid.push_back(erodedFpTresh);
-  createPyramid(erodedFpPyramid);
+  createPyramid(erodedFpPyramid, FLAGS_numLevels);
 
   for (auto &level : fpPyramid) {
     Eigen::MatrixXd levelNS = Eigen::MatrixXd(level);

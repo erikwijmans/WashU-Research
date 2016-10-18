@@ -18,6 +18,8 @@ void BuildingScale::update(double scale) {
   out.close();
 }
 
+BuildingScale buildingScale;
+
 size_t std::hash<std::vector<int>>::
 operator()(const std::vector<int> &k) const {
   size_t seed = 0;
@@ -25,126 +27,6 @@ operator()(const std::vector<int> &k) const {
     seed ^= h(v * A) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
   }
   return seed;
-}
-
-BuildingScale buildingScale;
-
-template <typename MatrixType>
-void saveMatrixAsSparse(const MatrixType &mat, std::ofstream &out) {
-  typedef typename MatrixType::Scalar Scalar;
-  int numNonZeros = 0, rows = mat.rows(), cols = mat.cols();
-  const Scalar *dataPtr = mat.data();
-  for (int i = 0; i < mat.size(); ++i)
-    if (*(dataPtr + i))
-      ++numNonZeros;
-
-  out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
-  out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
-  out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
-
-  for (int i = 0; i < mat.size(); ++i) {
-    if (*(dataPtr + i)) {
-      out.write(reinterpret_cast<const char *>(&i), sizeof(i));
-      out.write(reinterpret_cast<const char *>(dataPtr + i), sizeof(Scalar));
-    }
-  }
-}
-
-template <typename MatrixType>
-void loadMatrixFromSparse(MatrixType &mat, std::ifstream &in) {
-  typedef typename MatrixType::Scalar Scalar;
-  int numNonZeros, rows, cols;
-
-  in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
-  in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
-  in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
-
-  mat = MatrixType::Zero(rows, cols);
-  Scalar *dataPtr = mat.data();
-
-  for (int i = 0; i < numNonZeros; ++i) {
-    int index;
-    in.read(reinterpret_cast<char *>(&index), sizeof(index));
-    in.read(reinterpret_cast<char *>(dataPtr + index), sizeof(Scalar));
-  }
-}
-
-template <typename SparseMatrixType>
-void saveSparseMatrix(SparseMatrixType &mat, std::ofstream &out) {
-  typedef typename SparseMatrixType::Scalar Scalar;
-
-  int rows = mat.rows(), cols = mat.cols(), numNonZeros = mat.nonZeros();
-  out.write(reinterpret_cast<const char *>(&numNonZeros), sizeof(numNonZeros));
-  out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
-  out.write(reinterpret_cast<const char *>(&cols), sizeof(cols));
-
-  for (int i = 0; mat.outerSize(); ++i) {
-    for (typename SparseMatrixType::InnerIterator it(mat, i); it; ++it) {
-      int index = it.col() * rows + it.row();
-      Scalar value = it.value();
-      out.write(reinterpret_cast<const char *>(&index), sizeof(index));
-      out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
-    }
-  }
-}
-
-template <typename SparseMatrixType>
-void loadSparseMatrix(SparseMatrixType &mat, std::ifstream &in) {
-  typedef typename SparseMatrixType::Scalar Scalar;
-  typedef Eigen::Triplet<Scalar> TripType;
-
-  int rows, cols, numNonZeros;
-  in.read(reinterpret_cast<char *>(&numNonZeros), sizeof(numNonZeros));
-  in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
-  in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
-  mat.resize(rows, cols);
-  mat.reserve(numNonZeros);
-  std::vector<TripType> tripletList;
-  tripletList.reserve(numNonZeros);
-
-  for (int i = 0; i < numNonZeros; ++i) {
-    int index;
-    Scalar value;
-    in.read(reinterpret_cast<char *>(&index), sizeof(index));
-    in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
-    int col = floor(index / rows);
-    int row = index % rows;
-    tripletList.push_back(TripType(row, col, value));
-  }
-  mat.setFromTriplets(tripletList.begin(), tripletList.end());
-}
-
-template <typename SparseVectorType>
-void saveSpareVector(const SparseVectorType &vec, std::ofstream &out) {
-  typedef typename SparseVectorType::Scalar Scalar;
-  int nonZeros = vec.nonZeros(), size = vec.size();
-  out.write(reinterpret_cast<const char *>(&nonZeros), sizeof(nonZeros));
-  out.write(reinterpret_cast<const char *>(&size), sizeof(size));
-  for (int i = 0; i < vec.outerSize(); ++i) {
-    for (typename SparseVectorType::InnerIterator it(vec, i); it; ++it) {
-      Scalar value = it.value();
-      short row = it.row();
-      out.write(reinterpret_cast<const char *>(&value), sizeof(Scalar));
-      out.write(reinterpret_cast<const char *>(&row), sizeof(row));
-    }
-  }
-}
-
-template <typename SparseVectorType>
-void loadSparseVetor(SparseVectorType &vec, std::ifstream &in) {
-  typedef typename SparseVectorType::Scalar Scalar;
-  int nonZeros, size;
-  in.read(reinterpret_cast<char *>(&nonZeros), sizeof(nonZeros));
-  in.read(reinterpret_cast<char *>(&size), sizeof(size));
-  vec.resize(size);
-  vec.reserve(nonZeros);
-  for (int i = 0; i < nonZeros; ++i) {
-    Scalar value;
-    short row;
-    in.read(reinterpret_cast<char *>(&value), sizeof(Scalar));
-    in.read(reinterpret_cast<char *>(&row), sizeof(row));
-    vec.coeffRef(row) = value;
-  }
 }
 
 void SHOT1344WithXYZ::writeToFile(std::ofstream &out) {
@@ -237,6 +119,8 @@ void place::MetaData::loadFromFile(std::ifstream &in) {
   in.read(reinterpret_cast<char *>(&vox), sizeof(vox));
   in.read(reinterpret_cast<char *>(&s), sizeof(s));
 }
+
+place::Panorama::Panorama() : imgs{20} {};
 
 void place::Panorama::writeToFile(const std::string &imgName,
                                   const std::string &dataName) {
@@ -402,7 +286,8 @@ std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
 
 std::ostream &place::operator<<(std::ostream &os, const place::posInfo *print) {
   os << print->score << "  " << print->x << "  " << print->y << "  "
-     << print->rotation << std::endl;
+     << print->rotation << "  " << print->doorUxp << "  " << print->doorCount
+     << std::endl;
   os << print->scanFP << "  " << print->fpScan << std::endl;
   os << print->scanPixels << " " << print->fpPixels;
   return os;
@@ -438,15 +323,26 @@ cv::Vec3b randomColor() {
 }
 
 int cv::rectshow(const std::string &name, const cv::Mat &img) {
-  cv::namedWindow(name, CV_WINDOW_NORMAL);
-  cv::Mat bigImg;
+  while (cv::waitKey(1) != -1)
+    ;
 
+  cv::namedWindow(name, CV_WINDOW_NORMAL);
+  static cv::Mat bigImg;
+
+  int newRows, newCols;
   if (img.rows > img.cols) {
-    bigImg =
-        cv::Mat(img.rows, img.rows * 16 / 9, img.type(), cv::Scalar::all(255));
+    newRows = img.rows;
+    newCols = img.rows * 16 / 9;
   } else {
-    bigImg =
-        cv::Mat(img.cols, img.cols * 16 / 9, img.type(), cv::Scalar::all(255));
+    newRows = img.cols;
+    newCols = img.cols * 16 / 9;
+  }
+
+  if (!bigImg.data || bigImg.rows != newRows || bigImg.cols != newCols ||
+      bigImg.type() != img.type()) {
+    bigImg = cv::Mat(newRows, newCols, img.type(), cv::Scalar::all(255));
+  } else {
+    bigImg = cv::Scalar::all(255);
   }
 
   int deltaRows = (bigImg.rows - img.rows) / 2.0;
@@ -461,7 +357,28 @@ int cv::rectshow(const std::string &name, const cv::Mat &img) {
   }
 
   cv::imshow(name, bigImg);
-  return cv::waitKey(0);
+  int kc = 0;
+  do {
+    kc = cv::waitKey(0);
+  } while (kc != 27 && kc != 8 && kc != 13);
+
+  return kc;
 }
 
-int cv::rectshow(const cv::Mat &img) { return cv::rectshow("Preview", img); }
+int cv::rectshow(const cv::Mat &img) { return cv::rectshow("Preview", img); };
+
+void place::Door::writeToFile(std::ofstream &out) const {
+  out.write(reinterpret_cast<const char *>(corner.data()), 3 * sizeof(double));
+  out.write(reinterpret_cast<const char *>(xAxis.data()), 3 * sizeof(double));
+  out.write(reinterpret_cast<const char *>(zAxis.data()), 3 * sizeof(double));
+  out.write(reinterpret_cast<const char *>(&h), sizeof(double));
+  out.write(reinterpret_cast<const char *>(&w), sizeof(double));
+}
+
+void place::Door::loadFromFile(std::ifstream &in) {
+  in.read(reinterpret_cast<char *>(corner.data()), 3 * sizeof(double));
+  in.read(reinterpret_cast<char *>(xAxis.data()), 3 * sizeof(double));
+  in.read(reinterpret_cast<char *>(zAxis.data()), 3 * sizeof(double));
+  in.read(reinterpret_cast<char *>(&h), sizeof(double));
+  in.read(reinterpret_cast<char *>(&w), sizeof(double));
+}

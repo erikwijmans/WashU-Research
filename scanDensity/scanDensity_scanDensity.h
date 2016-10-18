@@ -15,7 +15,7 @@
 #include <string>
 #include <time.h>
 
-#include <HashVoxel.hpp>
+#include <DirectVoxel.hpp>
 #include <scan_gflags.h>
 #include <scan_typedefs.hpp>
 
@@ -24,6 +24,7 @@ public:
   typedef std::shared_ptr<const std::vector<Eigen::Vector3f>> PointsPtr;
   typedef std::shared_ptr<const std::vector<Eigen::Matrix3d>> MatPtr;
   typedef std::shared_ptr<const std::vector<SPARSE352WithXYZ>> FeaturePtr;
+  typedef std::shared_ptr<const std::vector<place::Door>> DoorsPtr;
   /* Constructs argv and argc, then calls the constructor with them */
   DensityMapsManager(const std::string &commandLine);
   DensityMapsManager(int argc, char *argv[]);
@@ -34,6 +35,7 @@ public:
   bool hasNext();
   bool exists2D();
   bool exists3D();
+  bool existsDoors();
   void setNext();
   void get2DPointNames(std::vector<std::string> &names);
   void get3DPointNames(std::vector<std::string> &names);
@@ -41,18 +43,22 @@ public:
   void get3DFreeNames(std::vector<std::string> &names);
   std::string getZerosName();
   std::string getMetaDataName();
+  std::string getDoorsName();
   PointsPtr getPointsWithCenter() { return pointsWithCenter; };
   PointsPtr getPointsNoCenter() { return pointsNoCenter; };
   MatPtr getR() { return R; };
+  DoorsPtr getDoors() { return doors; };
   void setScale(double newScale) { FLAGS_scale = newScale; };
   double getScale() { return FLAGS_scale; };
 
 private:
-  std::vector<std::string> binaryNames, rotationsFiles, featureNames;
+  std::vector<std::string> binaryNames, rotationsFiles, featureNames,
+      doorsNames;
   std::shared_ptr<std::vector<Eigen::Vector3f>> pointsWithCenter;
   std::shared_ptr<std::vector<Eigen::Vector3f>> pointsNoCenter;
   std::shared_ptr<std::vector<Eigen::Matrix3d>> R;
-  std::string rotationFile, fileName, scanNumber, buildName, featName;
+  std::shared_ptr<std::vector<place::Door>> doors;
+  std::string rotationFile, fileName, scanNumber, buildName, featName, doorName;
   int current;
 };
 
@@ -82,25 +88,30 @@ private:
   BoundingBox::ConstPtr bBox;
   DensityMapsManager::PointsPtr points;
   DensityMapsManager::MatPtr R;
-  voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi>::Ptr pointsPerVoxel;
+  DensityMapsManager::DoorsPtr doors;
+  voxel::DirectVoxel<char>::Ptr pointInVoxel;
   std::vector<cv::Mat> pointEvidence, freeSpaceEvidence;
+  std::vector<std::vector<place::Door>> rotatedDoors;
   Eigen::Vector3f pointMin, pointMax;
-  Eigen::Vector3d zeroZero;
+  Eigen::Vector3d zeroZero, newZZ;
   Eigen::Vector2i imageZeroZero;
   const int numZ = 100;
-  int numY, numX;
+  int numY, numX, newRows, newCols;
   float zScale, scale;
 
 public:
   typedef std::shared_ptr<CloudAnalyzer2D> Ptr;
   CloudAnalyzer2D(const DensityMapsManager::PointsPtr &points,
                   const DensityMapsManager::MatPtr &R,
-                  const BoundingBox::ConstPtr &bBox);
+                  const BoundingBox::ConstPtr &bBox,
+                  const DensityMapsManager::DoorsPtr &doors);
   void initalize(double scale);
   void examinePointEvidence();
   void examineFreeSpaceEvidence();
+  void rotateDoors();
   const std::vector<cv::Mat> &getPointEvidence();
   const std::vector<cv::Mat> &getFreeSpaceEvidence();
+  const std::vector<std::vector<place::Door>> getRotatedDoors();
   Eigen::Vector2i getImageZeroZero();
   float getScale();
 };

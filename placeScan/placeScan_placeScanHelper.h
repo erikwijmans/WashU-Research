@@ -2,6 +2,8 @@
 #ifndef PLACESCAN_PLACE_SCAN_HELPER_HPP_
 #define PLACESCAN_PLACE_SCAN_HELPER_HPP_
 
+#include "placeScan_doorDetector.h"
+
 #include <scan_gflags.h>
 
 #include <string>
@@ -48,6 +50,7 @@ void savePlacement(const std::vector<const place::posInfo *> &minima,
                    const std::vector<Eigen::Vector2i> &zeroZero);
 
 bool reshowPlacement(const std::string &scanName, const std::string &zerosFile,
+                     const std::string &doorName, const place::DoorDetector &d,
                      const std::string &preDone);
 
 void displayOutput(
@@ -60,11 +63,6 @@ void loadInTruePlacement(const std::string &scanName,
 void displayTruePlacement(const std::vector<Eigen::SparseMatrix<double>> &,
                           const std::vector<posInfo> &scores,
                           const std::vector<Eigen::Vector2i> &zeroZero);
-
-cv::Mat sparseToImage(const Eigen::SparseMatrix<double> &toImage);
-
-void sparseToImage(const Eigen::SparseMatrix<double> &toImage,
-                   cv::Mat &imageOut);
 
 void scanToSparse(const cv::Mat &scan, Eigen::SparseMatrix<double> &sparse);
 
@@ -81,9 +79,15 @@ void erodeSparse(const Eigen::SparseMatrix<double> &src,
 void displayOutput(
     const Eigen::SparseMatrix<double> &fp,
     const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
+    const Eigen::MatrixXb &fpDoors,
+    const std::vector<std::vector<place::Door>> &pcDoors,
     const std::vector<const place::posInfo *> &minima);
 
 void removeMinimumConnectedComponents(cv::Mat &image);
+
+std::vector<std::vector<place::Door>>
+loadInDoors(const std::string &name,
+            const std::vector<Eigen::Vector2i> &zeroZero);
 
 template <class E, class UrnaryFunc>
 int getCutoffIndex(const std::string &name, const std::vector<E> &list,
@@ -167,6 +171,53 @@ int getCutoffIndex(const std::string &name, const std::vector<E> &list,
   // return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));
   return std::min(5, (int)list.size());
 }
+
+template <typename Scalar>
+void sparseToImage(const Eigen::SparseMatrix<Scalar> &toImage,
+                   cv::Mat &imageOut) {
+
+  imageOut =
+      cv::Mat(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
+
+  Scalar maxV = 0;
+  for (int i = 0; i < toImage.outerSize(); ++i) {
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(toImage, i); it;
+         ++it) {
+      maxV = std::max(maxV, it.value());
+    }
+  }
+
+  for (int i = 0; i < toImage.outerSize(); ++i) {
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(toImage, i); it;
+         ++it) {
+      imageOut.at<uchar>(it.row(), it.col()) =
+          255 - 255 * it.value() / static_cast<double>(maxV);
+    }
+  }
+}
+
+template <typename Scalar>
+cv::Mat sparseToImage(const Eigen::SparseMatrix<Scalar> &toImage) {
+
+  cv::Mat image(toImage.rows(), toImage.cols(), CV_8UC1, cv::Scalar::all(255));
+  Scalar maxV = 0;
+  for (int i = 0; i < toImage.outerSize(); ++i) {
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(toImage, i); it;
+         ++it) {
+      maxV = std::max(maxV, it.value());
+    }
+  }
+
+  for (int i = 0; i < toImage.outerSize(); ++i) {
+    for (typename Eigen::SparseMatrix<Scalar>::InnerIterator it(toImage, i); it;
+         ++it) {
+      image.at<uchar>(it.row(), it.col()) =
+          255 - 255 * it.value() / static_cast<double>(maxV);
+    }
+  }
+  return image;
+}
+
 } // namespace place
 
 #endif

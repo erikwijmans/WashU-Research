@@ -6,18 +6,6 @@
 #include <FeatureVoxel.hpp>
 #include <unordered_map>
 
-namespace std {
-template <> struct hash<Eigen::Vector3i> {
-  std::size_t operator()(const Eigen::Vector3i &k) const {
-    size_t seed = 0;
-    for (int i = 0; i < k.size(); ++i) {
-      seed ^= k[i] + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    }
-    return seed;
-  }
-};
-} // std
-
 namespace voxel {
 
 class CloudAnalyzer3D {

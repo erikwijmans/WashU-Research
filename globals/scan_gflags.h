@@ -36,6 +36,7 @@ DECLARE_string(PTXFolder);
 DECLARE_string(normalsFolder);
 DECLARE_string(descriptorsFolder);
 DECLARE_string(SIFTFolder);
+DECLARE_string(doorsFolder);
 DECLARE_string(dataPath);
 DECLARE_int32(startIndex);
 DECLARE_int32(startNumber);

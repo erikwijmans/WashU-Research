@@ -15,6 +15,8 @@
 #include <locale>
 #include <sstream>
 
+#include <omp.h>
+
 DensityMapsManager::DensityMapsManager(const std::string &commandLine)
     : R{NULL}, pointsWithCenter{NULL}, pointsNoCenter{NULL} {
   this->resetFlags(commandLine);
@@ -50,39 +52,9 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   if (!FLAGS_pe && !FLAGS_fe)
     FLAGS_pe = FLAGS_fe = true;
 
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir(FLAGS_binaryFolder.data())) != NULL) {
-    /* Add all the files and directories to a std::vector */
-    while ((ent = readdir(dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".") {
-        binaryNames.push_back(fileName);
-      }
-    }
-    closedir(dir);
-  } else {
-    /* could not open directory */
-    perror("");
-    exit(EXIT_FAILURE);
-  }
-  sort(binaryNames.begin(), binaryNames.end());
-
-  if ((dir = opendir(FLAGS_rotFolder.data())) != NULL) {
-    /* Add all the files and directories to a std::vector */
-    while ((ent = readdir(dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".") {
-        rotationsFiles.push_back(fileName);
-      }
-    }
-    closedir(dir);
-  } else {
-    /* could not open directory */
-    perror("");
-    exit(EXIT_FAILURE);
-  }
-  sort(rotationsFiles.begin(), rotationsFiles.end());
+  parseFolder(FLAGS_binaryFolder, binaryNames);
+  parseFolder(FLAGS_rotFolder, rotationsFiles);
+  parseFolder(FLAGS_doorsFolder + "/pointcloud", doorsNames);
 
   std::string buildName = rotationsFiles[0].substr(0, 3);
 
@@ -107,11 +79,12 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
 void DensityMapsManager::run() {
   rotationFile = FLAGS_rotFolder + rotationsFiles[current];
   fileName = FLAGS_binaryFolder + binaryNames[current];
+  doorName = FLAGS_doorsFolder + "/pointcloud/" + doorsNames[current];
 
   scanNumber = fileName.substr(fileName.find(".") - 3, 3);
   buildName = fileName.substr(fileName.rfind("/") + 1, 3);
 
-  if (!FLAGS_redo && exists2D() && exists3D())
+  if (!FLAGS_redo && exists2D() && exists3D() && existsDoors())
     return;
 
   if (!FLAGS_quietMode)
@@ -123,6 +96,14 @@ void DensityMapsManager::run() {
     binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
                       sizeof(Eigen::Matrix3d));
   }
+  binaryReader.close();
+
+  binaryReader.open(doorName, std::ios::in | std::ios::binary);
+  int num;
+  binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
+  doors = std::make_shared<std::vector<place::Door>>(num);
+  for (auto &d : *doors)
+    d.loadFromFile(binaryReader);
   binaryReader.close();
 
   binaryReader.open(fileName, std::ios::in | std::ios::binary);
@@ -143,7 +124,7 @@ void DensityMapsManager::run() {
 
     point[1] *= -1.0;
 
-    if (!(point[0] || point[1] || point[2]) || tmp.intensity < 0.2)
+    if (!(point[0] || point[1] || point[2]) || tmp.intensity < 0.01)
       continue;
 
     pointsWithCenter->push_back(point);
@@ -192,14 +173,14 @@ std::string DensityMapsManager::getZerosName() {
   return FLAGS_zerosFolder + buildName + "_zeros_" + scanNumber + ".dat";
 }
 
+std::string DensityMapsManager::getDoorsName() {
+  return FLAGS_doorsFolder + "floorplan/" + buildName + "_doors_" + scanNumber +
+         ".dat";
+}
+
 std::string DensityMapsManager::getMetaDataName() {
   return FLAGS_voxelFolder + "metaData/" + buildName + "_metaData_" +
          scanNumber + ".dat";
-}
-
-static bool fexists(const std::string &name) {
-  std::ifstream in(name, std::ios::in);
-  return in.is_open();
 }
 
 bool DensityMapsManager::exists2D() {
@@ -227,6 +208,8 @@ bool DensityMapsManager::exists3D() {
   return true;
 }
 
+bool DensityMapsManager::existsDoors() { return fexists(getDoorsName()); }
+
 BoundingBox::BoundingBox(
     const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     Eigen::Vector3f &&range)
@@ -238,11 +221,12 @@ BoundingBox::BoundingBox(
     : points{points}, range{range} {}
 
 void BoundingBox::run() {
-  this->average = Eigen::Vector3f::Zero();
-  this->sigma = Eigen::Vector3f::Zero();
-  for (auto &point : *points) {
+  average = Eigen::Vector3f::Zero();
+  sigma = Eigen::Vector3f::Zero();
+
+  for (auto &point : *points)
     average += point;
-  }
+
   average /= points->size();
 
   for (auto &point : *points)
@@ -271,8 +255,9 @@ void BoundingBox::getBoundingBox(Eigen::Vector3f &min,
 CloudAnalyzer2D::CloudAnalyzer2D(
     const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
     const std::shared_ptr<const std::vector<Eigen::Matrix3d>> &R,
-    const std::shared_ptr<const BoundingBox> &bBox)
-    : points{points}, R{R}, bBox{bBox}, pointsPerVoxel{nullptr} {}
+    const std::shared_ptr<const BoundingBox> &bBox,
+    const DensityMapsManager::DoorsPtr &doors)
+    : points{points}, R{R}, bBox{bBox}, doors{doors} {}
 
 void CloudAnalyzer2D::initalize(double scale) {
   bBox->getBoundingBox(pointMin, pointMax);
@@ -282,8 +267,7 @@ void CloudAnalyzer2D::initalize(double scale) {
   numX = scale * (pointMax[0] - pointMin[0]);
   numY = scale * (pointMax[1] - pointMin[1]);
 
-  pointsPerVoxel = voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi>::Create(
-      Eigen::Vector2i(0, 0), Eigen::Vector2i(numX, numY));
+  pointInVoxel = voxel::DirectVoxel<char>::Create(numX, numY, numZ);
 
   for (auto &point : *points) {
     const int x = scale * (point[0] - pointMin[0]);
@@ -297,62 +281,59 @@ void CloudAnalyzer2D::initalize(double scale) {
     if (z < 0 || z >= numZ)
       continue;
 
-    auto p = pointsPerVoxel->at(x, y);
-    if (!p)
-      p = pointsPerVoxel->insert(Eigen::VectorXi::Zero(numZ), x, y);
-
-    ++(*p)[z];
+    pointInVoxel->at(x, y, z) = 1;
   }
 
   zeroZero = Eigen::Vector3d(-pointMin[0] * FLAGS_scale,
-                             -pointMin[1] * FLAGS_scale, 0);
+                             -pointMin[1] * FLAGS_scale, -pointMin[2] * zScale);
+
+  newRows = sqrt(2) * std::max(numY, numX);
+  newCols = newRows;
+  int dX = (newCols - numX) / 2.0;
+  int dY = (newRows - numY) / 2.0;
+  newZZ = zeroZero;
+  newZZ[0] += dX;
+  newZZ[1] += dY;
+  imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
 }
 
 void CloudAnalyzer2D::examinePointEvidence() {
   pointEvidence.clear();
-  Eigen::MatrixXf total = Eigen::MatrixXf::Zero(numY, numX);
-  for (int i = 0; i < numX; ++i) {
-    for (int j = 0; j < numY; ++j) {
-      auto column = pointsPerVoxel->at(i, j);
-      if (column) {
+
+  for (int r = 0; r < R->size(); ++r) {
+    Eigen::MatrixXf total = Eigen::MatrixXf::Zero(newRows, newCols);
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < total.cols(); ++i) {
+      for (int j = 0; j < total.rows(); ++j) {
         for (int k = 0; k < numZ; ++k) {
-          if ((*column)[k])
+          const Eigen::Vector3d coord(i, j, k);
+          const Eigen::Vector3i src =
+              (R->at(r) * (coord - newZZ) + zeroZero)
+                  .unaryExpr([](auto v) { return std::round(v); })
+                  .cast<int>();
+
+          if (src[0] < 0 || src[0] >= numX || src[1] < 0 || src[1] >= numY ||
+              src[2] < 0 || src[2] >= numZ)
+            continue;
+
+          if (pointInVoxel->at(src))
             ++total(j, i);
         }
       }
     }
-  }
 
-  double average, sigma;
-  const float *dataPtr = total.data();
-  std::tie(average, sigma) = place::aveAndStdev(
-      dataPtr, dataPtr + total.size(), [](double v) { return v; },
-      [](double v) -> bool { return v; });
+    double average, sigma;
+    const float *dataPtr = total.data();
+    std::tie(average, sigma) = place::aveAndStdev(
+        dataPtr, dataPtr + total.size(), [](auto v) { return v; },
+        [](auto v) -> bool { return v; });
 
-  int newRows = sqrt(2) * std::max(total.rows(), total.cols());
-  int newCols = newRows;
-  int dX = (newCols - total.cols()) / 2.0;
-  int dY = (newRows - total.rows()) / 2.0;
-  Eigen::Vector3d newZZ = zeroZero;
-  newZZ[0] += dX;
-  newZZ[1] += dY;
-
-  imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
-
-  for (int r = 0; r < R->size(); ++r) {
     cv::Mat heatMap(newRows, newCols, CV_8UC1, cv::Scalar::all(255));
     for (int j = 0; j < heatMap.rows; ++j) {
       uchar *dst = heatMap.ptr<uchar>(j);
       for (int i = 0; i < heatMap.cols; ++i) {
-        const Eigen::Vector3d pixel(i, j, 0);
-        const Eigen::Vector3d src = R->at(r) * (pixel - newZZ) + zeroZero;
-
-        if (src[0] < 0 || src[0] >= total.cols())
-          continue;
-        if (src[1] < 0 || src[1] >= total.rows())
-          continue;
-
-        const double count = total(src[1], src[0]);
+        const double count = total(j, i);
         if (count > 0) {
           const int gray = cv::saturate_cast<uchar>(
               255.0 *
@@ -361,13 +342,48 @@ void CloudAnalyzer2D::examinePointEvidence() {
         }
       }
     }
-    if (FLAGS_preview) {
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", heatMap);
-      cv::waitKey(0);
+
+    if (FLAGS_preview && doors->size()) {
+      std::cout << "Number of doors: " << doors->size() << std::endl;
+      cv::Mat out;
+      cv::cvtColor(heatMap, out, CV_GRAY2BGR);
+      cv::Mat_<cv::Vec3b> _out = out;
+      for (auto &d : *doors) {
+        Eigen::Vector3d bl = d.corner * FLAGS_scale;
+        bl[1] *= -1.0;
+        bl = R->at(r).inverse() * bl;
+
+        Eigen::Vector3d xAxis = d.xAxis;
+        xAxis[1] *= -1.0;
+        xAxis = R->at(r).inverse() * xAxis;
+
+        Eigen::Vector3d zAxis = d.zAxis;
+        zAxis[1] *= -1.0;
+        zAxis = R->at(r).inverse() * zAxis;
+
+        double w = d.w * FLAGS_scale;
+
+        auto color = randomColor();
+        for (int i = 0; i < w; ++i) {
+          Eigen::Vector3d pix =
+              (bl + i * xAxis + i * zAxis + newZZ).unaryExpr([](auto v) {
+                return std::round(v);
+              });
+
+          if (pix[0] < 0 || pix[0] >= out.cols || pix[1] < 0 ||
+              pix[1] >= out.rows)
+            continue;
+
+          _out(pix[1], pix[0]) = color;
+        }
+      }
+      cv::rectshow(out);
     }
 
     pointEvidence.push_back(heatMap);
+
+    if (FLAGS_preview)
+      cv::rectshow(heatMap);
   }
 }
 
@@ -375,32 +391,23 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
   freeSpaceEvidence.clear();
   Eigen::Vector3f cameraCenter = -1.0 * pointMin;
 
-  // voxel::HashVoxel<Eigen::Vector2i, Eigen::VectorXi> numTimesSeen (
-  // Eigen::Vector2i(0, 0), Eigen::Vector2i(numX, numY));
+  voxel::DirectVoxel<char> freeSpace(numX, numY, numZ);
 
-  std::vector<Eigen::MatrixXi> numTimesSeen(numX,
-                                            Eigen::MatrixXi::Zero(numZ, numY));
-
-  for (int i = 0; i < numX; ++i) {
+  for (int k = 0; k < numZ; ++k) {
     for (int j = 0; j < numY; ++j) {
-      auto column = pointsPerVoxel->at(i, j);
-      if (!column)
-        continue;
-      for (int k = 0; k < numZ; ++k) {
-        if (!(*column)[k])
+      for (int i = 0; i < numX; ++i) {
+
+        if (!pointInVoxel->at(i, j, k))
           continue;
 
-        float ray[3];
-        ray[0] = i - cameraCenter[0] * FLAGS_scale;
-        ray[1] = j - cameraCenter[1] * FLAGS_scale;
-        ray[2] = k - cameraCenter[2] * zScale;
-        float length =
-            sqrt(ray[0] * ray[0] + ray[1] * ray[1] + ray[2] * ray[2]);
-        float unitRay[3];
-        unitRay[0] = ray[0] / length;
-        unitRay[1] = ray[1] / length;
-        unitRay[2] = ray[2] / length;
-        int voxelHit[3];
+        Eigen::Vector3d ray(i, j, k);
+        ray[0] -= cameraCenter[0] * FLAGS_scale;
+        ray[1] -= cameraCenter[1] * FLAGS_scale;
+        ray[2] -= cameraCenter[2] * zScale;
+        double length = ray.norm();
+        Eigen::Vector3d unitRay = ray / length;
+
+        Eigen::Vector3i voxelHit;
         for (int a = 0; a <= ceil(length); ++a) {
           voxelHit[0] = floor(cameraCenter[0] * FLAGS_scale + a * unitRay[0]);
           voxelHit[1] = floor(cameraCenter[1] * FLAGS_scale + a * unitRay[1]);
@@ -412,67 +419,47 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
             continue;
           if (voxelHit[2] < 0 || voxelHit[2] >= numZ)
             continue;
-          /*auto n = numTimesSeen(voxelHit[0], voxelHit[1]);
-          if (!n) {
-            n = numTimesSeen.insert(std::make_shared<Eigen::VectorXi>
-              (Eigen::VectorXi::Zero(numZ)), voxelHit[0], voxelHit[1]);
-          }
 
-          (*n)[voxelHit[2]] +=
-            (*column)[k];*/
-
-          numTimesSeen[voxelHit[0]](voxelHit[2], voxelHit[1]) += (*column)[k];
+          freeSpace(voxelHit) = 1;
         }
       }
     }
   }
-
-  Eigen::MatrixXd collapsedCount = Eigen::MatrixXd::Zero(numY, numX);
-
-  for (int i = 0; i < numX; ++i) {
-    for (int j = 0; j < numY; ++j) {
-      // auto column = numTimesSeen(i, j);
-      bool column = true;
-      if (column) {
-        for (int k = 0; k < numZ; ++k) {
-          if (numTimesSeen[i](k, j) /*(*column)[k]*/) {
-            ++collapsedCount(j, i);
-          }
-        }
-      }
-    }
-  }
-
-  double average, sigma;
-  const double *vPtr = collapsedCount.data();
-  std::tie(average, sigma) = place::aveAndStdev(
-      vPtr, vPtr + collapsedCount.size(), [](double v) { return v; },
-      [](double v) -> bool { return v; });
-  int newRows =
-      sqrt(2) * std::max(collapsedCount.rows(), collapsedCount.cols());
-  int newCols = newRows;
-  int dX = (newCols - collapsedCount.cols()) / 2.0;
-  int dY = (newRows - collapsedCount.rows()) / 2.0;
-  Eigen::Vector3d newZZ = zeroZero;
-  newZZ[0] += dX;
-  newZZ[1] += dY;
-
-  imageZeroZero = Eigen::Vector2i(newZZ[0], newZZ[1]);
 
   for (int r = 0; r < R->size(); ++r) {
+    Eigen::MatrixXd collapsedCount = Eigen::MatrixXd::Zero(newRows, newCols);
+
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < collapsedCount.cols(); ++i) {
+      for (int j = 0; j < collapsedCount.rows(); ++j) {
+        for (int k = 0; k < numZ; ++k) {
+          const Eigen::Vector3d coord(i, j, k);
+          const Eigen::Vector3i src =
+              (R->at(r) * (coord - newZZ) + zeroZero)
+                  .unaryExpr([](auto v) { return std::round(v); })
+                  .cast<int>();
+
+          if (src[0] < 0 || src[0] >= numX || src[1] < 0 || src[1] >= numY ||
+              src[2] < 0 || src[2] >= numZ)
+            continue;
+
+          if (freeSpace(src))
+            ++collapsedCount(j, i);
+        }
+      }
+    }
+
+    double average, sigma;
+    const double *vPtr = collapsedCount.data();
+    std::tie(average, sigma) = place::aveAndStdev(
+        vPtr, vPtr + collapsedCount.size(), [](double v) { return v; },
+        [](double v) -> bool { return v; });
+
     cv::Mat heatMap(newRows, newCols, CV_8UC1, cv::Scalar::all(255));
     for (int j = 0; j < heatMap.rows; ++j) {
       uchar *dst = heatMap.ptr<uchar>(j);
       for (int i = 0; i < heatMap.cols; ++i) {
-        const Eigen::Vector3d pixel(i, j, 0);
-        const Eigen::Vector3d src = R->at(r) * (pixel - newZZ) + zeroZero;
-
-        if (src[0] < 0 || src[0] >= collapsedCount.cols())
-          continue;
-        if (src[1] < 0 || src[1] >= collapsedCount.rows())
-          continue;
-
-        const double count = collapsedCount(src[1], src[0]);
+        const double count = collapsedCount(j, i);
         if (count > 0) {
           const int gray = cv::saturate_cast<uchar>(
               255.0 * ((count - average) / sigma + 1.0));
@@ -500,6 +487,26 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
   }
 }
 
+void CloudAnalyzer2D::rotateDoors() {
+  for (int r = 0; r < NUM_ROTS; ++r) {
+    std::vector<place::Door> v;
+    for (const auto &d : *doors) {
+      place::Door newD(d);
+      newD.corner[1] *= -1;
+      newD.corner = R->at(r).inverse() * newD.corner;
+
+      newD.xAxis[1] *= -1.0;
+      newD.xAxis = R->at(r).inverse() * newD.xAxis;
+
+      newD.zAxis[1] *= -1.0;
+      newD.zAxis = R->at(r).inverse() * newD.zAxis;
+
+      v.emplace_back(newD);
+    }
+    rotatedDoors.emplace_back(v);
+  }
+}
+
 const std::vector<cv::Mat> &CloudAnalyzer2D::getPointEvidence() {
   return pointEvidence;
 }
@@ -509,3 +516,7 @@ const std::vector<cv::Mat> &CloudAnalyzer2D::getFreeSpaceEvidence() {
 }
 
 Eigen::Vector2i CloudAnalyzer2D::getImageZeroZero() { return imageZeroZero; }
+
+const std::vector<std::vector<place::Door>> CloudAnalyzer2D::getRotatedDoors() {
+  return rotatedDoors;
+}

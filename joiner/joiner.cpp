@@ -77,11 +77,6 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
 
 constexpr double targetNumPoints = 20e6;
 
-static bool fexists(const std::string &name) {
-  std::ifstream in(name);
-  return in.is_open();
-}
-
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();

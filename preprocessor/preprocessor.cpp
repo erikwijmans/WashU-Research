@@ -6,11 +6,13 @@
   assumption (ie walls should be aligned with the X or Y axis)
 */
 #include "preprocessor.h"
+#include "HashVoxel.hpp"
 #include "getRotations.h"
 
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <string>
 
 #include <eigen3/Eigen/Dense>
@@ -48,11 +50,6 @@ rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
 }
 
 static int PTXrows, PTXcols;
-
-static inline bool fexists(const std::string &file) {
-  std::ifstream in(file, std::ios::in);
-  return in.is_open();
-}
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -110,10 +107,13 @@ int main(int argc, char *argv[]) {
         FLAGS_rotFolder + buildName + "_rotations_" + number + ".dat";
     const std::string panoName = FLAGS_panoFolder + "images/" + buildName +
                                  "_panorama_" + number + ".png";
+    const std::string doorName = FLAGS_doorsFolder + "pointcloud/" + buildName +
+                                 "_doors_" + number + ".dat";
 
-    if (FLAGS_redo ||
+    if (true || FLAGS_redo ||
         !(fexists(binaryFileName) && fexists(normalsName) &&
-          fexists(dataName) && fexists(rotName) && fexists(panoName))) {
+          fexists(dataName) && fexists(rotName) && fexists(panoName) &&
+          fexists(doorName))) {
       std::vector<scan::PointXYZRGBA> pointCloud;
       convertToBinary(csvFileName, binaryFileName, pointCloud);
       if (show_progress)
@@ -136,7 +136,10 @@ int main(int argc, char *argv[]) {
       if (show_progress)
         ++(*show_progress);
 
-      getRotations(cloud_normals, rotName);
+      Eigen::Vector3d M1, M2, M3;
+      getRotations(cloud_normals, rotName, M1, M2, M3);
+
+      findDoors(normals_points, M1, M2, M3, doorName);
 
       if (show_progress)
         ++(*show_progress);
@@ -149,7 +152,7 @@ int main(int argc, char *argv[]) {
 
       if (show_progress)
         ++(*show_progress);
-    } else
+    } else if (show_progress)
       *show_progress += 5;
   }
 
@@ -634,7 +637,7 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
 
     if (!in)
       continue;
-    if (p.intensity < 0.2)
+    if (p.intensity < 0.01)
       continue;
 
     auto &point = p.point;
@@ -690,11 +693,11 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
   uniform_sampling.setRadiusSearch(0.0085f);
   uniform_sampling.filter(*filtered_cloud);
 
-  // pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(filtered_cloud);
-  // while (!viewer->wasStopped()) {
-  //   viewer->spinOnce(100);
-  //   boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-  // }
+  /*pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(filtered_cloud);
+  while (!viewer->wasStopped()) {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+  }*/
 
   pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
   pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>);
@@ -754,4 +757,340 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
 
   pointMin = average - delta / 2.0;
   pointMax = average + delta / 2.0;
+}
+
+double ransacZ(const std::vector<double> &Z) {
+  const int m = Z.size();
+
+  double maxInliers = 0, K = 1e5;
+  int k = 0;
+
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
+  std::uniform_int_distribution<int> dist(0, m - 1);
+  double domz = 0;
+
+  while (k < K) {
+    // random sampling
+    int randomIndex = dist(gen);
+    // compute the model parameters
+    auto zest = Z[randomIndex];
+
+    // Count the number of inliers
+    double numInliers = 0;
+    double average = 0;
+#pragma omp parallel
+    {
+      double privateInliers = 0;
+      double privateAve = 0;
+#pragma omp for nowait schedule(static)
+      for (int i = 0; i < m; ++i) {
+        auto &z = Z[i];
+        if (std::abs(z - zest) < 0.05) {
+          ++privateInliers;
+          privateAve += z;
+        }
+      }
+
+#pragma omp for schedule(static) ordered
+      for (int i = 0; i < omp_get_num_threads(); ++i) {
+#pragma omp ordered
+        {
+          average += privateAve;
+          numInliers += privateInliers;
+        }
+      }
+    }
+
+    if (numInliers > maxInliers) {
+      maxInliers = numInliers;
+
+      domz = average / numInliers;
+      // NB: Ransac formula to check for consensus
+      double w = (numInliers - 3) / m;
+      double p = std::max(0.001, std::pow(w, 3));
+      K = log(1 - 0.999) / log(1 - p);
+    }
+    ++k;
+  }
+
+  return domz;
+}
+
+void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
+               const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
+               const Eigen::Vector3d &M3, const std::string &outName) {
+  if (false && !FLAGS_redo && fexists(outName))
+    return;
+
+  constexpr double voxelsPerMeter = 50, gradCutoff = 2.0,
+                   wMin = 0.7 * voxelsPerMeter, wMax = 2.5 * voxelsPerMeter;
+
+  voxel::HashVoxel<Eigen::Vector3i, double> grid;
+  std::vector<double> zCoords;
+
+  for (auto &point : *pointCloud) {
+    const double depth = Eigen::Vector3d(point.x, point.y, point.z).norm();
+    auto voxel = grid(point.x * voxelsPerMeter, point.y * voxelsPerMeter,
+                      point.z * voxelsPerMeter);
+    if (voxel)
+      *voxel = (*voxel + depth) / 2.0;
+    else
+      grid.insert(depth, point.x * voxelsPerMeter, point.y * voxelsPerMeter,
+                  point.z * voxelsPerMeter);
+
+    zCoords.emplace_back(point.z);
+  }
+
+  Eigen::VectorXd domZs = Eigen::VectorXd::Zero(20);
+  int count = 0;
+  do {
+    double z0 = ransacZ(zCoords);
+
+    zCoords.erase(
+        std::remove_if(zCoords.begin(), zCoords.end(),
+                       [&z0](auto &z) { return std::abs(z - z0) < 0.05; }),
+        zCoords.end());
+    domZs[count++] = z0;
+  } while (domZs.minCoeff() >= 0 || count < 2);
+
+  const double hMax =
+      std::max(2.1, std::min(2.6, 0.9 * std::abs(domZs.maxCoeff() -
+                                                 domZs.minCoeff()))) *
+      voxelsPerMeter;
+
+  if (!FLAGS_quietMode) {
+    std::cout << hMax << std::endl;
+    std::cout << domZs.maxCoeff() << "  " << domZs.minCoeff() << std::endl;
+  }
+
+  const double hMin =
+      std::min(1.8, 0.5 * std::abs(domZs.maxCoeff() - domZs.minCoeff())) *
+      voxelsPerMeter;
+
+  const int z0Index = (domZs.minCoeff() * voxelsPerMeter);
+  const Eigen::Vector3d axises[] = {M2, M3, -M2, -M3};
+
+  std::vector<place::Door> doors;
+  auto traverse = [](const Eigen::Vector3d &x, double xInc,
+                     const Eigen::Vector3d &z,
+                     double zInc) { return x * xInc + z * zInc; };
+
+  std::function<double(double)> r = [](const double &v) {
+    return std::round(v);
+  };
+
+  auto getdepth = [&grid, &r](
+      const Eigen::Vector3d &point, const Eigen::Vector3d &axis,
+      const Eigen::Vector3d &zAxis, double xStop, double yStop, double zStop) {
+    Eigen::Vector3d a2(axis[1], -axis[0], axis[2]);
+    if (a2.dot(point) < 0.0)
+      a2 *= -1.0;
+
+    for (int i = 0; i <= xStop * voxelsPerMeter; ++i) {
+      for (int j = 0; j <= yStop * voxelsPerMeter; ++j) {
+        for (int k = 0; k <= zStop * voxelsPerMeter; ++k) {
+          Eigen::Vector3i cur =
+              (point + i * a2 + j * axis + k * zAxis).unaryExpr(r).cast<int>();
+          auto v = grid(cur);
+          if (v)
+            return *v;
+
+          if (i <= xStop * voxelsPerMeter / 2.0 &&
+              j <= yStop * voxelsPerMeter / 2.0 &&
+              k <= zStop * voxelsPerMeter / 2.0) {
+            cur = (point - i * a2 - j * axis - k * zAxis)
+                      .unaryExpr(r)
+                      .cast<int>();
+            v = grid(cur);
+            if (v)
+              return *v;
+          }
+        }
+      }
+    }
+
+    return 1e10;
+  };
+
+#pragma omp declare reduction(                                                 \
+    merge : std::vector <                                                      \
+    place::Door > : omp_out.insert(omp_out.end(), omp_in.begin(),              \
+                                                               omp_in.end()))
+
+#pragma omp parallel for reduction(merge : doors)
+  for (int j = grid.min()[1]; j < grid.max()[1]; ++j) {
+    for (int i = grid.min()[0]; i < grid.max()[0]; ++i) {
+      Eigen::Vector3d current = traverse(M2, i, M3, j);
+      current[2] += z0Index;
+
+      for (auto &axis : axises) {
+        double h = 0.2 * voxelsPerMeter, w = 0, deltaDepth;
+        do {
+          ++h;
+          Eigen::Vector3d delta = traverse(axis, 0.15 * voxelsPerMeter, M1, h);
+
+          double leftDepth = getdepth(current + delta, axis, M1, 0.8, 0.0, 0.0);
+
+          delta = traverse(axis, -0.15 * voxelsPerMeter, M1, h);
+
+          double rightDepth =
+              getdepth(current + delta, axis, M1, 0.8, 0.0, 0.0);
+
+          deltaDepth = std::abs(leftDepth - rightDepth);
+        } while (deltaDepth > gradCutoff && h <= hMax + 10);
+
+        if (h < hMin || h > hMax)
+          continue;
+
+        double wUpper = 0, wLower = 1e10;
+        for (double ch = h / 2; ch <= 18 * h / 20; ch += h / 20) {
+          double testW = 5;
+          Eigen::Vector3d delta;
+          do {
+            ++testW;
+            delta = traverse(axis, testW, M1, ch);
+          } while (getdepth(current + delta, axis, M1, 0.8, 0.0, 0.0) > 1e9 &&
+                   testW <= wMax);
+
+          wLower = std::min(testW, wLower);
+          wUpper = std::max(testW, wUpper);
+
+          if (testW < wMin || testW + 1 >= wMax)
+            break;
+        }
+
+        w = (wUpper + wLower) / 2.0;
+
+        if (wLower < wMin || wUpper + 1 >= wMax)
+          continue;
+
+        if (std::abs(wUpper - wLower) > 0.1 * voxelsPerMeter)
+          continue;
+
+        int onEdge = 0;
+        for (double cw = 0; cw < w; ++cw) {
+          Eigen::Vector3d delta =
+              traverse(axis, cw, M1, h + 0.1 * voxelsPerMeter);
+
+          double leftDepth = getdepth(current + delta, axis, M1, 0.3, 0.1, 0.0);
+
+          delta = traverse(axis, cw, M1, h - 0.1 * voxelsPerMeter);
+
+          double rightDepth =
+              getdepth(current + delta, axis, M1, 0.3, 0.1, 0.0);
+
+          deltaDepth = std::abs(leftDepth - rightDepth);
+
+          if (deltaDepth > gradCutoff)
+            ++onEdge;
+        }
+
+        if (onEdge < 0.8 * w)
+          continue;
+
+        double h2 = h / 2;
+        do {
+          ++h2;
+          Eigen::Vector3d delta = traverse(axis, 0.05 * voxelsPerMeter, M1, h2);
+
+          double leftDepth =
+              getdepth(current + delta, axis, M1, 0.1, 0.00, 0.0);
+
+          delta = traverse(axis, -0.05 * voxelsPerMeter, M1, h2);
+
+          double rightDepth =
+              getdepth(current + delta, axis, M1, 0.1, 0.00, 0.0);
+
+          deltaDepth = std::abs(leftDepth - rightDepth);
+        } while (deltaDepth > gradCutoff && h2 <= hMax);
+
+        if (std::abs(h2 - h) > 0.1 * voxelsPerMeter)
+          continue;
+
+        doors.emplace_back(current / voxelsPerMeter, axis, M1,
+                           h / voxelsPerMeter, w / voxelsPerMeter);
+
+        if (!FLAGS_quietMode)
+          std::cout << "Door found!" << std::endl;
+      }
+    }
+  }
+
+  if (FLAGS_save) {
+    int numDoors = doors.size();
+    std::ofstream out(outName, std::ios::out | std::ios::binary);
+    out.write(reinterpret_cast<const char *>(&numDoors), sizeof(numDoors));
+    for (auto &d : doors)
+      d.writeToFile(out);
+    out.close();
+  }
+
+  if (FLAGS_visulization) {
+    pcl::PointCloud<PointType>::Ptr output(new pcl::PointCloud<PointType>);
+    output->insert(output->end(), pointCloud->begin(), pointCloud->end());
+
+    for (auto &d : doors) {
+      auto &bl = d.corner;
+
+      auto &direction = d.xAxis;
+      double h = d.h;
+      double w = d.w;
+
+      direction[2] = 0;
+      direction /= direction.norm();
+      auto color = randomColor();
+      for (double z = 0; z <= h; z += 0.015) {
+
+        auto point = traverse(direction, 0, d.zAxis, z) + bl;
+        PointType tmp;
+        tmp.x = point[0];
+        tmp.y = point[1];
+        tmp.z = point[2];
+        tmp.r = color[2];
+        tmp.g = color[1];
+        tmp.b = color[0];
+
+        output->push_back(tmp);
+      }
+
+      for (double z = 0; z <= h; z += 0.015) {
+
+        for (double x = 0; x <= w; x += 0.015) {
+
+          auto point = traverse(direction, x, d.zAxis, z) + bl;
+          PointType tmp;
+          tmp.x = point[0];
+          tmp.y = point[1];
+          tmp.z = point[2];
+          tmp.r = color[2];
+          tmp.g = color[1];
+          tmp.b = color[0];
+
+          output->push_back(tmp);
+        }
+      }
+
+      for (double x = 0; x <= w; x += 0.015) {
+
+        auto point = traverse(direction, x, d.zAxis, 0) + bl;
+        PointType tmp;
+        tmp.x = point[0];
+        tmp.y = point[1];
+        tmp.z = point[2];
+        tmp.r = color[2];
+        tmp.g = color[1];
+        tmp.b = color[0];
+
+        output->push_back(tmp);
+      }
+    }
+
+    pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output);
+    while (!viewer->wasStopped()) {
+      viewer->spinOnce(100);
+      boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+    }
+    viewer->close();
+  }
 }
