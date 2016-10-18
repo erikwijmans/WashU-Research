@@ -4,6 +4,7 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/visualization/keyboard_event.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include <scan_gflags.h>
@@ -11,20 +12,61 @@
 
 typedef pcl::PointXYZRGB PointType;
 
+double x = 0, y = 0, z = 0;
 pcl::visualization::PCLVisualizer::Ptr
 rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
   // --------------------------------------------
   // -----Open 3D viewer and add point cloud-----
   // --------------------------------------------
+
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
       new pcl::visualization::PCLVisualizer("3D Viewer"));
   viewer->setBackgroundColor(0, 0, 0);
   pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(cloud);
   viewer->addPointCloud<PointType>(cloud, rgb, "sample cloud");
   viewer->setPointCloudRenderingProperties(
-      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
+      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud");
   viewer->addCoordinateSystem(1.0);
   viewer->initCameraParameters();
+  viewer->registerKeyboardCallback(
+      [&, viewer](const pcl::visualization::KeyboardEvent &kb) {
+        pcl::visualization::Camera c;
+        viewer->getCameraParameters(c);
+
+        Eigen::Map<Eigen::Vector3d> focal(c.focal);
+        Eigen::Map<Eigen::Vector3d> pos(c.pos);
+        Eigen::Vector3d view = (focal - pos).normalized();
+        view[2] = 0;
+        view.normalize();
+        const double incMag = (kb.isShiftPressed() ? 1.0 : 0.5);
+
+        Eigen::Vector3d incDir = incMag * view;
+        Eigen::Vector3d perpInc =
+            incMag * Eigen::Vector3d(-view[1], view[0], view[2]);
+
+        if (kb.getKeySym() == "Up") {
+          if (!kb.isCtrlPressed())
+            focal += incDir;
+          pos += incDir;
+        }
+        if (kb.getKeySym() == "Down") {
+          if (!kb.isCtrlPressed())
+            focal -= incDir;
+          pos -= incDir;
+        }
+        if (kb.getKeySym() == "Left") {
+          if (!kb.isCtrlPressed())
+            focal += perpInc;
+          pos += perpInc;
+        }
+        if (kb.getKeySym() == "Right") {
+          if (!kb.isCtrlPressed())
+            focal -= perpInc;
+          pos -= perpInc;
+        }
+        viewer->setCameraParameters(c);
+      });
+  viewer->setCameraPosition(1, 0, 0, -1, 0, 0, 0, 0, 1);
   return (viewer);
 }
 
@@ -46,8 +88,9 @@ int main(int argc, char **argv) {
 
   std::vector<std::string> binaryFileNames;
   parseFolder(FLAGS_binaryFolder, binaryFileNames);
-  const std::string buildName = binaryFileNames[0].substr(0, 3);
-  const std::string cloudName = FLAGS_outputV2 + buildName + "_pointCloud.ply";
+  // const std::string buildName = binaryFileNames[0].substr(0, 3);
+  const std::string cloudName = FLAGS_outputV2 + "cse_pointCloud.ply";
+  std::cout << cloudName << std::endl;
 
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
 
