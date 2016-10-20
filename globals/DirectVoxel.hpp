@@ -18,10 +18,27 @@ public:
 
   DirectVoxel(K &min, K &max)
       : _min{min}, _max{max}, x{max[0] - min[0]}, y{max[1] - min[1]},
-        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {};
+        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {
+    assert(x >= 0 && y >= 0 && z >= 0);
+  };
+
   DirectVoxel(K &&min, K &&max)
       : _min{min}, _max{max}, x{max[0] - min[0]}, y{max[1] - min[1]},
-        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {};
+        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {
+    assert(x >= 0 && y >= 0 && z >= 0);
+  };
+
+  DirectVoxel(K &min, K &&max)
+      : _min{min}, _max{max}, x{max[0] - min[0]}, y{max[1] - min[1]},
+        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {
+    assert(x >= 0 && y >= 0 && z >= 0);
+  };
+
+  DirectVoxel(K &&min, K &max)
+      : _min{min}, _max{max}, x{max[0] - min[0]}, y{max[1] - min[1]},
+        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {
+    assert(x >= 0 && y >= 0 && z >= 0);
+  };
 
   DirectVoxel(int x, int y, int z) : DirectVoxel(K::Zero(), K(x, y, z)){};
 
@@ -34,7 +51,7 @@ public:
 
   V &operator()(const K &key) {
     K index = key - min();
-    checkBounds(index);
+    assert(checkBounds(key) && "Not in bounds!");
 
     return mem[index[2]](index[1], index[0]);
   }
@@ -62,20 +79,21 @@ public:
     update(o, [](V &v1, V &v2) { return v1 + v2; });
   }
 
-private:
-  K _min, _max;
-  size_t x, y, z;
-  Mem mem;
-
-  void checkBounds(const K &key) {
+  bool checkBounds(const K &key) {
     auto minPtr = min().data();
     auto maxPtr = max().data();
     auto keyPtr = key.data();
-    for (int i = 0; i < key.size(); ++i) {
-      assert(*(keyPtr + i) >= *(minPtr + i) && "Index out of bounds!");
-      assert(*(keyPtr + i) < *(maxPtr + i) && "Index out of bounds!");
-    }
+    for (int i = 0; i < key.size(); ++i)
+      if (*(keyPtr + i) < *(minPtr + i) || *(keyPtr + i) >= *(maxPtr + i))
+        return false;
+
+    return true;
   };
+
+private:
+  K _min, _max;
+  long x, y, z;
+  Mem mem;
 };
 } // voxel
 

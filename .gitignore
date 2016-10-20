@@ -11,3 +11,4 @@ install_manifest.txt
 .DS_store
 *.sublime*
 build
+nohup.out

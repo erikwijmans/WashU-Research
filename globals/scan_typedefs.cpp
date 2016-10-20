@@ -202,7 +202,7 @@ const cv::Mat &place::Panorama::operator[](int n) {
 }
 
 double place::edge::getWeight() const {
-  return (0.5 * w * wSignificance + panoW * panoSignificance) *
+  return (0.75 * w * wSignificance + panoW * panoSignificance) *
              std::max(0.25, std::min(distance, 1.5)) +
          hWeight;
 }
@@ -280,7 +280,8 @@ std::ostream &place::operator<<(std::ostream &os, const place::edge &print) {
   os << "  Distance: " << print.distance;
   os << "  HighOrder: " << print.hWeight << std::endl;
   os << print.pA << "  " << print.feA << std::endl;
-  os << print.fx << "  " << print.feB;
+  os << print.fx << "  " << print.feB << std::endl;
+  os << "weight: " << print.getWeight() << std::endl;
   return os;
 }
 

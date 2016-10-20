@@ -59,7 +59,7 @@ public:
   };
 
   VPtr operator()(K &key) {
-    checkBounds(key);
+    assert(checkBounds(key) && "Not in bounds!");
     auto it = map.find(key);
     if (it == map.cend())
       return nullptr;
@@ -100,21 +100,24 @@ public:
     update(o, [](V &v1, V &v2) { return v1 + v2; });
   }
 
-private:
-  Map map;
-  K _min, _max;
-  const bool check;
-  void checkBounds(const K &key) {
+  bool checkBounds(const K &key) {
     if (check) {
       auto minPtr = min().data();
       auto maxPtr = max().data();
       auto keyPtr = key.data();
       for (int i = 0; i < key.size(); ++i) {
-        assert(*(keyPtr + i) >= *(minPtr + i) && "Index out of bounds!");
-        assert(*(keyPtr + i) < *(maxPtr + i) && "Index out of bounds!");
+        if (*(keyPtr + i) < *(minPtr + i) || *(keyPtr + i) >= *(maxPtr + i))
+          return false;
       }
     }
+
+    return true;
   };
+
+private:
+  Map map;
+  K _min, _max;
+  const bool check;
 
   void update(const K &key) {
     auto minPtr = min().data();

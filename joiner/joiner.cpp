@@ -12,7 +12,6 @@
 
 typedef pcl::PointXYZRGB PointType;
 
-double x = 0, y = 0, z = 0;
 pcl::visualization::PCLVisualizer::Ptr
 rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
   // --------------------------------------------
@@ -83,8 +82,8 @@ int main(int argc, char **argv) {
 
   std::vector<std::string> binaryFileNames;
   parseFolder(FLAGS_binaryFolder, binaryFileNames);
-  // const std::string buildName = binaryFileNames[0].substr(0, 3);
-  const std::string cloudName = FLAGS_outputV2 + "cse_pointCloud.ply";
+  const std::string buildName = binaryFileNames[0].substr(0, 3);
+  const std::string cloudName = FLAGS_outputV2 + buildName + "_pointCloud.ply";
   std::cout << cloudName << std::endl;
 
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);

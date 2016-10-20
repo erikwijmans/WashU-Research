@@ -13,12 +13,20 @@ place::DoorDetector::DoorDetector()
     int length;
     in.read(reinterpret_cast<char *>(&length), sizeof(length));
     if (length == FLAGS_numLevels + 1) {
-      loaded = true;
+
       responsePyr.resize(FLAGS_numLevels + 1);
       for (auto &r : responsePyr)
         loadSparseMatrix(r, in);
     }
     in.close();
+
+    loaded = true;
+
+    if (responsePyr[0].rows() != fpColor.rows ||
+        responsePyr[0].cols() != fpColor.cols) {
+      loaded = false;
+      responsePyr.clear();
+    }
   }
 }
 

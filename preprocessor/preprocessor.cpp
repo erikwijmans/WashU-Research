@@ -786,7 +786,7 @@ double ransacZ(const std::vector<double> &Z) {
 #pragma omp for nowait schedule(static)
       for (int i = 0; i < m; ++i) {
         auto &z = Z[i];
-        if (std::abs(z - zest) < 0.05) {
+        if (std::abs(z - zest) < 0.03) {
           ++privateInliers;
           privateAve += z;
         }
@@ -824,7 +824,7 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
     return;
 
   constexpr double voxelsPerMeter = 50, gradCutoff = 2.0,
-                   wMin = 0.7 * voxelsPerMeter, wMax = 2.5 * voxelsPerMeter;
+                   wMin = 0.4 * voxelsPerMeter, wMax = 2.5 * voxelsPerMeter;
 
   voxel::HashVoxel<Eigen::Vector3i, double> grid;
   std::vector<double> zCoords;
@@ -1016,6 +1016,23 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
       }
     }
   }
+
+  std::vector<double> heights;
+  for (auto &d : doors)
+    heights.push_back(d.h);
+
+  auto t = place::aveAndStdev(heights.begin(), heights.end());
+
+  double ave, sigma;
+  std::tie(ave, sigma) = t;
+
+  if (!FLAGS_quietMode)
+    std::cout << "Culling bad heights: " << t << std::endl;
+
+  doors.erase(std::remove_if(
+                  doors.begin(), doors.end(),
+                  [&](auto &d) { return std::abs(d.h - ave) / sigma > 1.0; }),
+              doors.end());
 
   if (FLAGS_save) {
     int numDoors = doors.size();
