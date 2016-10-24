@@ -489,27 +489,25 @@ struct hash<
 };
 } // std
 
-template <typename Type, unsigned N, unsigned Last> struct tuple_printer {
-
-  static void print(std::ostream &out, const Type &value) {
-    out << std::get<N>(value) << ", ";
-    tuple_printer<Type, N + 1, Last>::print(out, value);
+template <unsigned N, unsigned L, typename... Targs> struct tuple_printer {
+  static void print(std::ostream &os, std::tuple<Targs...> &print) {
+    os << std::get<N>(print) << ", ";
+    tuple_printer<N + 1, L, Targs...>::print(os, print);
   }
 };
 
-template <typename Type, unsigned N> struct tuple_printer<Type, N, N> {
-
-  static void print(std::ostream &out, const Type &value) {
-    out << std::get<N>(value);
+template <unsigned N, typename... Targs> struct tuple_printer<N, N, Targs...> {
+  static void print(std::ostream &os, std::tuple<Targs...> &print) {
+    os << std::get<N>(print) << ", ";
   }
 };
 
-template <typename... Types>
-std::ostream &operator<<(std::ostream &out, const std::tuple<Types...> &value) {
-  out << "(";
-  tuple_printer<std::tuple<Types...>, 0, sizeof...(Types)-1>::print(out, value);
-  out << ")";
-  return out;
+template <typename... Targs>
+std::ostream &operator<<(std::ostream &os, std::tuple<Targs...> &print) {
+  os << "(";
+  tuple_printer<0, sizeof...(Targs)-1, Targs...>::print(os, print);
+  os << ")";
+  return os;
 }
 
 #endif // SCAN_TYPEDEFS_HPP

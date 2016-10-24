@@ -417,7 +417,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
   }
 #endif
 
-  if (!Eigen::numext::isfinite(score))
+  if (significance < sigCutoff || !Eigen::numext::isfinite(score))
     return;
 
   e.panoW = score;

@@ -3,11 +3,9 @@
 #include "placeScan_placeScanHelper2.h"
 
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 
 #include <boost/progress.hpp>
-#include <boost/range/irange.hpp>
 #include <boost/timer/timer.hpp>
 
 #include <opencv2/core/eigen.hpp>
@@ -696,19 +694,18 @@ void place::displayBest(
       for (int j = 0; j < scan.rows(); ++j) {
         if (j + yOffset < 0 || j + yOffset >= all.rows)
           continue;
-#if 1
         if (scan(j, i) != 0) {
           _all(yOffset + j, xOffset + i) = color;
-#else
-        if (!n.locked) {
-          _all(yOffset + j, xOffset + i)[0] = 0;
-          _all(yOffset + j, xOffset + i)[1] = 0;
-          _all(yOffset + j, xOffset + i)[2] = 255;
-        } else {
-          _all(yOffset + j, xOffset + i)[0] = 255;
-          _all(yOffset + j, xOffset + i)[1] = 0;
-          _all(yOffset + j, xOffset + i)[2] = 0;
-        }
+#if 0
+          if (!n.locked) {
+            _all(yOffset + j, xOffset + i)[0] = 0;
+            _all(yOffset + j, xOffset + i)[1] = 0;
+            _all(yOffset + j, xOffset + i)[2] = 255;
+          } else {
+            _all(yOffset + j, xOffset + i)[0] = 255;
+            _all(yOffset + j, xOffset + i)[1] = 0;
+            _all(yOffset + j, xOffset + i)[2] = 0;
+          }
 #endif
         }
         if (mask(j, i) != 0)
@@ -861,22 +858,21 @@ place::compare3D(const place::VoxelGrid &aPoint, const place::VoxelGrid &bPoint,
   const double weight =
       pointAgreement / averagePoint -
       (freeSpaceAgreementB / totalPointB + freeSpaceAgreementA / totalPointA);
-  constexpr double precent = 0.4;
+  constexpr double precent = 0.5;
+  // totalCount = pointAgreement + freeSpaceAgreementA + freeSpaceAgreementB;
 
-  const double seenPoint =
-      pointAgreement + freeSpaceAgreementA + freeSpaceAgreementB;
-  const double seenFreeSpace =
-      freeSpaceCross + freeSpaceAgreementA + freeSpaceAgreementB;
-  const double expectedPoint = 2.0 / (1.0 / aPoint.c + 1.0 / bPoint.c);
-  const double expectedFree = 2.0 / (1.0 / aFree.c + 1.0 / bFree.c);
+  // const double expectedCount = (aPoint.c + bPoint.c) / 2.0;
+
+  const double expectedCount = (aPoint.c + bPoint.c + aFree.c + bFree.c) / 2.0;
   const double significance =
-      (sigmoidWeight(seenPoint, expectedPoint * precent) +
-       sigmoidWeight(seenFreeSpace, expectedFree * precent)) /
-      2.0;
+      sigmoidWeight(totalCount, expectedCount * precent);
 
-  return place::edge(
-      pointAgreement / averagePoint, freeSpaceAgreementA / totalPointA,
-      freeSpaceAgreementB / totalPointB, 0, weight, significance);
+  return significance < sigCutoff || std::abs(weight) < scoreCutoff
+             ? place::edge()
+             : place::edge(pointAgreement / averagePoint,
+                           freeSpaceAgreementA / totalPointA,
+                           freeSpaceAgreementB / totalPointB, 0, weight,
+                           significance);
 }
 
 inline place::VoxelGrid place::loadInVoxel(const std::string &name) {
@@ -1039,15 +1035,9 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   std::vector<Model::LabelType> labeling(numVars);
   solver.arg(labeling);
 
-  std::cout << "Labels : " << std::endl;
-  for (auto &&i : boost::irange(0, numVars))
-    std::cout << std::setw(3) << i << "_";
-
-  std::cout << std::endl;
-
-  for (auto &&l : labeling)
-    std::cout << std::setw(3) << l << "_";
-
+  std::cout << "Labels : ";
+  for (auto &l : labeling)
+    std::cout << l << "_";
   std::cout << std::endl;
   bestNodes.reserve(numVars);
   for (int i = 0, offset = 0; i < numVars; ++i) {
@@ -1068,7 +1058,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
         }
         rowOffset += numberOfLabels[j];
       }
-      agreement += 0.75 * nodes[index].w;
+      // agreement += 0.5 * nodes[index].w;
       agreement /= count ? count : 1;
       bestNodes.emplace_back(nodes[index], agreement, labeling[i], true,
                              numberOfLabels[i]);
@@ -1121,14 +1111,12 @@ void place::saveGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
   out.close();
 }
 
-static double clampedNorm(double val, double center, double average,
-                          double sigma) {
-  constexpr double maxVal = 2.0;
-  constexpr double minVal = -2.0;
+static double clampedNorm(double val, double average, double sigma) {
+  constexpr double maxVal = 2.5;
+  constexpr double minVal = -1.0;
 
   const double norm = (val - average) / sigma;
-  return val > center ? std::max(0.0, std::min(maxVal, norm))
-                      : std::max(minVal, std::min(0.0, norm));
+  return std::max(minVal, std::min(maxVal, norm));
 }
 
 void place::normalizeWeights(Eigen::MatrixXE &adjacencyMatrix,
@@ -1192,21 +1180,22 @@ void place::normalizeWeights(Eigen::MatrixXE &adjacencyMatrix,
     sigmaP /= countP - 1;
     sigmaP = sqrt(sigmaP);
 
-    constexpr double geoCenter = 0.05, panoCenter = 0.3;
-    averageW = std::max(geoCenter, averageW);
-    averageP = std::max(panoCenter, averageP);
+    constexpr double geoCenterLower = 0.1, panoCenterLower = 0.3,
+                     geoCenterUpper = 0.6, panoCenterUpper = 0.7;
+    averageW = std::max(geoCenterLower, std::min(geoCenterUpper, averageW));
+    averageP = std::max(panoCenterLower, std::min(panoCenterUpper, averageP));
 
     for (int j = 0; j < numberOfLabels[a]; ++j) {
       for (int i = 0; i < adjacencyMatrix.cols(); ++i) {
         const double weight = adjacencyMatrix(j + rowOffset, i).w;
         const double pano = adjacencyMatrix(j + rowOffset, i).panoW;
-        if (weight && countW > 5 && Eigen::numext::isfinite(sigmaW))
+        if (weight && countW > 1 && Eigen::numext::isfinite(sigmaW))
           adjacencyMatrix(j + rowOffset, i).w =
-              clampedNorm(weight, geoCenter, averageW, sigmaW);
+              clampedNorm(weight, averageW, sigmaW);
 
-        if (pano && countP > 5 && Eigen::numext::isfinite(sigmaP))
+        if (pano && countP > 1 && Eigen::numext::isfinite(sigmaP))
           adjacencyMatrix(j + rowOffset, i).panoW =
-              clampedNorm(pano, panoCenter, averageP, sigmaP);
+              clampedNorm(pano, averageP, sigmaP);
       }
     }
     rowOffset += numberOfLabels[a];

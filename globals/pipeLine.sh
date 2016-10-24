@@ -40,9 +40,9 @@ $scanDensity -dataPath=$1 -redo || exit 1
 echo "Running placeScan"
 make -j4 -C $2/placeScan || exit 1
 placeScan=$2/placeScan/placeScan
-$placeScan -dataPath=$1 -redo || exit 1
+$placeScan -dataPath=$1 -redo -V1 || exit 1
 
-echo "Running joiner"
-make -j4 -C $2/joiner || exit 1
-joiner=$2/joiner/joiner
-$joiner -dataPath=$1 -redo || exit 1
+# echo "Running joiner"
+# make -j4 -C $2/joiner || exit 1
+# joiner=$2/joiner/joiner
+# $joiner -dataPath=$1 -redo || exit 1

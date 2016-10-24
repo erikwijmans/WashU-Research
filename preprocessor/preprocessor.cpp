@@ -1027,7 +1027,7 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
   std::tie(ave, sigma) = t;
 
   if (!FLAGS_quietMode)
-    std::cout << "Culling bad heights: " << t << std::endl;
+    std::cout << "Culling inconsistent heights: " << t << std::endl;
 
   doors.erase(std::remove_if(
                   doors.begin(), doors.end(),

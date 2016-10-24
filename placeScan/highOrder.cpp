@@ -392,9 +392,8 @@ void place::createHigherOrderTerms(
   // dispHMap(hMap, highOrder);
 }
 
-static double guassianWeight(const Eigen::Array2d &pos,
-                             const Eigen::Array2d &sigma) {
-  return std::exp(-(pos.square() / sigma).sum());
+double gaussianWeight(const Eigen::Array2d &pos, const Eigen::Array2d &s) {
+  return std::exp(-(pos.square() / (2 * s.square())).sum());
 }
 
 void place::createHigherOrderTermsV2(
@@ -413,13 +412,10 @@ void place::createHigherOrderTermsV2(
     const int xOffset = currentNode.x - zeroZero[0],
               yOffset = currentNode.y - zeroZero[1];
 
-    double weight = 0;
+    constexpr double maxRange = 1.5;
+    double totalWeight = 0;
 
-    constexpr double sigmaRange = 3.0;
-    const Eigen::Array2d sigma =
-        2 * (Eigen::Array2d(currentScan.cols() / sigmaRange,
-                            currentScan.rows() / sigmaRange)
-                 .square());
+    const Eigen::Array2d sigma = Eigen::Array2d(5.0, 5.0);
 
     for (int j = 0; j < currentScan.rows(); ++j) {
       if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
@@ -427,29 +423,30 @@ void place::createHigherOrderTermsV2(
       for (int i = 0; i < currentScan.cols(); ++i) {
         if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
           continue;
-        const Eigen::Array2d pos(i - zeroZero[0], j - zeroZero[1]);
-        weight += currentScan(j, i) ? guassianWeight(pos, sigma) : 0;
+
+        const Eigen::Array2d pos =
+            Eigen::Array2d(i - zeroZero[0], j - zeroZero[1]) / scale;
+
+        totalWeight += currentScan(j, i) ? gaussianWeight(pos, sigma) : 0;
       }
     }
 
-    weight = 1.5 / weight;
-
     for (int j = 0; j < currentScan.rows(); ++j) {
-      if (j + yOffset < 0 || j + yOffset >= floorPlan.rows)
+      if (j + yOffset < 0 || j + yOffset >= hMap.rows())
         continue;
       for (int i = 0; i < currentScan.cols(); ++i) {
-        if (i + xOffset < 0 || i + xOffset >= floorPlan.cols)
+        if (i + xOffset < 0 || i + xOffset >= hMap.cols())
           continue;
 
-        const Eigen::Array2d pos(i - zeroZero[0], j - zeroZero[1]);
-
-        const double mask = guassianWeight(pos, sigma);
-
         if (currentScan(j, i)) {
+          const Eigen::Array2d pos =
+              Eigen::Array2d(i - zeroZero[0], j - zeroZero[1]) / scale;
+
           auto &h = hMap(j + yOffset, i + xOffset);
 
           h.incident.emplace_back(a);
-          h.weights.emplace_back(weight * mask);
+          h.weights.emplace_back(maxRange * gaussianWeight(pos, sigma) /
+                                 totalWeight);
         }
       }
     }
@@ -461,7 +458,7 @@ void place::createHigherOrderTermsV2(
 
     auto &key = (data + i)->incident;
 
-    if (key.size() >= 2) {
+    if (key.size()) {
 
       auto &w = (data + i)->weights;
       Eigen::VectorXd weights(w.size());

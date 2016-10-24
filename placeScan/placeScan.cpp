@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
   }
 
   place::removeMinimumConnectedComponents(inFP);
+  cv::imwrite(FLAGS_dataPath + "/cleanedFloorPlan.png", inFP);
 
   const int newRows = inFP.rows * 1.1, newCols = inFP.cols * 1.1;
   const int dY = (newRows - inFP.rows) / 2, dX = (newCols - inFP.cols) / 2;
@@ -176,7 +177,6 @@ int main(int argc, char *argv[]) {
 
     if (!FLAGS_redo || FLAGS_previewOut)
       labeler.displaySolution();
-
     // labeler.solveMIP();
     // labeler.saveFinal(1);
 

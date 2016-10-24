@@ -166,8 +166,6 @@ int getCutoffIndex(const std::string &name, const std::vector<E> &list,
     prevScore = score;
     ++i;
   }
-  if (!FLAGS_quietMode)
-    std::cout << std::min(instant ? i : i + 1, (int)list.size()) << std::endl;
 
   // return std::min(instant ? i : i + 1, (int)list.size());
   // return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));
