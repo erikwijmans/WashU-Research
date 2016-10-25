@@ -28,6 +28,7 @@
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/uniform_sampling.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include <dirent.h>
@@ -99,6 +100,7 @@ int main(int argc, char *argv[]) {
 
     const std::string binaryFileName =
         FLAGS_binaryFolder + buildName + "_binary_" + number + ".dat";
+
     const std::string normalsName =
         FLAGS_normalsFolder + buildName + "_normals_" + number + ".dat";
     const std::string dataName =
@@ -121,6 +123,18 @@ int main(int argc, char *argv[]) {
 
       pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
       createPCLPointCloud(pointCloud, cloud);
+
+      pcl::PointCloud<PointType>::Ptr filtered_cloud(
+          new pcl::PointCloud<PointType>);
+
+      pcl::UniformSampling<PointType> uniform_sampling;
+      uniform_sampling.setInputCloud(cloud);
+      // 85 mm
+      uniform_sampling.setRadiusSearch(0.0015f);
+      uniform_sampling.filter(*filtered_cloud);
+      pcl::io::savePLYFileBinary("downsampled.ply", *filtered_cloud);
+      std::cout << "saved" << std::endl;
+
       if (show_progress)
         ++(*show_progress);
 

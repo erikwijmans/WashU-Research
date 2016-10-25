@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
       doorsNames;
 
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
-  parseFolder(FLAGS_doorsFolder + "/floorplan", doorsNames);
+  parseFolder(FLAGS_doorsFolder + "floorplan", doorsNames);
 
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(pointFileNames, FLAGS_startNumber);
