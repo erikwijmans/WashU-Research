@@ -498,7 +498,7 @@ template <unsigned N, unsigned L, typename... Targs> struct tuple_printer {
 
 template <unsigned N, typename... Targs> struct tuple_printer<N, N, Targs...> {
   static void print(std::ostream &os, std::tuple<Targs...> &print) {
-    os << std::get<N>(print) << ", ";
+    os << std::get<N>(print);
   }
 };
 

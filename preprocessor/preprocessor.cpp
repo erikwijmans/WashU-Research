@@ -457,7 +457,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
                     pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                     pcl::PointCloud<PointType>::Ptr &normals_points,
                     const std::string &panoName, const std::string &dataName) {
-  if (!FLAGS_redo && fexists(panoName) && fexists(dataName))
+  if (false && !FLAGS_redo && fexists(panoName) && fexists(dataName))
     return;
   cv::Mat trackingPanorama(PTXrows, PTXcols, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat_<cv::Vec3b> _trackingPanorama = trackingPanorama;
@@ -527,6 +527,8 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   }
   fillGaps(surfaceNormals, hasNormal);
   fillGaps(rMap, rMap);
+
+  cv::imwrite("highres_pano.png", PTXPanorama);
 
   const double scale = pow(2, -6.0 / 2);
   cv::Mat scaledTracking, scaledPTX;

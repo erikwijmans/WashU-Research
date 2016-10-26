@@ -249,6 +249,11 @@ void place::analyzePlacement(
   erodedSparsePyramid.clear();
   eMaskPyramid.clear();
 
+  for (auto &s : rSSparsePyramidTrimmed[0]) {
+    cv::imwrite("example.png", place::sparseToImage(s));
+    cv::rectshow(place::sparseToImage(s));
+  }
+
   std::vector<std::vector<Eigen::MatrixXb>> eMaskPyramidTrimmedNS;
   for (auto &level : eMaskPyramidTrimmed) {
     std::vector<Eigen::MatrixXb> tmp;
