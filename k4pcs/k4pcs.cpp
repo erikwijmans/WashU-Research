@@ -27,22 +27,25 @@
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/uniform_sampling.h>
+#include <pcl/keypoints/harris_3d.h>
+#include <pcl/keypoints/sift_keypoint.h>
 #include <pcl/registration/ia_kfpcs.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include <dirent.h>
 
-constexpr double voxel_size = 1;
+constexpr double voxel_size = 0.0085;
+constexpr double kp_size = 0.05;
 
 struct result {
-  Eigen::Matrix4f mat;
+  Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
   int i, j;
-  float fitness;
+  float fitness = FLT_MAX;
 };
 
-result k4pcs(const pcl::PointCloud<PointType>::Ptr &source,
+result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
              const pcl::PointCloud<NormalType>::Ptr &source_normals,
-             const pcl::PointCloud<PointType>::Ptr &target,
+             const pcl::PointCloud<pcl::PointXYZI>::Ptr &target,
              const pcl::PointCloud<NormalType>::Ptr &target_normals);
 
 int main(int argc, char *argv[]) {
@@ -108,12 +111,12 @@ int main(int argc, char *argv[]) {
 
     pcl::PointCloud<NormalType>::Ptr cloud_normals(
         new pcl::PointCloud<NormalType>);
-    pcl::PointCloud<PointType>::Ptr normals_points(
-        new pcl::PointCloud<PointType>);
+    pcl::PointCloud<pcl::PointXYZI>::Ptr normals_points(
+        new pcl::PointCloud<pcl::PointXYZI>);
     getNormals(cloud, cloud_normals, normals_points, normalsName);
     cloud->clear();
 
-    for (int j = i + 1; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
+    for (int j = i; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
       const std::string number_target =
           csvFileNames[j].substr(csvFileNames[j].find(".") - 3, 3);
       const std::string buildName_target =
@@ -137,8 +140,8 @@ int main(int argc, char *argv[]) {
 
       pcl::PointCloud<NormalType>::Ptr cloud_normals_target(
           new pcl::PointCloud<NormalType>);
-      pcl::PointCloud<PointType>::Ptr normals_points_target(
-          new pcl::PointCloud<PointType>);
+      pcl::PointCloud<pcl::PointXYZI>::Ptr normals_points_target(
+          new pcl::PointCloud<pcl::PointXYZI>);
       getNormals(cloud_target, cloud_normals_target, normals_points_target,
                  normalsName_target);
       cloud_target->clear();
@@ -283,41 +286,80 @@ bool reloadNormals(pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
 void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
                 pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                pcl::PointCloud<PointType>::Ptr &normals_points,
+                pcl::PointCloud<pcl::PointXYZI>::Ptr &normals_points,
                 const std::string &outName) {
+  pcl::PointCloud<PointType>::Ptr input_points(new pcl::PointCloud<PointType>);
+  if (FLAGS_redo || !reloadNormals(cloud_normals, input_points, outName)) {
 
-  /*   if (!FLAGS_redo && reloadNormals(cloud_normals, normals_points, outName))
-       return;*/
+    pcl::PointCloud<PointType>::Ptr filtered_cloud(
+        new pcl::PointCloud<PointType>);
 
-  pcl::PointCloud<PointType>::Ptr filtered_cloud(
-      new pcl::PointCloud<PointType>);
+    pcl::UniformSampling<PointType> uniform_sampling;
+    uniform_sampling.setInputCloud(cloud);
+    // 85 mm
+    uniform_sampling.setRadiusSearch(voxel_size);
+    uniform_sampling.filter(*filtered_cloud);
 
-  pcl::UniformSampling<PointType> uniform_sampling;
-  uniform_sampling.setInputCloud(cloud);
-  // 85 mm
-  uniform_sampling.setRadiusSearch(voxel_size);
-  uniform_sampling.filter(*filtered_cloud);
+    pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
+    pcl::search::KdTree<PointType>::Ptr tree(
+        new pcl::search::KdTree<PointType>);
+    norm_est.setInputCloud(filtered_cloud);
+    norm_est.setSearchSurface(cloud);
+    norm_est.setSearchMethod(tree);
+    norm_est.setRadiusSearch(0.03f);
+    norm_est.compute(*cloud_normals);
 
-  /*pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(filtered_cloud);
+    std::vector<int> indices;
+    pcl::removeNaNNormalsFromPointCloud(*cloud_normals, *cloud_normals,
+                                        indices);
+    pcl::copyPointCloud(*filtered_cloud, indices, *input_points);
+  }
+
+  std::cout << input_points->size() << "  " << cloud_normals->size()
+            << std::endl;
+
+  pcl::search::KdTree<PointType>::Ptr tree(
+      new pcl::search::KdTree<PointType>());
+  pcl::HarrisKeypoint3D<PointType, pcl::PointXYZI, NormalType> detector;
+  detector.setInputCloud(input_points);
+  detector.setSearchMethod(tree);
+
+  detector.setNormals(cloud_normals);
+  detector.setRadius(kp_size);
+  detector.setNonMaxSupression(true);
+  detector.setRefine(true);
+  detector.setThreshold(0.005f);
+
+  detector.compute(*normals_points);
+
+  auto normals_before_kp = cloud_normals;
+  cloud_normals =
+      pcl::PointCloud<NormalType>::Ptr(new pcl::PointCloud<NormalType>);
+  pcl::copyPointCloud(*normals_before_kp, *detector.getKeypointsIndices(),
+                      *cloud_normals);
+  std::cout << normals_points->size() << "  " << normals_points->size()
+            << std::endl;
+  return;
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
+      new pcl::visualization::PCLVisualizer("3D Viewer"));
+  viewer->setBackgroundColor(0, 0, 0);
+  pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(
+      input_points);
+  viewer->addPointCloud<pcl::PointXYZRGB>(input_points, rgb, "sample cloud");
+
+  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI>
+      keypoints_color_handler(normals_points, 0, 255, 0);
+  viewer->addPointCloud<pcl::PointXYZI>(normals_points, keypoints_color_handler,
+                                        "keypoints");
+  viewer->setPointCloudRenderingProperties(
+      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "keypoints");
+  viewer->addCoordinateSystem(1.0);
+  viewer->initCameraParameters();
+
   while (!viewer->wasStopped()) {
     viewer->spinOnce(100);
     boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-  }*/
-
-  pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
-  pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>);
-  norm_est.setInputCloud(filtered_cloud);
-  norm_est.setSearchSurface(cloud);
-  norm_est.setSearchMethod(tree);
-  norm_est.setRadiusSearch(0.03f);
-  norm_est.compute(*cloud_normals);
-
-  std::vector<int> indices;
-  pcl::removeNaNNormalsFromPointCloud(*cloud_normals, *cloud_normals, indices);
-  pcl::copyPointCloud(*filtered_cloud, indices, *normals_points);
-
-  std::cout << normals_points->size() << "  " << cloud_normals->size()
-            << std::endl;
+  }
 }
 
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
@@ -364,44 +406,71 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
   pointMax = average + delta / 2.0;
 }
 
-result k4pcs(const pcl::PointCloud<PointType>::Ptr &source,
+result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
              const pcl::PointCloud<NormalType>::Ptr &source_normals,
-             const pcl::PointCloud<PointType>::Ptr &target,
+             const pcl::PointCloud<pcl::PointXYZI>::Ptr &target,
              const pcl::PointCloud<NormalType>::Ptr &target_normals) {
 
   std::cout << "Entering k4pcs" << std::endl;
   std::cout << source->size() << "  " << source_normals->size() << std::endl;
   std::cout << target->size() << "  " << target_normals->size() << std::endl;
 
-  pcl::search::KdTree<PointType>::Ptr source_tree(
-      new pcl::search::KdTree<PointType>),
-      target_tree(new pcl::search::KdTree<PointType>);
-
-  pcl::registration::KFPCSInitialAlignment<PointType, PointType, NormalType,
-                                           float>
+  pcl::registration::KFPCSInitialAlignment<pcl::PointXYZI, pcl::PointXYZI>
       aligner;
-
-  aligner.setDelta(voxel_size, false);
-
   aligner.setInputSource(source);
   aligner.setInputTarget(target);
 
-  aligner.setSearchMethodSource(source_tree);
-  aligner.setSearchMethodTarget(target_tree);
+  aligner.setDelta(0.3, false);
+  // aligner.setApproxOverlap(0.9);
 
   aligner.setSourceNormals(source_normals);
   aligner.setTargetNormals(target_normals);
 
   aligner.setNumberOfThreads(8);
 
-  pcl::PointCloud<PointType>::Ptr output(new pcl::PointCloud<PointType>);
-  aligner.align(*output);
-
-  std::cout << aligner.getFinalTransformation() << std::endl;
+  pcl::PointCloud<pcl::PointXYZI>::Ptr output(
+      new pcl::PointCloud<pcl::PointXYZI>);
 
   result res;
 
-  res.mat = aligner.getFinalTransformation();
-  res.fitness = aligner.getFitnessScore();
+  for (int i = 0; i < 5; ++i) {
+    pcl::PointCloud<pcl::PointXYZI>::Ptr tmp(
+        new pcl::PointCloud<pcl::PointXYZI>);
+
+    aligner.align(*tmp);
+
+    if (res.fitness > aligner.getFitnessScore()) {
+      res.mat = aligner.getFinalTransformation();
+      res.fitness = aligner.getFitnessScore();
+      output = tmp;
+    } else if (i == 0)
+      output = tmp;
+  }
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
+      new pcl::visualization::PCLVisualizer("3D Viewer"));
+  viewer->setBackgroundColor(0, 0, 0);
+  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI>
+      output_handler(output, 0, 255, 0);
+  viewer->addPointCloud<pcl::PointXYZI>(output, output_handler, "output");
+  viewer->setPointCloudRenderingProperties(
+      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "output");
+
+  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI>
+      target_handler(target, 255, 0, 0);
+  viewer->addPointCloud<pcl::PointXYZI>(target, target_handler, "target");
+  viewer->setPointCloudRenderingProperties(
+      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "target");
+
+  viewer->addCoordinateSystem(1.0);
+  viewer->initCameraParameters();
+
+  std::cout << res.mat << std::endl;
+
+  while (!viewer->wasStopped()) {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+  }
+
   return res;
 }

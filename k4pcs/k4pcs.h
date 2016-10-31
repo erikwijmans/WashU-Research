@@ -25,7 +25,7 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
                          pcl::PointCloud<PointType>::Ptr &cloud);
 void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
                 pcl::PointCloud<NormalType>::Ptr &cloud_normals,
-                pcl::PointCloud<PointType>::Ptr &normals_points,
+                pcl::PointCloud<pcl::PointXYZI>::Ptr &normals_points,
                 const std::string &outName);
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                  pcl::PointCloud<PointType>::Ptr &normals_points,
