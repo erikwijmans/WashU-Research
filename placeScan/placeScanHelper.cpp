@@ -221,6 +221,7 @@ bool place::reshowPlacement(const std::string &scanName,
         if (it.value() > 1)
           output(it.row(), it.col()) = cv::Vec3b(0, 255, 0);
 
+    cv::imwrite("door_labeled_floorplan.png", output);
     for (int j = 0; j < bestScan.rows; ++j) {
       if (j + yOffset < 0 || j + yOffset >= fpColor.rows)
         continue;
