@@ -333,6 +333,8 @@ struct Door {
 
 double sigmoidWeight(double seen, double expected);
 
+double gaussianWeight(const Eigen::Array2d &pos, const Eigen::Array2d &s);
+
 namespace std {
 template <> struct hash<place::posInfo> {
   static constexpr double A = 1.6180339887498948482 * 1e5;

@@ -673,12 +673,16 @@ void place::displayBest(
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros) {
   std::cout << "Displaying solution" << std::endl;
 
+  const double scale = buildingScale.getScale();
   cv::Mat all = fpColor.clone();
   cv::Mat seen(fpColor.size(), CV_8UC1, cv::Scalar::all(0));
+
+  cv::Mat4d viz(fpColor.size(), cv::Vec4d(0, 0, 0, 0));
 
   cv::Mat_<cv::Vec3b> _all = all;
   cv::Mat_<uchar> _seen = seen;
 
+  const Eigen::Array2d sigma(1.0, 1.0);
   for (auto &n : bestNodes) {
     auto &scan = scans[n.color][n.rotation];
     auto &mask = masks[n.color][n.rotation];
@@ -708,22 +712,44 @@ void place::displayBest(
           }
 #endif
         }
-        if (mask(j, i) != 0)
+        if (mask(j, i) != 0) {
           _seen(yOffset + j, xOffset + i) = 255;
+          const double weight = gaussianWeight(
+              Eigen::Array2d(i - zeroZero[0], j - zeroZero[1]) / scale, sigma);
+          viz(yOffset + j, xOffset + i) +=
+              cv::Vec4d(color[0], color[1], color[2], 1) * weight;
+        }
       }
     }
-
-    for (int j = -10; j < 10; ++j) {
+    constexpr int maxRad = 5;
+    for (int j = -maxRad - 5; j <= maxRad + 5; ++j) {
       uchar *dst2 = all.ptr<uchar>(j + n.y);
-      for (int i = -10; i < 10; ++i) {
+      for (int i = -maxRad - 5; i <= maxRad + 5; ++i) {
+
         const int col = 3 * (i + n.x);
 
         dst2[col + 0] = 0;
         dst2[col + 1] = 255;
         dst2[col + 2] = 0;
+
+        viz(j + n.y, i + n.x) += cv::Vec4d(0, 0, 0, 1) * 1e100;
       }
     }
   }
+
+  cv::Mat3b marked = fpColor.clone();
+  for (int j = 0; j < marked.rows; ++j) {
+    for (int i = 0; i < marked.cols; ++i) {
+      if (viz(j, i)[3] != 0 && marked(j, i) == cv::Vec3b(255, 255, 255)) {
+        marked(j, i)[0] = cv::saturate_cast<uchar>(viz(j, i)[0] / viz(j, i)[3]);
+        marked(j, i)[1] = cv::saturate_cast<uchar>(viz(j, i)[1] / viz(j, i)[3]);
+        marked(j, i)[2] = cv::saturate_cast<uchar>(viz(j, i)[2] / viz(j, i)[3]);
+      }
+    }
+  }
+
+  cv::imwrite("marked.png", marked);
+  cv::rectshow(marked);
 
   for (int i = 0; i < bestNodes.size();) {
     auto &n = bestNodes[i];
@@ -995,7 +1021,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   Model gm = createModel(adjacencyMatrix, nodes, numberOfLabels, labelSize);
   populateModel(adjacencyMatrix, nodes, numberOfLabels, labelSize, gm);
 
-  constexpr size_t numIters = 60000;
+  constexpr size_t numIters = 500;
 
   /*typedef opengm::TrbpUpdateRules<Model, opengm::Maximizer> UpdateRules;
   typedef opengm::MessagePassing<Model, opengm::Maximizer, UpdateRules,
@@ -1020,7 +1046,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   parameter.permutationType_ = Solver::MINMARG;
   Solver solver(gm, parameter);*/
 
-  Solver::EmptyVisitorType visitor;
+  Solver::VerboseVisitorType visitor;
 
   boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer;
   solver.infer(visitor);

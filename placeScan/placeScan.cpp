@@ -177,10 +177,6 @@ int main(int argc, char *argv[]) {
 
     if (!FLAGS_redo || FLAGS_previewOut)
       labeler.displaySolution();
-    // labeler.solveMIP();
-    // labeler.saveFinal(1);
-
-    // labeler.displaySolution();
   }
   return 0;
 }
