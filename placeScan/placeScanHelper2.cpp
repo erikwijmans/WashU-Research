@@ -652,7 +652,7 @@ void place::displayGraph(
     std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color
               << std::endl
               << adjacencyMatrix(j, i) << std::endl
-              << "urnary: " << nodeA.nw << "  " << nodeA.hWeight << "   "
+              << "unary: " << nodeA.nw << "  " << nodeA.hWeight << "   "
               << nodeB.nw << "  " << nodeB.hWeight << std::endl;
 
     int kc = cv::rectshow(output);
@@ -955,7 +955,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
                           const std::vector<size_t> &numberOfLabels,
                           const size_t *labelSize, Model &gm) {
   const int numVars = numberOfLabels.size();
-  // Add urnary terms
+  // Add unary terms
   for (size_t i = 0, offset = 0; i < numVars; ++i) {
     const size_t shape[] = {labelSize[i]};
     Function f(shape, shape + 1);
@@ -965,10 +965,10 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
       if (!Eigen::numext::isfinite(weight))
         std::cout << nodes[offset + j].color << std::endl;
 
-      constexpr double urnaryWeight = 0.75;
-      f(j) = urnaryWeight * (Eigen::numext::isfinite(weight) ? weight : 0);
+      constexpr double unaryWeight = 0.75;
+      f(j) = unaryWeight * (Eigen::numext::isfinite(weight) ? weight : 0);
     }
-    f(shape[0] - 1) = -1;
+    f(shape[0] - 1) = f(shape[0] - 2);
     Model::FunctionIdentifier fid = gm.addFunction(f);
     const size_t factors[] = {i};
     gm.addFactor(fid, factors, factors + 1);
@@ -989,7 +989,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
           const int row = nodes[currentRow + b].id;
           const int col = nodes[colOffset + a].id;
 
-          f(a, b) = adjacencyMatrix(row, col).getWeight();
+          f(a, b) = 0;
         }
       }
 

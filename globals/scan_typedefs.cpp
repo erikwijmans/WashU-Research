@@ -202,8 +202,8 @@ const cv::Mat &place::Panorama::operator[](int n) {
 }
 
 double place::edge::getWeight() const {
-  return (0.5 * w * wSignificance + panoW * panoSignificance) *
-             std::max(0.25, std::min(distance, 1.5)) +
+  return (panoW * panoSignificance + 0.5 * w * wSignificance) *
+             std::max(0.25, std::min(1.5, distance)) +
          hWeight;
 }
 
