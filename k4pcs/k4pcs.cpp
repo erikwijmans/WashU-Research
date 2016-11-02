@@ -35,7 +35,7 @@
 #include <dirent.h>
 
 constexpr double voxel_size = 0.0085;
-constexpr double kp_size = 0.05;
+constexpr double kp_size = 0.04;
 
 struct result {
   Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     getNormals(cloud, cloud_normals, normals_points, normalsName);
     cloud->clear();
 
-    for (int j = i; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
+    for (int j = i + 1; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
       const std::string number_target =
           csvFileNames[j].substr(csvFileNames[j].find(".") - 3, 3);
       const std::string buildName_target =
@@ -297,7 +297,7 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
     pcl::UniformSampling<PointType> uniform_sampling;
     uniform_sampling.setInputCloud(cloud);
     // 85 mm
-    uniform_sampling.setRadiusSearch(voxel_size);
+    uniform_sampling.setRadiusSearch(0.0085f);
     uniform_sampling.filter(*filtered_cloud);
 
     pcl::NormalEstimationOMP<PointType, NormalType> norm_est;
@@ -326,9 +326,9 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
 
   detector.setNormals(cloud_normals);
   detector.setRadius(kp_size);
-  detector.setNonMaxSupression(true);
   detector.setRefine(true);
-  detector.setThreshold(0.005f);
+  detector.setNonMaxSupression(true);
+  detector.setThreshold(0.00002);
 
   detector.compute(*normals_points);
 
@@ -420,7 +420,7 @@ result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
   aligner.setInputSource(source);
   aligner.setInputTarget(target);
 
-  aligner.setDelta(0.3, false);
+  aligner.setDelta(0.05, false);
   // aligner.setApproxOverlap(0.9);
 
   aligner.setSourceNormals(source_normals);
@@ -447,6 +447,9 @@ result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
       output = tmp;
   }
 
+#define viz 0
+
+#if viz
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
       new pcl::visualization::PCLVisualizer("3D Viewer"));
   viewer->setBackgroundColor(0, 0, 0);
@@ -464,13 +467,15 @@ result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
 
   viewer->addCoordinateSystem(1.0);
   viewer->initCameraParameters();
+#endif
 
   std::cout << res.mat << std::endl;
 
+#if viz
   while (!viewer->wasStopped()) {
     viewer->spinOnce(100);
     boost::this_thread::sleep(boost::posix_time::microseconds(100000));
   }
-
+#endif
   return res;
 }

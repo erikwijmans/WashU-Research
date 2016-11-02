@@ -281,18 +281,6 @@ void multi::Labeler::solveTRW() {
   exclusionLite(bestNodes, unwantedNeighbors);
 }
 
-void multi::Labeler::solveMIP() {
-  std::vector<place::R2Node> R2Nodes;
-  selectR2Nodes(R1Nodes, bestNodes, R2Nodes);
-
-  place::createHigherOrderTerms(scans, zeroZeros, R2Nodes, unwantedNeighbors,
-                                highOrder);
-
-  // place::displayHighOrder(highOrder, R2Nodes, scans, zeroZeros);
-  bestNodes.clear();
-  place::MIPSolver(adjacencyMatrix, highOrder, R2Nodes, bestNodes);
-}
-
 void multi::Labeler::displaySolution() {
   place::displayBest(bestNodes, scans, masks, zeroZeros);
 }

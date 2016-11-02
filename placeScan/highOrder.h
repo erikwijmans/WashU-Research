@@ -33,14 +33,6 @@ void displayHighOrder(
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
 
-void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
-               const multi::Labeler::HighOrder &highOrder,
-               const std::vector<place::R2Node> &nodes,
-               std::vector<place::SelectedNode> &bestNodes);
-
-void MIPSolver(const Eigen::MatrixXE &adjacencyMatrix,
-               const std::vector<place::R2Node> &nodes,
-               std::vector<place::SelectedNode> &bestNodes);
 cv::Mat getDirections();
 } // place
 
