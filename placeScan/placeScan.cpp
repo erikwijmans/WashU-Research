@@ -74,9 +74,9 @@ int main(int argc, char *argv[]) {
     const uchar *src = floorPlan.ptr<uchar>(i);
     for (int j = 0; j < fpColor.cols; ++j) {
       if (src[j] != 255) {
-        dst[j * 3] = 128;
-        dst[j * 3 + 1] = 128;
-        dst[j * 3 + 2] = 128;
+        dst[j * 3] = 127;
+        dst[j * 3 + 1] = 127;
+        dst[j * 3 + 2] = 127;
       }
     }
   }
@@ -245,10 +245,10 @@ void place::analyzePlacement(
   erodedSparsePyramid.clear();
   eMaskPyramid.clear();
 
-  for (auto &s : rSSparsePyramidTrimmed[0]) {
+  /*for (auto &s : rSSparsePyramidTrimmed[0]) {
     cv::imwrite("example.png", place::sparseToImage(s));
     cv::rectshow(place::sparseToImage(s));
-  }
+  }*/
 
   std::vector<std::vector<Eigen::MatrixXb>> eMaskPyramidTrimmedNS;
   for (auto &level : eMaskPyramidTrimmed) {
@@ -265,6 +265,7 @@ void place::analyzePlacement(
     }
     eMaskPyramidTrimmedNS.push_back(tmp);
   }
+
   eMaskPyramidTrimmed.clear();
 
   std::vector<Eigen::VectorXd> numPixelsUnderMask;
@@ -290,20 +291,20 @@ void place::analyzePlacement(
 
   constexpr double numRects = 1024 * 1.5;
 
-#if 0
-  if (FLAGS_debugMode) {
+#if 1
+  if (true || FLAGS_debugMode) {
     for (int k = 0; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
 
-      Eigen::Vector3i tmp(3900, 500, 2);
+      Eigen::Vector3i tmp(1889, 1586, 0);
       tmp[0] /= pow(2, k);
       tmp[1] /= pow(2, k);
 
       std::cout << tmp << std::endl << std::endl;
 
-      for (int i = -30; i <= 30; ++i) {
-        for (int j = -30; j <= 30; ++j) {
+      for (int i = -20; i <= 20; ++i) {
+        for (int j = -20; j <= 20; ++j) {
           tmpPoints.push_back(Eigen::Vector3i(tmp[0] + i, tmp[1] + j, tmp[2]));
         }
       }
@@ -312,6 +313,9 @@ void place::analyzePlacement(
                     erodedSparsePyramidTrimmed[k], eMaskPyramidTrimmedNS[k],
                     numPixelsUnderMask[k], fpMasks[k], tmpPoints,
                     d.getResponse(k), doors[k], trueScores);
+
+      cv::imwrite("I_P_example.png",
+                  sparseToImage(rSSparsePyramidTrimmed[k][tmp[2]]));
 
       std::vector<const place::posInfo *> tmpMin;
 
@@ -350,13 +354,15 @@ void place::analyzePlacement(
 
       place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k],
                            d.getResponse(k), doors[k], tmpMin);
+
+      exit(1);
     }
   }
 #endif
-
-  std::vector<place::posInfo> scores;
-  std::vector<const posInfo *> minima;
   std::vector<Eigen::Vector3i> pointsToAnalyze;
+  std::vector<place::posInfo> scores;
+  std::vector<const place::posInfo *> minima;
+
   /*
   * Initializ pointsToAnalyze with every point
   */
@@ -674,13 +680,15 @@ void place::findPlacement(
   if (!FLAGS_quietMode)
     std::cout << "Start: " << points.size() << std::endl;
 
+  double currentBest = 1.0;
   scores.resize(points.size());
   for (auto &s : scores)
     s.score = -1;
 
-#pragma omp parallel for schedule(static) shared(scores)
+  // #pragma omp parallel for schedule(static) shared(scores)
   for (int i = 0; i < points.size(); ++i) {
     const Eigen::Vector3i &point = points[i];
+
     const int scanIndex = point[2];
     const int xStop = fp.cols() - scans[scanIndex].cols();
     const int yStop = fp.rows() - scans[scanIndex].rows();
@@ -730,10 +738,23 @@ void place::findPlacement(
     currentFPE.prune(1.0);
 
     Eigen::SparseMatrix<double> diff = currentScan - currentFPE;
+    cv::Mat_<uchar> d(diff.rows(), diff.cols(), 255),
+        f(currentFPE.rows(), currentFPE.cols(), 255);
+
     for (int i = 0; i < diff.outerSize(); ++i)
       for (Eigen::SparseMatrix<double>::InnerIterator it(diff, i); it; ++it)
-        if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
+        if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0) {
           scanFPsetDiff += it.value();
+          d(it.row(), it.col()) =
+              cv::saturate_cast<uchar>(255 - 255 * it.value());
+        }
+
+    for (int i = 0; i < currentFPE.outerSize(); ++i)
+      for (Eigen::SparseMatrix<double>::InnerIterator it(currentFPE, i); it;
+           ++it)
+        if (currentMask(it.row(), it.col()))
+          f(it.row(), it.col()) =
+              cv::saturate_cast<uchar>(255 - 255 * it.value());
 
     diff = currentFP - currentScanE;
     for (int i = 0; i < diff.outerSize(); ++i)
@@ -751,6 +772,12 @@ void place::findPlacement(
 
     if (!Eigen::numext::isfinite(score))
       continue;
+
+    if (score < currentBest) {
+      currentBest = score;
+      cv::imwrite("F_i_exmaple.png", f);
+      cv::imwrite("diff_example.png", d);
+    }
 
     posInfo tmp;
     tmp.x = point[0];
@@ -933,6 +960,7 @@ void place::createFPPyramids(
     fpMasks.push_back(mask);
 
     if (FLAGS_visulization) {
+
       cv::Mat dst(mask.rows(), mask.cols(), CV_8UC1, cv::Scalar::all(255));
       for (int i = 0; i < mask.cols(); ++i) {
         for (int j = 0; j < mask.rows(); ++j) {
@@ -946,6 +974,16 @@ void place::createFPPyramids(
       cv::waitKey(0);
     }
   }
+  auto &mask = fpMasks[0];
+  cv::Mat dst(mask.rows(), mask.cols(), CV_8UC1, cv::Scalar::all(255));
+  for (int i = 0; i < mask.cols(); ++i) {
+    for (int j = 0; j < mask.rows(); ++j) {
+      if (mask(j, i))
+        dst.at<uchar>(j, i) = 0;
+    }
+  }
+
+  cv::imwrite("fp_mask_example.png", dst);
 
   loaded = true;
 }

@@ -682,7 +682,7 @@ void place::displayBest(
   cv::Mat_<cv::Vec3b> _all = all;
   cv::Mat_<uchar> _seen = seen;
 
-  const Eigen::Array2d sigma(1.0, 1.0);
+  const Eigen::Array2d sigma(1.5, 1.5);
   for (auto &n : bestNodes) {
     auto &scan = scans[n.color][n.rotation];
     auto &mask = masks[n.color][n.rotation];

@@ -1119,6 +1119,8 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
       }
     }
 
+    pcl::io::savePLYFileBinary("door_cloud.ply", *output);
+
     pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output);
     while (!viewer->wasStopped()) {
       viewer->spinOnce(100);

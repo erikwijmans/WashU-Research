@@ -343,38 +343,6 @@ void CloudAnalyzer2D::examinePointEvidence() {
       }
     }
 
-    cv::Mat special(newRows, newCols, CV_8UC3, cv::Scalar::all(255));
-    for (int j = 0; j < special.rows; ++j) {
-      uchar *dst = special.ptr<uchar>(j);
-      for (int i = 0; i < special.cols; ++i) {
-        const double count = total(j, i);
-        if (count > 0) {
-          const int gray = cv::saturate_cast<uchar>(
-              255.0 *
-              ((count - average - sigma) / (3.0 * sigma) - 0.0 * sigma));
-
-
-          int r = 0, g = 0, b = 0;
-          if (gray < 127) {
-            r = 0;
-            g = cv::saturate_cast<uchar>(2*gray);
-            b = 255 - g;
-          } else {
-            b = 0;
-            r = cv::saturate_cast<uchar>(2*(gray - 127));
-            g = 255 - r;
-          }
-
-          dst[3*i + 0] = b;
-          dst[3*i + 1] = g;
-          dst[3*i + 2] = r;
-        }
-      }
-    }
-
-    cv::imwrite("special.png", special);
-    exit(1);
-
     if (FLAGS_preview && doors->size()) {
       std::cout << "Number of doors: " << doors->size() << std::endl;
       cv::Mat out;
@@ -410,6 +378,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
         }
       }
       cv::rectshow(out);
+      cv::imwrite("2D_point_example.png", out);
     }
 
     pointEvidence.push_back(heatMap);
@@ -495,7 +464,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
         if (count > 0) {
           const int gray = cv::saturate_cast<uchar>(
               255.0 * ((count - average) / sigma + 1.0));
-          dst[i] = 255 - gray;
+          dst[i] = gray != 0 ? 0 : 255;
         }
       }
     }
@@ -508,6 +477,8 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
         dst[i + imageZeroZero[0]] = 0;
       }
     }
+
+    cv::imwrite("2D_free_example.png", heatMap);
 
     if (FLAGS_preview) {
       cvNamedWindow("Preview", CV_WINDOW_NORMAL);

@@ -221,7 +221,7 @@ bool place::reshowPlacement(const std::string &scanName,
         if (it.value() > 1)
           output(it.row(), it.col()) = cv::Vec3b(0, 255, 0);
 
-    cv::imwrite("door_labeled_floorplan.png", output);
+    cv::Mat_<cv::Vec3b> tmp(bestScan.size(), cv::Vec3b(255, 255, 255));
     for (int j = 0; j < bestScan.rows; ++j) {
       if (j + yOffset < 0 || j + yOffset >= fpColor.rows)
         continue;
@@ -232,6 +232,8 @@ bool place::reshowPlacement(const std::string &scanName,
 
         if (src[i] != 255) {
           output(j + yOffset, i + xOffset) = cv::Vec3b(0, 0, 255 - src[i]);
+          if (src[i] < 255 * (1.0 - 0.75))
+            tmp(j, i) = cv::Vec3b(1, 1, 1) * src[i];
         }
       }
     }
@@ -243,24 +245,35 @@ bool place::reshowPlacement(const std::string &scanName,
     for (auto &d : doors[currentScore.rotation]) {
       auto color = randomColor();
       for (double x = 0; x < d.w; ++x) {
-        Eigen::Vector3i index =
+        const Eigen::Vector3i index =
             (d.corner + x * d.xAxis + Eigen::Vector3d(xOffset, yOffset, 0))
+                .unaryExpr([](auto v) { return std::round(v); })
+                .cast<int>();
+
+        const Eigen::Vector3i index2 =
+            (d.corner + x * d.xAxis)
                 .unaryExpr([](auto v) { return std::round(v); })
                 .cast<int>();
 
         for (int k = -2; k <= 2; ++k) {
           for (int l = -2; l <= 2; ++l) {
             output(index[1] + k, index[0] + l) = color;
+
+            tmp(index2[1] + k, index2[0] + l) = color;
           }
         }
       }
     }
+
+    cv::imwrite("2D_point_example.png", tmp);
 
     if (!FLAGS_quietMode) {
       std::cout << &currentScore << std::endl;
       std::cout << "% of scan unexplained: "
                 << currentScore.scanFP / currentScore.scanPixels
                 << "   Index: " << k << std::endl
+                << std::endl
+                << "Top left:  " << xOffset << ", " << yOffset << std::endl
                 << std::endl;
     }
 

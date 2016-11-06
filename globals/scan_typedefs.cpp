@@ -317,12 +317,12 @@ double sigmoidWeight(double seen, double expected) {
   return 1.0 / (1.0 + std::exp(-(seen / expected - 0.5) * 10.0));
 }
 
-static unsigned colors[] = {0xFF66ffed, 0xFFff70ff, 0xFF6bff66,
-                            0xFFff6666, 0xFF6b66ff, 0xFF939393};
+static unsigned colors[] = {0xFF66ffed, 0xFFff70ff, 0xFF6bff66, 0xFFff6666,
+                            0xFF6b66ff, 0xFF939393, 0XFFfcad46, 0XFFfc46a4};
 
 cv::Vec3b randomColor() {
   static int index = 0;
-  int icolor = colors[(index++) % (sizeof(colors) / sizeof(colors[0]))];
+  unsigned icolor = colors[(index++) % (sizeof(colors) / sizeof(colors[0]))];
   return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
 }
 
