@@ -1063,6 +1063,12 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
     pcl::PointCloud<PointType>::Ptr output(new pcl::PointCloud<PointType>);
     output->insert(output->end(), pointCloud->begin(), pointCloud->end());
 
+    output->erase(std::remove_if(output->begin(), output->end(),
+                                 [&domZs](auto &pt) {
+                                   return pt.z > domZs.maxCoeff() - 0.1;
+                                 }),
+                  output->end());
+
     for (auto &d : doors) {
       auto &bl = d.corner;
 

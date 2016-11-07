@@ -803,8 +803,7 @@ void place::findPlacement(
     std::cout << "Done: " << scores.size() << std::endl;
 }
 
-template <int w> class Perimeter {
-public:
+template <int w> struct Perimeter {
   constexpr Perimeter() : coords() {
     constexpr int range = w / 2;
     int x = -range;
