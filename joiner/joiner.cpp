@@ -74,7 +74,7 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
                          const Eigen::Matrix3d &rotMat,
                          const Eigen::Vector3d &trans);
 
-constexpr double targetNumPoints = 20e6;
+constexpr double targetNumPoints = 30e6;
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -128,24 +128,21 @@ int main(int argc, char **argv) {
         p.loadFromFile(in);
       in.close();
 
-      pcl::PointCloud<PointType>::Ptr current_cloud(
-          new pcl::PointCloud<PointType>);
-      createPCLPointCloud(points, current_cloud, rotMats[k].inverse(),
+      createPCLPointCloud(points, output_cloud, rotMats[k].inverse(),
                           translations[k]);
 
-      current_cloud->insert(current_cloud->end(), output_cloud->begin(),
-                            output_cloud->end());
-
       pcl::UniformSampling<PointType> uniform_sampling;
-      uniform_sampling.setInputCloud(current_cloud);
-      output_cloud->clear();
+      uniform_sampling.setInputCloud(output_cloud);
+      output_cloud =
+          pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
       uniform_sampling.setRadiusSearch(subSampleSize);
       uniform_sampling.filter(*output_cloud);
 
       if (output_cloud->size() > targetNumPoints) {
         subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
 
-        output_cloud->clear();
+        output_cloud =
+            pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
       }

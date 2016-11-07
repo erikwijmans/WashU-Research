@@ -353,7 +353,7 @@ void place::displayOutput(
   for (int j = 0; j < fpDoors.rows(); ++j) {
     uchar *dst = tmpColor.ptr<uchar>(j);
     for (int i = 0; i < fpDoors.cols(); ++i) {
-      if (fpDoors(j, i)) {
+      if (fpDoors(j, i) > 1) {
         dst[i * 3] = 0;
         dst[i * 3 + 1] = 255;
         dst[i * 3 + 2] = 0;

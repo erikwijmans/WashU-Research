@@ -27,15 +27,15 @@ mkdir -p $1/doors/floorplan
 
 #run the 4 programs
 
-echo "Running preprocessor"
-make -j4 -C $2/preprocessor || exit 1
-preprocessor=$2/preprocessor/preprocessor
-$preprocessor -dataPath=$1 -redo || exit 1
+# echo "Running preprocessor"
+# make -j4 -C $2/preprocessor || exit 1
+# preprocessor=$2/preprocessor/preprocessor
+# $preprocessor -dataPath=$1 -redo || exit 1
 
-echo "Running scanDensity"
-make -j4 -C $2/scanDensity || exit 1
-scanDensity=$2/scanDensity/scanDensity
-$scanDensity -dataPath=$1 -redo || exit 1
+# echo "Running scanDensity"
+# make -j4 -C $2/scanDensity || exit 1
+# scanDensity=$2/scanDensity/scanDensity
+# $scanDensity -dataPath=$1 -redo || exit 1
 
 echo "Running placeScan"
 make -j4 -C $2/placeScan || exit 1
