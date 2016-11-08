@@ -146,8 +146,7 @@ int main(int argc, char **argv) {
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
       }
-      std::cout << "Leaving: " << current_cloud->size() << "  "
-                << output_cloud->size() << std::endl;
+      std::cout << "Leaving: " << output_cloud->size() << std::endl;
     }
     std::cout << "Saving" << std::endl;
     pcl::io::savePLYFileBinary(cloudName, *output_cloud);

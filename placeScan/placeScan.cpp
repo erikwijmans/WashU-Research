@@ -713,7 +713,7 @@ void place::findPlacement(
     current_dest = cv::Mat_<float>(dist_src.size());
     cv::distanceTransform(dist_src, current_dest, CV_DIST_L2,
                           CV_DIST_MASK_PRECISE);
-    clamp_mat(current_dest);
+// clamp_mat(current_dest);
 #if 0
     cv::rectshow(dist_src);
 
@@ -774,12 +774,12 @@ void place::findPlacement(
           numFPPixelsUM += it.value();
         }
 
-    if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
-      continue;
+    /*if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
+      continue;*/
 
     cv::Mat_<float> dist_out(currentFP.rows(), currentFP.cols());
     cv::distanceTransform(dist_src, dist_out, CV_DIST_L2, CV_DIST_MASK_PRECISE);
-    clamp_mat(dist_out);
+// clamp_mat(dist_out);
 
 #if 0
     auto disp = dist_out.clone();
@@ -795,7 +795,8 @@ void place::findPlacement(
            ++it)
         if (currentMask(it.row(), it.col()))
           scanScore += dist_out(it.row(), it.col()) * it.value();
-    scanScore /= numPixelsUnderMask[scanIndex];
+
+    scanScore /= cv::norm(dist_out);
 
     double fpScore = 0;
     for (int i = 0; i < currentFP.outerSize(); ++i)
@@ -804,7 +805,7 @@ void place::findPlacement(
         if (currentMask(it.row(), it.col()))
           fpScore += scan_dists[scanIndex](it.row(), it.col()) * it.value();
 
-    fpScore /= numFPPixelsUM;
+    fpScore /= cv::norm(scan_dists[scanIndex]);
 
     double doorPixelsUnexplained, doorPixelCount;
     std::tie(doorPixelsUnexplained, doorPixelCount) =

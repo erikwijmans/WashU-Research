@@ -12,7 +12,10 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <random>
 #include <string>
+
+#include <Eigen/Geometry>
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/StdVector>
@@ -36,6 +39,7 @@
 
 constexpr double voxel_size = 0.0085;
 constexpr double kp_size = 0.04;
+constexpr int num_keypoints = 4000;
 
 struct result {
   Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
@@ -116,7 +120,7 @@ int main(int argc, char *argv[]) {
     getNormals(cloud, cloud_normals, normals_points, normalsName);
     cloud->clear();
 
-    for (int j = i + 1; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
+    for (int j = i; j < FLAGS_numScans + FLAGS_startIndex; ++j) {
       const std::string number_target =
           csvFileNames[j].substr(csvFileNames[j].find(".") - 3, 3);
       const std::string buildName_target =
@@ -337,8 +341,24 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
       pcl::PointCloud<NormalType>::Ptr(new pcl::PointCloud<NormalType>);
   pcl::copyPointCloud(*normals_before_kp, *detector.getKeypointsIndices(),
                       *cloud_normals);
-  std::cout << normals_points->size() << "  " << normals_points->size()
+
+  std::cout << normals_points->size() << "  " << cloud_normals->size()
             << std::endl;
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
+  static std::uniform_real_distribution<> dist_t(-2.5, 2.5);
+  static std::uniform_real_distribution<> dist_r(0, 2 * PI);
+  const Eigen::Vector2d trans(dist_t(gen), dist_t(gen));
+  Eigen::Rotation2D<double> rot(dist_r(gen));
+
+  for (auto &pt : *normals_points) {
+    Eigen::Vector2d p(pt.x, pt.y);
+    p = rot * p;
+    p += trans;
+    pt.x = p[0];
+    pt.y = p[1];
+  }
+
   return;
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
       new pcl::visualization::PCLVisualizer("3D Viewer"));
@@ -447,7 +467,7 @@ result k4pcs(const pcl::PointCloud<pcl::PointXYZI>::Ptr &source,
       output = tmp;
   }
 
-#define viz 0
+#define viz 1
 
 #if viz
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
