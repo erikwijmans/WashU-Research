@@ -343,43 +343,34 @@ void CloudAnalyzer2D::examinePointEvidence() {
       }
     }
 
-    if (FLAGS_preview && doors->size()) {
-      std::cout << "Number of doors: " << doors->size() << std::endl;
-      cv::Mat out;
-      cv::cvtColor(heatMap, out, CV_GRAY2BGR);
-      cv::Mat_<cv::Vec3b> _out = out;
-      for (auto &d : *doors) {
-        Eigen::Vector3d bl = d.corner * FLAGS_scale;
-        bl[1] *= -1.0;
-        bl = R->at(r).inverse() * bl;
+    cv::Mat colorized(newRows, newCols, CV_8UC3, cv::Scalar::all(255));
+    for (int j = 0; j < colorized.rows; ++j) {
+      uchar *dst = colorized.ptr<uchar>(j);
+      for (int i = 0; i < colorized.cols; ++i) {
+        const double count = total(j, i);
+        if (count > 0) {
+          const int gray = cv::saturate_cast<uchar>(
+              255.0 *
+              ((count - average - sigma) / (3.0 * sigma) - 0.0 * sigma));
+          int r, g, b;
+          if (gray < 128) {
+            r = 0;
+            g = cv::saturate_cast<uchar>(2 * gray);
+            b = 255 - g;
+          } else {
+            b = 0;
+            r = cv::saturate_cast<uchar>(2 * (gray - 128));
+            g = 255 - r;
+          }
 
-        Eigen::Vector3d xAxis = d.xAxis;
-        xAxis[1] *= -1.0;
-        xAxis = R->at(r).inverse() * xAxis;
-
-        Eigen::Vector3d zAxis = d.zAxis;
-        zAxis[1] *= -1.0;
-        zAxis = R->at(r).inverse() * zAxis;
-
-        double w = d.w * FLAGS_scale;
-
-        auto color = randomColor();
-        for (int i = 0; i < w; ++i) {
-          Eigen::Vector3d pix =
-              (bl + i * xAxis + i * zAxis + newZZ).unaryExpr([](auto v) {
-                return std::round(v);
-              });
-
-          if (pix[0] < 0 || pix[0] >= out.cols || pix[1] < 0 ||
-              pix[1] >= out.rows)
-            continue;
-
-          _out(pix[1], pix[0]) = color;
+          dst[3 * i] = b;
+          dst[3 * i + 1] = g;
+          dst[3 * i + 2] = r;
         }
       }
-      cv::rectshow(out);
-      cv::imwrite("2D_point_example.png", out);
     }
+
+    cv::imwrite("2D_point_example.png", colorized);
 
     pointEvidence.push_back(heatMap);
 
@@ -478,7 +469,46 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
       }
     }
 
-    cv::imwrite("2D_free_example.png", heatMap);
+    if (FLAGS_preview && doors->size()) {
+      std::cout << "Number of doors: " << doors->size() << std::endl;
+      cv::Mat out;
+      cv::cvtColor(heatMap, out, CV_GRAY2BGR);
+      cv::Mat_<cv::Vec3b> _out = out;
+      for (auto &d : *doors) {
+        Eigen::Vector3d bl = d.corner * FLAGS_scale;
+        bl[1] *= -1.0;
+        bl = R->at(r).inverse() * bl;
+
+        Eigen::Vector3d xAxis = d.xAxis;
+        xAxis[1] *= -1.0;
+        xAxis = R->at(r).inverse() * xAxis;
+
+        Eigen::Vector3d zAxis = d.zAxis;
+        zAxis[1] *= -1.0;
+        zAxis = R->at(r).inverse() * zAxis;
+
+        double w = d.w * FLAGS_scale;
+
+        auto color = randomColor();
+        for (int i = 0; i < w; ++i) {
+          Eigen::Vector3d pix =
+              (bl + i * xAxis + i * zAxis + newZZ).unaryExpr([](auto v) {
+                return std::round(v);
+              });
+
+          if (pix[0] < 0 || pix[0] >= out.cols || pix[1] < 0 ||
+              pix[1] >= out.rows)
+            continue;
+
+          _out(pix[1], pix[0]) = color;
+          _out(pix[1], pix[0] + 1) = color;
+          _out(pix[1] + 1, pix[0]) = color;
+          _out(pix[1] + 1, pix[0] + 1) = color;
+        }
+      }
+      cv::rectshow(out);
+      cv::imwrite("2D_free_example.png", out);
+    }
 
     if (FLAGS_preview) {
       cvNamedWindow("Preview", CV_WINDOW_NORMAL);

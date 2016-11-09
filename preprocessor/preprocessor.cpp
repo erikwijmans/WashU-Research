@@ -1065,9 +1065,11 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
 
     output->erase(std::remove_if(output->begin(), output->end(),
                                  [&domZs](auto &pt) {
-                                   return pt.z > domZs.maxCoeff() - 0.1;
+                                   return pt.z > domZs.maxCoeff() - 0.2;
                                  }),
                   output->end());
+
+    pcl::io::savePLYFileBinary("door_cloud.ply", *output);
 
     for (auto &d : doors) {
       auto &bl = d.corner;
@@ -1124,8 +1126,6 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
         output->push_back(tmp);
       }
     }
-
-    pcl::io::savePLYFileBinary("door_cloud.ply", *output);
 
     pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output);
     while (!viewer->wasStopped()) {
