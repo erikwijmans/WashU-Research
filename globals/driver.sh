@@ -1,7 +1,7 @@
 #!/bin/bash
 # usage: ./driver.sh <root data dir> <root progs>
 
-make -j4 -C $2 || exit 1
+make --no-print-directory -j4 -C $2 || exit 1
 
 echo "Starting pipline with dataPath=$1/DUC/Floor1"
 ./pipeLine.sh $1/DUC/Floor1 $2 || exit 1

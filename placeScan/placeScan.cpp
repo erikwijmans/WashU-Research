@@ -666,14 +666,6 @@ computeDoorIntersections(const Eigen::MatrixXb &fpDoors,
   return std::make_tuple(unexplained, std::max(1.0, total));
 }
 
-static void clamp_mat(cv::Mat_<float> &m) {
-  for (int j = 0; j < m.rows; ++j) {
-    float *ptr = m.ptr<float>(j);
-    for (int i = 0; i < m.cols; ++i)
-      ptr[i] = std::min(5.0f, ptr[i]);
-  }
-}
-
 void place::findPlacement(
     const Eigen::SparseMatrix<double> &fp,
     const std::vector<Eigen::SparseMatrix<double>> &scans,
@@ -691,39 +683,9 @@ void place::findPlacement(
   for (auto &s : scores)
     s.score = -1;
 
-  std::vector<cv::Mat_<float>> scan_dists(scans.size());
-  for (int idx = 0; idx < scans.size(); ++idx) {
-    auto &currentScan = scans[idx];
-    auto &currentMask = masks[idx];
-    auto &current_dest = scan_dists[idx];
-
-    cv::Mat_<uchar> dist_src(currentScan.rows(), currentScan.cols(),
-                             (uchar)255);
-    /*for (int j = 0; j < currentScan.rows(); ++j)
-      for (int i = 0; i < currentScan.cols(); ++i)
-        if (currentMask(j, i))
-          dist_src(j, i) = 255;*/
-
-    for (int i = 0; i < currentScan.outerSize(); ++i)
-      for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it;
-           ++it)
-        if (currentMask(it.row(), it.col()) && it.value() > 0)
-          dist_src(it.row(), it.col()) = 0;
-
-    current_dest = cv::Mat_<float>(dist_src.size());
-    cv::distanceTransform(dist_src, current_dest, CV_DIST_L2,
-                          CV_DIST_MASK_PRECISE);
-// clamp_mat(current_dest);
-#if 0
-    cv::rectshow(dist_src);
-
-    auto disp = current_dest.clone();
-    normalize(disp, disp, 0, 1., cv::NORM_MINMAX);
-
-    cv::imshow("Preview", disp);
-    cv::waitKey(0);
-#endif
-  }
+  std::vector<Eigen::MatrixXd> dense_scans;
+  for (auto &s : scans)
+    dense_scans.emplace_back(s);
 
 #pragma omp parallel for schedule(static) shared(scores)
   for (int i = 0; i < points.size(); ++i) {
@@ -759,60 +721,28 @@ void place::findPlacement(
         fp.block(point[1], point[0], currentScan.rows(), currentScan.cols());
     currentFP.prune(1.0);
 
-    cv::Mat_<uchar> dist_src(currentFP.rows(), currentFP.cols(), (uchar)255);
-    /*for (int j = 0; j < currentFP.rows(); ++j)
-      for (int i = 0; i < currentFP.cols(); ++i)
-        if (currentMask(j, i))
-          dist_src(j, i) = 255;*/
+    Eigen::MatrixXd fp_under_mask =
+        Eigen::MatrixXd::Zero(currentFP.rows(), currentFP.cols());
 
     double numFPPixelsUM = 0.0;
     for (int i = 0; i < currentFP.outerSize(); ++i)
       for (Eigen::SparseMatrix<double>::InnerIterator it(currentFP, i); it;
            ++it)
         if (currentMask(it.row(), it.col()) && it.value() > 0) {
-          dist_src(it.row(), it.col()) = 0;
           numFPPixelsUM += it.value();
+          fp_under_mask(it.row(), it.col()) = it.value();
         }
 
-    /*if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
-      continue;*/
-
-    cv::Mat_<float> dist_out(currentFP.rows(), currentFP.cols());
-    cv::distanceTransform(dist_src, dist_out, CV_DIST_L2, CV_DIST_MASK_PRECISE);
-// clamp_mat(dist_out);
-
-#if 0
-    auto disp = dist_out.clone();
-    normalize(disp, disp, 0, 1., cv::NORM_MINMAX);
-
-    cv::imshow("Preview", disp);
-    cv::waitKey(0);
-#endif
-
-    double scanScore = 0;
-    for (int i = 0; i < currentScan.outerSize(); ++i)
-      for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it;
-           ++it)
-        if (currentMask(it.row(), it.col()))
-          scanScore += dist_out(it.row(), it.col()) * it.value();
-
-    scanScore /= cv::norm(dist_out);
-
-    double fpScore = 0;
-    for (int i = 0; i < currentFP.outerSize(); ++i)
-      for (Eigen::SparseMatrix<double>::InnerIterator it(currentFP, i); it;
-           ++it)
-        if (currentMask(it.row(), it.col()))
-          fpScore += scan_dists[scanIndex](it.row(), it.col()) * it.value();
-
-    fpScore /= cv::norm(scan_dists[scanIndex]);
+    if (numFPPixelsUM < 0.6 * numPixelsUnderMask[scanIndex])
+      continue;
 
     double doorPixelsUnexplained, doorPixelCount;
     std::tie(doorPixelsUnexplained, doorPixelCount) =
         computeDoorIntersections(fpDoors, pcDoors, point);
     const double doorScore = doorPixelsUnexplained / doorPixelCount;
 
-    const double score = 1.5 * scanScore + fpScore;
+    const double score = (currentScan - currentFP).norm() /
+                         (currentScan.norm() + currentFP.norm());
 
     if (!Eigen::numext::isfinite(score))
       continue;
