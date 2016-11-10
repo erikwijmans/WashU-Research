@@ -746,7 +746,7 @@ void place::findPlacement(
     const double doorScore = doorUxp / doorCount;
     const double scanScore = scanFPsetDiff / numPixelsUnderMask[scanIndex];
     const double fpScore = fpScanSetDiff / numFPPixelsUM;
-    const double score = (1.5 * scanScore + fpScore + doorScore) / 3.5;
+    const double score = (1.5 * scanScore + fpScore) / 2.5;
 
     if (!Eigen::numext::isfinite(score))
       continue;
