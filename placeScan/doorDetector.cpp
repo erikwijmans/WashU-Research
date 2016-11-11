@@ -4,7 +4,7 @@
 
 #include <scan_gflags.h>
 
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Geometry>
 
 place::DoorDetector::DoorDetector()
     : loaded{false}, name{FLAGS_doorsFolder + "fpDoors.dat"} {
