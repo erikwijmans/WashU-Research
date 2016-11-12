@@ -997,10 +997,10 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
       }
 
       for (int a = 0; a < shape[1]; ++a) {
-        f(shape[0] - 1, a) = 0;
+        f(shape[0] - 1, a) = -0.5;
       }
       for (int a = 0; a < shape[0]; ++a) {
-        f(a, shape[1] - 1) = 0;
+        f(a, shape[1] - 1) = -0.5;
       }
 
       Model::FunctionIdentifier fid = gm.addFunction(f);
