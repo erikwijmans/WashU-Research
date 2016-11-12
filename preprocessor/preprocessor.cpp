@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     const std::string doorName = FLAGS_doorsFolder + "pointcloud/" + buildName +
                                  "_doors_" + number + ".dat";
 
-    if (FLAGS_redo ||
+    if (true || FLAGS_redo ||
         !(fexists(binaryFileName) && fexists(normalsName) &&
           fexists(dataName) && fexists(rotName) && fexists(panoName) &&
           fexists(doorName))) {
@@ -134,6 +134,8 @@ int main(int argc, char *argv[]) {
       uniform_sampling.filter(*filtered_cloud);
       pcl::io::savePLYFileBinary("downsampled.ply", *filtered_cloud);
       std::cout << "saved" << std::endl;
+
+      return 0;
 
       if (show_progress)
         ++(*show_progress);
