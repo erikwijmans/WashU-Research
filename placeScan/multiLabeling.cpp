@@ -237,38 +237,42 @@ void multi::Labeler::load() {
 }
 
 void multi::Labeler::weightEdges() {
-  if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 0)) {
-    load();
-    place::weightEdges(R1Nodes, voxelInfo, pointVoxelFileNames,
-                       freeVoxelFileNames, rotationMatricies, panoramas,
-                       adjacencyMatrix);
-    if (FLAGS_save)
-      place::saveGraph(adjacencyMatrix, 0);
-  }
-  place::normalizeWeights(adjacencyMatrix, R1Nodes);
+  if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 2)) {
+    if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 0)) {
+      load();
+      place::weightEdges(R1Nodes, voxelInfo, pointVoxelFileNames,
+                         freeVoxelFileNames, rotationMatricies, panoramas,
+                         adjacencyMatrix);
+      if (FLAGS_save)
+        place::saveGraph(adjacencyMatrix, 0);
+    }
 
-  place::createHigherOrderTermsV2(masks, zeroZeros, R1Nodes, highOrderV2);
+    place::createHigherOrderTermsV2(masks, zeroZeros, R1Nodes, highOrderV2);
 
-  for (auto &pair : highOrderV2) {
-    auto &incident = pair.first;
-    auto &weights = pair.second;
-    for (int i = 0; i < incident.size(); ++i) {
-      // R1Nodes[incident[i]].hWeight += weights[i];
+    for (auto &pair : highOrderV2) {
+      auto &incident = pair.first;
+      auto &weights = pair.second;
+      for (int i = 0; i < incident.size(); ++i) {
+        // R1Nodes[incident[i]].hWeight += weights[i];
 
-      for (int j = 0; j < incident.size(); ++j) {
-        const int id1 = incident[i];
-        const int id2 = incident[j];
+        for (int j = 0; j < incident.size(); ++j) {
+          const int id1 = incident[i];
+          const int id2 = incident[j];
 
-        if (R1Nodes[id1].color == R1Nodes[id2].color)
-          continue;
+          if (R1Nodes[id1].color == R1Nodes[id2].color)
+            continue;
 
-        const double weight = -0.25 * (weights[i] + weights[j]);
-        adjacencyMatrix(id1, id2).hWeight += weight;
-        adjacencyMatrix(id2, id1).hWeight += weight;
+          const double weight = -0.25 * (weights[i] + weights[j]);
+          adjacencyMatrix(id1, id2).hWeight += weight;
+          adjacencyMatrix(id2, id1).hWeight += weight;
+        }
       }
     }
+    highOrderV2.clear();
+    if (FLAGS_save)
+      place::saveGraph(adjacencyMatrix, 1);
   }
-  highOrderV2.clear();
+  place::normalizeWeights(adjacencyMatrix, R1Nodes);
 }
 
 void multi::Labeler::solveTRW() {
