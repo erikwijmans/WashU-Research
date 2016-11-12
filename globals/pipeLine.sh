@@ -17,7 +17,7 @@ mkdir -p $1/densityMaps/rotations
 mkdir -p $1/densityMaps/R1
 mkdir -p $1/densityMaps/R2
 mkdir -p $1/densityMaps/zeros
-mkdir -p $1/voxelGridcs/R3
+mkdir -p $1/voxelGrids/R3
 mkdir -p $1/voxelGrids/R0
 mkdir -p $1/voxelGrids/R1
 mkdir -p $1/voxelGrids/R2
@@ -40,7 +40,7 @@ mkdir -p $1/doors/floorplan
 echo "Running placeScan"
 make  --no-print-directory -j4 -C $2/placeScan || exit 1
 placeScan=$2/placeScan/placeScan
-$placeScan -dataPath=$1 -redo -V1 || exit 1
+$placeScan -dataPath=$1 -redo -V2 || exit 1
 
 # echo "Running joiner"
 # make  --no-print-directory -j4 -C $2/joiner || exit 1
