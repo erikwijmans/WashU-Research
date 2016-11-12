@@ -135,8 +135,6 @@ int main(int argc, char *argv[]) {
       pcl::io::savePLYFileBinary("downsampled.ply", *filtered_cloud);
       std::cout << "saved" << std::endl;
 
-      return 0;
-
       if (show_progress)
         ++(*show_progress);
 
@@ -608,6 +606,8 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   fillGaps(rMap, rMap);
 
   cv::imwrite("highres_pano.png", PTXPanorama);
+
+  exit(1);
 
   const double scale = pow(2, -6.0 / 2);
   cv::Mat scaledTracking, scaledPTX;
