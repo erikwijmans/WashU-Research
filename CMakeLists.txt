@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.1)
-set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
+
+# execute_process(COMMAND "${CMAKE_SOURCE_DIR}/CMake/get_cotire.sh"
+#                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/CMake")
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cotire/CMake")
 project(Laser_Scan_Placement)
 
 include(cotire)
