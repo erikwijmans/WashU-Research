@@ -413,7 +413,7 @@ void place::analyzePlacement(
     if (k == 0)
       findLocalMinima(scores, -0.5, maps, minima);
     else
-      findLocalMinima(scores, 1.0, maps, minima);
+      findLocalMinima(scores, 1.2, maps, minima);
 
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
 
@@ -768,7 +768,8 @@ void place::findPlacement(
     const double doorScore = doorUxp / doorCount;
     const double scanScore = scanFPsetDiff / numPixelsUnderMask[scanIndex];
     const double fpScore = fpScanSetDiff / numFPPixelsUM;
-    const double score = (1.5 * scanScore + fpScore + doorScore) / 3.5;
+    const double score =
+        (1.5 * scanScore + fpScore + 0.75 * doorScore) / (1.5 + 1.0 + 0.75);
 
     if (!Eigen::numext::isfinite(score))
       continue;

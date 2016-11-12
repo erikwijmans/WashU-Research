@@ -1,0 +1,23 @@
+project(k4pcs CXX)
+if(APPLE)
+  set(CMAKE_CXX_COMPILER /usr/local/bin/clang++)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
+else()
+  set(CMAKE_CXX_COMPILER g++)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g -fopenmp")
+find_package( PCL REQUIRED )
+find_package( OpenCV REQUIRED )
+find_package( Boost REQUIRED )
+include_directories( ${Boost_INCLUDE_DIRS} )
+include_directories(${globals_INCLUDE})
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
+file(GLOB src
+	"k4pcs.cpp")
+
+add_executable( k4pcs ${src})
+target_link_libraries( k4pcs ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+cotire(k4pcs)

@@ -8,7 +8,7 @@
 
 place::DoorDetector::DoorDetector()
     : loaded{false}, name{FLAGS_doorsFolder + "fpDoors.dat"} {
-  if (fexists(name) /*&& !FLAGS_redo*/) {
+  if (fexists(name) /* && !FLAGS_redo*/) {
     std::ifstream in(name, std::ios::in | std::ios::binary);
     int length;
     in.read(reinterpret_cast<char *>(&length), sizeof(length));

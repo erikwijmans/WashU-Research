@@ -299,26 +299,30 @@ void multi::Labeler::saveFinal(int index) {
   if (!FLAGS_save)
     return;
 
+  load();
+
   const double scale = buildingScale.getScale();
   const Eigen::Vector3d center =
-      Eigen::Vector3d(bestNodes[0].x, bestNodes[0].y, 0) / scale;
+      Eigen::Vector3d(bestNodes[0].x, bestNodes[0].y, 0) / scale +
+      Eigen::Vector3d(0, 0, panoramas[bestNodes[0].color].floorCoord);
 
   std::ofstream out(FLAGS_outputV2 + "final_" + std::to_string(index) + ".dat",
                     std::ios::out | std::ios::binary);
   const int num = bestNodes.size();
   out.write(reinterpret_cast<const char *>(&num), sizeof(num));
   Eigen::Matrix3d zeroMat = Eigen::Matrix3d::Zero();
-  load();
+
   for (auto &n : bestNodes) {
     Eigen::Matrix3d &rotMat =
         n.agreement != -1000 ? rotationMatricies[n.color][n.rotation] : zeroMat;
     Eigen::Vector3d trans(n.x, n.y, 0);
     trans /= scale;
+    trans[2] = panoramas[n.color].floorCoord;
     trans = trans - center;
     out.write(reinterpret_cast<const char *>(rotMat.data()),
-              sizeof(Eigen::Matrix3d));
+              sizeof(double) * rotMat.size());
     out.write(reinterpret_cast<const char *>(trans.data()),
-              sizeof(Eigen::Vector3d));
+              sizeof(decltype(trans)::Scalar) * trans.size());
   }
   out.close();
 }

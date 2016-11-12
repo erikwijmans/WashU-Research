@@ -92,7 +92,7 @@ loadInDoors(const std::string &name,
 template <class E, class UrnaryFunc>
 int getCutoffIndex(const std::string &name, const std::vector<E> &list,
                    UrnaryFunc selector) {
-  constexpr int max = 30;
+  /*constexpr int max = 30;
   constexpr int minNodes = 3;
 
   double cutoffDelta, cutoffScore, cutOffTotal, instantCutoff;
@@ -165,7 +165,7 @@ int getCutoffIndex(const std::string &name, const std::vector<E> &list,
 
     prevScore = score;
     ++i;
-  }
+  }*/
 
   // return std::min(instant ? i : i + 1, (int)list.size());
   // return std::max(5, std::min(instant ? i : i + 1, (int)list.size()));

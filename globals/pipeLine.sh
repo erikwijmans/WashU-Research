@@ -17,7 +17,7 @@ mkdir -p $1/densityMaps/rotations
 mkdir -p $1/densityMaps/R1
 mkdir -p $1/densityMaps/R2
 mkdir -p $1/densityMaps/zeros
-mkdir -p $1/voxelGridcs/R3
+mkdir -p $1/voxelGrids/R3
 mkdir -p $1/voxelGrids/R0
 mkdir -p $1/voxelGrids/R1
 mkdir -p $1/voxelGrids/R2
@@ -27,22 +27,22 @@ mkdir -p $1/doors/floorplan
 
 #run the 4 programs
 
-echo "Running preprocessor"
-make -j4 -C $2/preprocessor || exit 1
-preprocessor=$2/preprocessor/preprocessor
-$preprocessor -dataPath=$1 -redo || exit 1
+# echo "Running preprocessor"
+# make  --no-print-directory -j4 -C $2/preprocessor || exit 1
+# preprocessor=$2/preprocessor/preprocessor
+# $preprocessor -dataPath=$1 -redo || exit 1
 
-echo "Running scanDensity"
-make -j4 -C $2/scanDensity || exit 1
-scanDensity=$2/scanDensity/scanDensity
-$scanDensity -dataPath=$1 -redo || exit 1
+# echo "Running scanDensity"
+# make  --no-print-directory -j4 -C $2/scanDensity || exit 1
+# scanDensity=$2/scanDensity/scanDensity
+# $scanDensity -dataPath=$1 -redo || exit 1
 
 echo "Running placeScan"
-make -j4 -C $2/placeScan || exit 1
+make  --no-print-directory -j4 -C $2/placeScan || exit 1
 placeScan=$2/placeScan/placeScan
-$placeScan -dataPath=$1 -redo -V1 || exit 1
+$placeScan -dataPath=$1 -redo -V2 || exit 1
 
 # echo "Running joiner"
-# make -j4 -C $2/joiner || exit 1
+# make  --no-print-directory -j4 -C $2/joiner || exit 1
 # joiner=$2/joiner/joiner
 # $joiner -dataPath=$1 -redo || exit 1

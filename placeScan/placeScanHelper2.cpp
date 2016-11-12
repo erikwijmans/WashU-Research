@@ -431,6 +431,9 @@ void place::weightEdges(
     constexpr double maxDistance = 1.0;
     weight.distance = (AZeroZero - BZeroZero).norm();
 
+    AZeroZero[2] = panoA.floorCoord;
+    BZeroZero[2] = panoB.floorCoord;
+
     const Eigen::Vector3d aToB = AZeroZero - BZeroZero;
     const Eigen::Vector3d bToA = BZeroZero - AZeroZero;
 
@@ -682,7 +685,7 @@ void place::displayBest(
   cv::Mat_<cv::Vec3b> _all = all;
   cv::Mat_<uchar> _seen = seen;
 
-  const Eigen::Array2d sigma(1.5, 1.5);
+  const Eigen::Array2d sigma(2.5, 2.5);
   for (auto &n : bestNodes) {
     auto &scan = scans[n.color][n.rotation];
     auto &mask = masks[n.color][n.rotation];
@@ -989,7 +992,7 @@ static void populateModel(const Eigen::MatrixXE &adjacencyMatrix,
           const int row = nodes[currentRow + b].id;
           const int col = nodes[colOffset + a].id;
 
-          f(a, b) = 0;
+          f(a, b) = adjacencyMatrix(row, col).getWeight();
         }
       }
 
@@ -1051,13 +1054,13 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer;
   solver.infer(visitor);
   delete timer;
+  const int numVars = numberOfLabels.size();
 
   std::cout << std::endl
             << solver.name() << " found a solution with a value of "
-            << solver.value() << " bound " << solver.bound() << std::endl
-            << std::endl;
+            << solver.value() << " bounded by " << solver.bound() << std::endl
+            << "Average energy: " << solver.value() / numVars << std::endl;
 
-  const int numVars = numberOfLabels.size();
   std::vector<Model::LabelType> labeling(numVars);
   solver.arg(labeling);
 

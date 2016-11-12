@@ -36,7 +36,7 @@ public:
 
   DirectVoxel(K &&min, K &max)
       : _min{min}, _max{max}, x{max[0] - min[0]}, y{max[1] - min[1]},
-        z{max[2] - min[2]}, mem{z, Mat::Zero(y, x)} {
+        z{max[2] - min[2]}, mem{static_cast<size_t>(z), Mat::Zero(y, x)} {
     assert(x >= 0 && y >= 0 && z >= 0);
   };
 
