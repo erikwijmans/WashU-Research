@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
     const std::string doorName = FLAGS_doorsFolder + "pointcloud/" + buildName +
                                  "_doors_" + number + ".dat";
 
-    if (true || FLAGS_redo ||
+    if (FLAGS_redo ||
         !(fexists(binaryFileName) && fexists(normalsName) &&
           fexists(dataName) && fexists(rotName) && fexists(panoName) &&
           fexists(doorName))) {
@@ -161,6 +161,81 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Leaving" << std::endl;
   return 0;
+}
+
+static double ransacZ(const std::vector<double> &Z) {
+  const int m = Z.size();
+
+  double maxInliers = 0, K = 1e5;
+  int k = 0;
+
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
+  std::uniform_int_distribution<int> dist(0, m - 1);
+  double domz = 0;
+
+  while (k < K) {
+    // random sampling
+    int randomIndex = dist(gen);
+    // compute the model parameters
+    auto zest = Z[randomIndex];
+
+    // Count the number of inliers
+    double numInliers = 0;
+    double average = 0;
+#pragma omp parallel
+    {
+      double privateInliers = 0;
+      double privateAve = 0;
+#pragma omp for nowait schedule(static)
+      for (int i = 0; i < m; ++i) {
+        auto &z = Z[i];
+        if (std::abs(z - zest) < 0.03) {
+          ++privateInliers;
+          privateAve += z;
+        }
+      }
+
+#pragma omp for schedule(static) ordered
+      for (int i = 0; i < omp_get_num_threads(); ++i) {
+#pragma omp ordered
+        {
+          average += privateAve;
+          numInliers += privateInliers;
+        }
+      }
+    }
+
+    if (numInliers > maxInliers) {
+      maxInliers = numInliers;
+
+      domz = average / numInliers;
+      // NB: Ransac formula to check for consensus
+      double w = (numInliers - 3) / m;
+      double p = std::max(0.001, std::pow(w, 3));
+      K = log(1 - 0.999) / log(1 - p);
+    }
+    ++k;
+  }
+
+  return domz;
+}
+
+static Eigen::VectorXd getZPlanes(const std::vector<double> &z) {
+  std::vector<double> zCoords(z.begin(), z.end());
+  Eigen::VectorXd domZs = Eigen::VectorXd::Zero(20);
+  int count = 0;
+  do {
+    double z0 = ransacZ(zCoords);
+
+    zCoords.erase(
+        std::remove_if(zCoords.begin(), zCoords.end(),
+                       [&z0](auto &z) { return std::abs(z - z0) < 0.05; }),
+        zCoords.end());
+
+    domZs[count++] = z0;
+  } while (domZs.minCoeff() >= -1.5 || count < 2);
+  return domZs;
 }
 
 static void dispDepthMap(const Eigen::RowMatrixXd &dm) {
@@ -458,13 +533,15 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   int row = PTXrows - 1;
   int col = 0.995 * (PTXcols - 1) / 2.0;
   Eigen::RowMatrixXb touched = Eigen::RowMatrixXb::Zero(PTXrows, PTXcols);
-
+  std::vector<double> zCoords;
   for (auto &element : pointCloud) {
     assert(row >= 0 && row < PTXPanorama.rows);
     assert(col >= 0 && col < PTXPanorama.cols);
     _PTXPanorama(row, col)[0] = element.rgb[2];
     _PTXPanorama(row, col)[1] = element.rgb[1];
     _PTXPanorama(row, col)[2] = element.rgb[0];
+
+    zCoords.push_back(element.point[2]);
 
     if (row == 0) {
       row = PTXrows - 1;
@@ -569,11 +646,17 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   std::vector<cv::KeyPoint> keypoints;
   cv::Ptr<cv::Feature2D> SIFT = cv::xfeatures2d::SIFT::create();
 
+  auto domZs = getZPlanes(zCoords);
+
   place::Panorama pano;
   pano.imgs.resize(1);
   pano.imgs[0] = scaledPTX;
   pano.rMap = scaledRMap.cast<float>();
   pano.surfaceNormals = scaledSurfNormals;
+  pano.floorCoord = domZs.minCoeff();
+
+  if (!FLAGS_quietMode)
+    std::cout << "Floorcoord: " << domZs.minCoeff() << std::endl;
 
   SIFT->detect(pano.imgs[0], keypoints);
 
@@ -759,68 +842,10 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
   pointMax = average + delta / 2.0;
 }
 
-double ransacZ(const std::vector<double> &Z) {
-  const int m = Z.size();
-
-  double maxInliers = 0, K = 1e5;
-  int k = 0;
-
-  static std::random_device seed;
-  static std::mt19937_64 gen(seed());
-  std::uniform_int_distribution<int> dist(0, m - 1);
-  double domz = 0;
-
-  while (k < K) {
-    // random sampling
-    int randomIndex = dist(gen);
-    // compute the model parameters
-    auto zest = Z[randomIndex];
-
-    // Count the number of inliers
-    double numInliers = 0;
-    double average = 0;
-#pragma omp parallel
-    {
-      double privateInliers = 0;
-      double privateAve = 0;
-#pragma omp for nowait schedule(static)
-      for (int i = 0; i < m; ++i) {
-        auto &z = Z[i];
-        if (std::abs(z - zest) < 0.03) {
-          ++privateInliers;
-          privateAve += z;
-        }
-      }
-
-#pragma omp for schedule(static) ordered
-      for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp ordered
-        {
-          average += privateAve;
-          numInliers += privateInliers;
-        }
-      }
-    }
-
-    if (numInliers > maxInliers) {
-      maxInliers = numInliers;
-
-      domz = average / numInliers;
-      // NB: Ransac formula to check for consensus
-      double w = (numInliers - 3) / m;
-      double p = std::max(0.001, std::pow(w, 3));
-      K = log(1 - 0.999) / log(1 - p);
-    }
-    ++k;
-  }
-
-  return domz;
-}
-
 void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
                const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
                const Eigen::Vector3d &M3, const std::string &outName) {
-  if (false && !FLAGS_redo && fexists(outName))
+  if (!FLAGS_redo && fexists(outName))
     return;
 
   constexpr double voxelsPerMeter = 50, gradCutoff = 2.0,
@@ -842,17 +867,7 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
     zCoords.emplace_back(point.z);
   }
 
-  Eigen::VectorXd domZs = Eigen::VectorXd::Zero(20);
-  int count = 0;
-  do {
-    double z0 = ransacZ(zCoords);
-
-    zCoords.erase(
-        std::remove_if(zCoords.begin(), zCoords.end(),
-                       [&z0](auto &z) { return std::abs(z - z0) < 0.05; }),
-        zCoords.end());
-    domZs[count++] = z0;
-  } while (domZs.minCoeff() >= 0 || count < 2);
+  auto domZs = getZPlanes(zCoords);
 
   const double hMax =
       std::max(2.1, std::min(2.6, 0.9 * std::abs(domZs.maxCoeff() -

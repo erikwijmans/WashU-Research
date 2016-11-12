@@ -152,13 +152,12 @@ void place::Panorama::writeToFile(const std::string &imgName,
     out.write(reinterpret_cast<const char *>((nPtr + i)->data()),
               3 * sizeof(float));
   }
-
+  out.write(reinterpret_cast<const char *>(&floorCoord), sizeof(floorCoord));
   out.close();
 }
 
 void place::Panorama::loadFromFile(const std::string &imgName,
                                    const std::string &dataName) {
-  imgs.resize(1);
   imgs[0] = cv::imread(imgName);
 
   int rows, cols, numKeypoints;
@@ -182,7 +181,11 @@ void place::Panorama::loadFromFile(const std::string &imgName,
   for (int i = 0; i < surfaceNormals.size(); ++i) {
     in.read(reinterpret_cast<char *>((nPtr + i)->data()), 3 * sizeof(float));
   }
+  in.read(reinterpret_cast<char *>(&floorCoord), sizeof(floorCoord));
   in.close();
+
+  if (floorCoord > -1.5 || floorCoord < -1.7)
+    floorCoord = -1.6;
 }
 
 const cv::Mat &place::Panorama::operator[](int n) {
@@ -202,7 +205,7 @@ const cv::Mat &place::Panorama::operator[](int n) {
 }
 
 double place::edge::getWeight() const {
-  return (0.75 * w * wSignificance + panoW * panoSignificance) *
+  return (0.5 * w * wSignificance + panoW * panoSignificance) *
              std::max(0.25, std::min(distance, 1.5)) +
          hWeight;
 }

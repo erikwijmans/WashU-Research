@@ -266,6 +266,7 @@ public:
 struct Panorama {
   static constexpr double ScalingFactor = 1.2599210498948732;
 
+  double floorCoord;
   std::vector<cv::Mat> imgs;
   Eigen::RowMatrixXf rMap;
   std::vector<cv::Point2f> keypoints;

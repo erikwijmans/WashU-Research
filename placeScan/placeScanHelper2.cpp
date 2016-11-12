@@ -431,6 +431,9 @@ void place::weightEdges(
     constexpr double maxDistance = 1.0;
     weight.distance = (AZeroZero - BZeroZero).norm();
 
+    AZeroZero[2] = panoA.floorCoord;
+    BZeroZero[2] = panoB.floorCoord;
+
     const Eigen::Vector3d aToB = AZeroZero - BZeroZero;
     const Eigen::Vector3d bToA = BZeroZero - AZeroZero;
 
@@ -1025,13 +1028,13 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer;
   solver.infer(visitor);
   delete timer;
+  const int numVars = numberOfLabels.size();
 
   std::cout << std::endl
             << solver.name() << " found a solution with a value of "
-            << solver.value() << " bound " << solver.bound() << std::endl
-            << std::endl;
+            << solver.value() << " bounded by " << solver.bound() << std::endl
+            << "Average energy: " << solver.value() / numVars << std::endl;
 
-  const int numVars = numberOfLabels.size();
   std::vector<Model::LabelType> labeling(numVars);
   solver.arg(labeling);
 

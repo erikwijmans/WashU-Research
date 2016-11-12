@@ -74,7 +74,7 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
                          const Eigen::Matrix3d &rotMat,
                          const Eigen::Vector3d &trans);
 
-constexpr double targetNumPoints = 20e6;
+constexpr double targetNumPoints = 30e6;
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
