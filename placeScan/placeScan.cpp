@@ -25,6 +25,8 @@
 DEFINE_bool(errosion, true,
             "This is used for scale finding only, don't touch!");
 DEFINE_bool(displayGraph, false, "Displays the graph");
+DEFINE_int32(stopIndex, -1, "Index to stop at");
+DEFINE_int32(stopNumber, -1, "Number to stop at");
 
 static constexpr int errosionKernelSize = 5;
 static_assert(errosionKernelSize % 2 == 1,
@@ -125,8 +127,14 @@ int main(int argc, char *argv[]) {
 
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(pointFileNames, FLAGS_startNumber);
+
+  if (FLAGS_stopNumber != -1)
+    FLAGS_stopIndex = numberToIndex(pointFileNames, FLAGS_stopNumber);
+
   if (FLAGS_numScans == -1)
-    FLAGS_numScans = pointFileNames.size() - FLAGS_startIndex;
+    FLAGS_numScans = FLAGS_stopIndex == -1
+                         ? pointFileNames.size() - FLAGS_startIndex
+                         : FLAGS_stopIndex - FLAGS_startIndex;
 
   if (FLAGS_V1) {
     boost::progress_display *show_progress = nullptr;
@@ -141,10 +149,9 @@ int main(int argc, char *argv[]) {
     place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
     d.run(fpPyramid, erodedFpPyramid, fpMasks);
 
-    for (int i = FLAGS_startIndex;
-         i < std::min(FLAGS_startIndex + FLAGS_numScans,
-                      (int)pointFileNames.size());
-         ++i) {
+    const int stopIndex =
+        std::min((int)pointFileNames.size(), FLAGS_startIndex + FLAGS_numScans);
+    for (int i = FLAGS_startIndex; i < stopIndex; ++i) {
       const std::string scanName = pointFileNames[i];
       const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
       const std::string maskName = freeFileNames[i];
