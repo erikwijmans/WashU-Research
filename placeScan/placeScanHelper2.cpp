@@ -687,6 +687,9 @@ void place::displayBest(
 
   const Eigen::Array2d sigma(2.5, 2.5);
   for (auto &n : bestNodes) {
+    if (n.agreement == -1000)
+      continue;
+
     auto &scan = scans[n.color][n.rotation];
     auto &mask = masks[n.color][n.rotation];
     auto &zeroZero = zeroZeros[n.color][n.rotation];
@@ -753,10 +756,22 @@ void place::displayBest(
 
   cv::imwrite("marked.png", marked);
   cv::rectshow(marked);
+  std::ofstream output("energy.csv", std::ios::out);
+  for (auto &n : bestNodes) {
+    if (n.agreement == -1000)
+      continue;
+
+    output << n.nw << ", " << n.geoAgreement << ", " << n.panoAgreement << ", "
+           << n.hAgreement << std::endl;
+  }
+  output.close();
 
   for (int i = 0; i < bestNodes.size();) {
     auto &n = bestNodes[i];
     std::cout << n << std::endl;
+    std::cout << n.nw << ", " << n.geoAgreement << ", " << n.panoAgreement
+              << ", " << n.hAgreement << std::endl
+              << std::endl;
     cv::Mat output = fpColor.clone();
     if (n.agreement != -1000) {
 
@@ -1075,6 +1090,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
       bestNodes.emplace_back(nodes[index - 1], -1000, labeling[i], false,
                              numberOfLabels[i]);
     } else {
+      double geoAgreement = 0, panoAgreement = 0, hAgreement = 0;
       double agreement = 0;
       int count = 0;
       const int col = nodes[index].id;
@@ -1083,14 +1099,23 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
         const double w = adjacencyMatrix(row, col).getWeight();
         if (w != 0) {
           agreement += w;
+          panoAgreement += adjacencyMatrix(row, col).panoSignificance *
+                           adjacencyMatrix(row, col).panoW;
+          geoAgreement += adjacencyMatrix(row, col).wSignificance *
+                          adjacencyMatrix(row, col).w;
+          hAgreement += adjacencyMatrix(row, col).hWeight;
           ++count;
         }
         rowOffset += numberOfLabels[j];
       }
       // agreement += 0.5 * nodes[index].w;
+      count = count ? count : 1;
       agreement /= count ? count : 1;
       bestNodes.emplace_back(nodes[index], agreement, labeling[i], true,
                              numberOfLabels[i]);
+      bestNodes.back().panoAgreement = panoAgreement / count;
+      bestNodes.back().geoAgreement = geoAgreement / count;
+      bestNodes.back().hAgreement = hAgreement / count;
     }
     offset += numberOfLabels[i];
   }

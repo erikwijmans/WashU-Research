@@ -33,16 +33,16 @@ mkdir -p $1/doors/floorplan
 # $preprocessor -dataPath=$1 -redo || exit 1
 
 # echo "Running scanDensity"
-# make  --no-print-directory -j4 -C $2/scanDensity || exit 1
+# make  --no-print-directory -j4 -Cp $2/scanDensity || exit 1
 # scanDensity=$2/scanDensity/scanDensity
 # $scanDensity -dataPath=$1 -redo || exit 1
 
 echo "Running placeScan"
 make  --no-print-directory -j4 -C $2/placeScan || exit 1
 placeScan=$2/placeScan/placeScan
-$placeScan -dataPath=$1 -redo -V2 || exit 1
+$placeScan -dataPath=$1 -redo || exit 1
 
-# echo "Running joiner"
-# make  --no-print-directory -j4 -C $2/joiner || exit 1
-# joiner=$2/joiner/joiner
-# $joiner -dataPath=$1 -redo || exit 1
+echo "Running joiner"
+make  --no-print-directory -j4 -C $2/joiner || exit 1
+joiner=$2/joiner/joiner
+$joiner -dataPath=$1 -redo || exit 1

@@ -211,6 +211,7 @@ struct node : public posInfo {
 
 struct SelectedNode : public node {
   double agreement, norm;
+  double geoAgreement, panoAgreement, hAgreement;
   int label, numberOfCandidates;
   bool locked;
   SelectedNode(const node &o, double agreement, int label, bool locked,
