@@ -405,6 +405,8 @@ void place::analyzePlacement(
 
     if (k == 0)
       findLocalMinima(scores, -0.5, maps, minima);
+    if (k == FLAGS_numLevels)
+      findLocalMinima(scores, 1.5, maps, minima);
     else
       findLocalMinima(scores, 1.2, maps, minima);
 
