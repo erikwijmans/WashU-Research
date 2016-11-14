@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
           FLAGS_doorsFolder + "floorplan/" + doorsNames[i];
 
       if (FLAGS_redo ||
-          !place::reshowPlacement(scanName, zerosFile, doorName, d,
+          !place::reshowPlacement(maskName, zerosFile, doorName, d,
                                   FLAGS_outputV1)) {
 
         place::createFPPyramids(floorPlan, fpPyramid, erodedFpPyramid, fpMasks);
@@ -291,8 +291,8 @@ void place::analyzePlacement(
 
   constexpr double numRects = 1024 * 1.5;
 
-#if 1
-  if (true || FLAGS_debugMode) {
+#if 0
+  if (FLAGS_debugMode) {
     for (int k = 0; k >= 0; --k) {
       std::vector<Eigen::Vector3i> tmpPoints;
       std::vector<place::posInfo> trueScores;
@@ -412,6 +412,8 @@ void place::analyzePlacement(
 
     if (k == 0)
       findLocalMinima(scores, -0.5, maps, minima);
+    else if (k == FLAGS_numLevels)
+      findLocalMinima(scores, 1.5, maps, minima);
     else
       findLocalMinima(scores, 1.2, maps, minima);
 
@@ -685,7 +687,7 @@ void place::findPlacement(
   for (auto &s : scores)
     s.score = -1;
 
-  // #pragma omp parallel for schedule(static) shared(scores)
+#pragma omp parallel for schedule(static) shared(scores)
   for (int i = 0; i < points.size(); ++i) {
     const Eigen::Vector3i &point = points[i];
 
@@ -768,17 +770,10 @@ void place::findPlacement(
     const double doorScore = doorUxp / doorCount;
     const double scanScore = scanFPsetDiff / numPixelsUnderMask[scanIndex];
     const double fpScore = fpScanSetDiff / numFPPixelsUM;
-    const double score =
-        (1.5 * scanScore + fpScore + 0.75 * doorScore) / (1.5 + 1.0 + 0.75);
+    const double score = (1.5 * scanScore + fpScore) / (1.5 + 1.0 + 1.0);
 
     if (!Eigen::numext::isfinite(score))
       continue;
-
-    if (score < currentBest) {
-      currentBest = score;
-      cv::imwrite("F_i_exmaple.png", f);
-      cv::imwrite("diff_example.png", d);
-    }
 
     posInfo tmp;
     tmp.x = point[0];

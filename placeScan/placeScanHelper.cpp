@@ -214,6 +214,8 @@ bool place::reshowPlacement(const std::string &scanName,
     const int yOffset = currentScore.y - zeroZero[currentScore.rotation][1];
 
     cv::Mat_<cv::Vec3b> output = fpColor.clone();
+    cv::Mat3b special = fpColor.clone();
+    auto color = randomColor();
 
     auto &res = d.getResponse(0);
     for (int i = 0; i < res.outerSize(); ++i)
@@ -234,13 +236,20 @@ bool place::reshowPlacement(const std::string &scanName,
           output(j + yOffset, i + xOffset) = cv::Vec3b(0, 0, 255 - src[i]);
           if (src[i] < 255 * (1.0 - 0.75))
             tmp(j, i) = cv::Vec3b(1, 1, 1) * src[i];
+          if (special(j + yOffset, i + xOffset) == cv::Vec3b(255, 255, 255))
+            special(j + yOffset, i + xOffset) = color;
         }
       }
     }
 
     for (int j = -10; j < 10; ++j)
-      for (int i = -10; i < 10; ++i)
+      for (int i = -10; i < 10; ++i) {
         output(j + currentScore.y, i + currentScore.x) = cv::Vec3b(255, 0, 0);
+        special(j + currentScore.y, i + currentScore.x) = cv::Vec3b(0, 0, 0);
+      }
+
+    cv::imwrite("door_disp.png", special);
+    cv::rectshow(special);
 
     for (auto &d : doors[currentScore.rotation]) {
       auto color = randomColor();
