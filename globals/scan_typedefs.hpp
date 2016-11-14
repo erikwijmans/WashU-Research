@@ -335,7 +335,10 @@ struct Door {
 
 double sigmoidWeight(double seen, double expected);
 
-double gaussianWeight(const Eigen::Array2d &pos, const Eigen::Array2d &s);
+template <typename ArrayTypeA, typename ArrayTypeB>
+double gaussianWeight(const ArrayTypeA &pos, const ArrayTypeB &s) {
+  return std::exp(-(pos.square() / (2 * s.square())).sum());
+}
 
 namespace std {
 template <> struct hash<place::posInfo> {

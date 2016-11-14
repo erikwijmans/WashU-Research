@@ -329,10 +329,6 @@ cv::Vec3b randomColor() {
   return cv::Vec3b(icolor & 255, (icolor >> 8) & 255, (icolor >> 16) & 255);
 }
 
-double gaussianWeight(const Eigen::Array2d &pos, const Eigen::Array2d &s) {
-  return std::exp(-(pos.square() / (2 * s.square())).sum());
-}
-
 int cv::rectshow(const std::string &name, const cv::Mat &img) {
   while (cv::waitKey(1) != -1)
     ;
