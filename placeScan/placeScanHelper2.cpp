@@ -998,7 +998,7 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   Model gm = createModel(adjacencyMatrix, nodes, numberOfLabels, labelSize);
   populateModel(adjacencyMatrix, nodes, numberOfLabels, labelSize, gm);
 
-  constexpr size_t numIters = 60000;
+  constexpr size_t numIters = 6000;
 
   /*typedef opengm::TrbpUpdateRules<Model, opengm::Maximizer> UpdateRules;
   typedef opengm::MessagePassing<Model, opengm::Maximizer, UpdateRules,
