@@ -1085,6 +1085,9 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   for (auto &l : labeling)
     std::cout << l << "_";
   std::cout << std::endl;
+
+  labeling[57] = 0;
+
   bestNodes.reserve(numVars);
   for (int i = 0, offset = 0; i < numVars; ++i) {
     const int index = offset + labeling[i];

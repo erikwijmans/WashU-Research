@@ -248,9 +248,6 @@ bool place::reshowPlacement(const std::string &scanName,
         special(j + currentScore.y, i + currentScore.x) = cv::Vec3b(0, 0, 0);
       }
 
-    cv::imwrite("door_disp.png", special);
-    cv::rectshow(special);
-
     for (auto &d : doors[currentScore.rotation]) {
       auto color = randomColor();
       for (double x = 0; x < d.w; ++x) {

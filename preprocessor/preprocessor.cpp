@@ -124,16 +124,16 @@ int main(int argc, char *argv[]) {
       pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
       createPCLPointCloud(pointCloud, cloud);
 
-      pcl::PointCloud<PointType>::Ptr filtered_cloud(
-          new pcl::PointCloud<PointType>);
+      // pcl::PointCloud<PointType>::Ptr filtered_cloud(
+      //     new pcl::PointCloud<PointType>);
 
-      pcl::UniformSampling<PointType> uniform_sampling;
-      uniform_sampling.setInputCloud(cloud);
-      // 85 mm
-      uniform_sampling.setRadiusSearch(0.0015f);
-      uniform_sampling.filter(*filtered_cloud);
-      pcl::io::savePLYFileBinary("downsampled.ply", *filtered_cloud);
-      std::cout << "saved" << std::endl;
+      // pcl::UniformSampling<PointType> uniform_sampling;
+      // uniform_sampling.setInputCloud(cloud);
+      // // 85 mm
+      // uniform_sampling.setRadiusSearch(0.0015f);
+      // uniform_sampling.filter(*filtered_cloud);
+      // pcl::io::savePLYFileBinary("downsampled.ply", *filtered_cloud);
+      // std::cout << "saved" << std::endl;
 
       if (show_progress)
         ++(*show_progress);
@@ -555,13 +555,14 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
     _PTXPanorama(row, col)[1] = element.rgb[1];
     _PTXPanorama(row, col)[2] = element.rgb[0];
 
-    zCoords.push_back(element.point[2]);
-
     if (row == 0) {
       row = PTXrows - 1;
       col = col == 0 ? PTXcols - 1 : col - 1;
     } else
       --row;
+
+    continue;
+    zCoords.push_back(element.point[2]);
 
     auto panoCoord =
         pointCloudToPanorama(element.point, trackingPanorama.size());
@@ -583,6 +584,13 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
     touched(trackedRow, trackedCol) = 1;
     rMap(trackedRow, trackedCol) = r;
   }
+  cv::Mat flipped(PTXPanorama.size(), PTXPanorama.type());
+  cv::flip(PTXPanorama, flipped, 1);
+  cv::imwrite(FLAGS_panoFolder + "highres/" +
+                  panoName.substr(panoName.rfind("/") + 1),
+              flipped);
+
+  return;
 
   for (int i = 0; i < cloud_normals->size(); ++i) {
     auto &p = normals_points->at(i);
@@ -604,10 +612,6 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   }
   fillGaps(surfaceNormals, hasNormal);
   fillGaps(rMap, rMap);
-
-  cv::imwrite("highres_pano.png", PTXPanorama);
-
-  exit(1);
 
   const double scale = pow(2, -6.0 / 2);
   cv::Mat scaledTracking, scaledPTX;
