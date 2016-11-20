@@ -44,7 +44,8 @@ Widget::Widget(const std::string &name, QWidget *parent)
     : QOpenGLWidget(parent), ui(new Ui::Widget),
       cloud{new pcl::PointCloud<PointType>}, k_up{0, 1, 0}, frame_counter{0},
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
-      current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0} {
+      current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
+      recorder{"."}, dist_to_spin{PI / 2.0}, after_spin_state{plane_down} {
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
@@ -63,7 +64,7 @@ void Widget::allocate() {
   std::sort(cloud->begin(), cloud->end(),
             [](auto &a, auto &b) { return a.z < b.z; });
 
-  h_bins.resize(h_bin_scale * (max[1] - min[1]) + 1, 0);
+  h_bins.resize(h_bin_scale * (cloud->at(cloud->size() - 1).z - min[1]) + 1, 0);
   std::vector<VertexData> points;
   int bin_index = binner(cloud->at(0).z);
   for (auto &p : *cloud) {
@@ -111,10 +112,10 @@ void Widget::initializeGL() {
   // glEnable(GL_LIGHTING);
 
   glEnable(GL_PROGRAM_POINT_SIZE);
-  constexpr double point_size_init = 2.0;
+  constexpr double point_size_init = 3.0;
   glPointSize(point_size_init);
 
-  GLfloat attenuations_params[] = {1, 1, 1};
+  GLfloat attenuations_params[] = {1, 2, 1};
 
   // glPointParameterf(GL_POINT_SIZE_MIN, 1.0);
   glPointParameterf(GL_POINT_SIZE_MAX, 10.0);
@@ -149,8 +150,8 @@ void Widget::initializeGL() {
 void Widget::set_next_state() {
   switch (current_state) {
   case pure_rotation:
-    if (radians_traveled - start_PI >= PI / 2.0)
-      current_state = start_PI ? zoom_out : plane_down;
+    if (radians_traveled - start_PI >= dist_to_spin)
+      current_state = after_spin_state;
     break;
 
   case plane_down:
@@ -162,6 +163,7 @@ void Widget::set_next_state() {
     if (distance <= FLAGS_d_min) {
       current_state = pure_rotation;
       start_PI = radians_traveled;
+      after_spin_state = zoom_out;
     }
     break;
 
@@ -171,8 +173,12 @@ void Widget::set_next_state() {
     break;
 
   case plane_up:
-    if (h_clipping_plane >= max[1])
-      current_state = done;
+    if (h_clipping_plane >= max[1]) {
+      current_state = pure_rotation;
+      start_PI = radians_traveled;
+      dist_to_spin = PI / 6.0;
+      after_spin_state = done;
+    }
     break;
 
   default:
@@ -220,6 +226,8 @@ void Widget::do_state_outputs() {
     break;
 
   case done:
+    if (render == true)
+      recorder.exit();
     render = false;
     std::cout << "DONE" << std::endl;
     break;
@@ -271,9 +279,8 @@ void Widget::capture() {
       dst[3 * i + 2] = buf[3 * (j * width() + i) + 0];
     }
   }
-  std::ostringstream ss;
-  ss << "img" << std::setfill('0') << std::setw(6) << frame_counter++ << ".png";
-  cv::imwrite(ss.str(), img);
+
+  recorder.submit_frame(img.clone());
 }
 
 void Widget::paintGL() {

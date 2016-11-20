@@ -38,7 +38,7 @@ add_definitions     (${Qt5Widgets_DEFINITIONS})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
-set  (project_SOURCES main.cpp widget.cpp)
+set  (project_SOURCES main.cpp widget.cpp framerecorder.cpp)
 set  (project_HEADERS widget.h)
 set  (project_FORMS   widget.ui)
 

@@ -14,6 +14,7 @@
 #include <Eigen/Eigen>
 #include <opencv/cv.hpp>
 
+#include "framerecorder.h"
 #include <scan_gflags.h>
 
 typedef pcl::PointXYZRGB PointType;
@@ -79,13 +80,15 @@ private:
 
   enum states { pure_rotation, plane_down, zoom_in, zoom_out, plane_up, done };
 
-  states current_state;
+  states current_state, after_spin_state;
+  double dist_to_spin;
 
   void set_next_state();
   void do_state_outputs();
 
   cv::AutoBuffer<uchar> buffer;
   cv::Mat img;
+  FrameRecorder recorder;
   std::unique_ptr<QOpenGLBuffer> vertex_buffer;
   void allocate();
 
