@@ -30,8 +30,13 @@ mkdir -p $1/doors/floorplan
 
 echo "Running preprocessor"
 make  --no-print-directory -j4 -C $2/preprocessor || exit 1
-preprocessor=$2/preprocessor/preprocessor
-$preprocessor -dataPath=$1 -noquietMode || exit 1
+convert_to_ply=$2/preprocessor/convert_to_ply
+$convert_to_ply -dataPath=$1 -noquietMode || exit 1
+
+# echo "Running preprocessor"
+# make  --no-print-directory -j4 -C $2/preprocessor || exit 1
+# preprocessor=$2/preprocessor/preprocessor
+# $preprocessor -dataPath=$1 -noquietMode || exit 1
 
 # echo "Running scanDensity"
 # make  --no-print-directory -j4 -Cp $2/scanDensity || exit 1

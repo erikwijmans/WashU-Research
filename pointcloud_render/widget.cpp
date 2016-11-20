@@ -40,12 +40,14 @@ int Widget::binner(float y) {
                   static_cast<int>(h_bins.size() - 1)));
 }
 
-Widget::Widget(const std::string &name, QWidget *parent)
+Widget::Widget(const std::string &name, const std::string &out_folder,
+               QWidget *parent)
     : QOpenGLWidget(parent), ui(new Ui::Widget),
       cloud{new pcl::PointCloud<PointType>}, k_up{0, 1, 0}, frame_counter{0},
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
       current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
-      recorder{"."}, dist_to_spin{PI / 2.0}, after_spin_state{plane_down} {
+      recorder{out_folder}, dist_to_spin{PI / 2.0},
+      after_spin_state{plane_down} {
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
@@ -54,6 +56,8 @@ Widget::Widget(const std::string &name, QWidget *parent)
   bounding_box();
 
   // timer.start(1000 / FPS, this);
+
+  render = true;
 }
 
 Widget::~Widget() { delete ui; }
@@ -132,10 +136,10 @@ void Widget::initializeGL() {
   // glEnable(GL_LIGHTING);
 
   glEnable(GL_PROGRAM_POINT_SIZE);
-  constexpr double point_size_init = 3.0;
+  constexpr double point_size_init = 1.5;
   glPointSize(point_size_init);
 
-  GLfloat attenuations_params[] = {1, 1, 1};
+  GLfloat attenuations_params[] = {1, 2, 2};
 
   glPointParameterf(GL_POINT_SIZE_MIN, 0.2);
   // glPointParameterf(GL_POINT_SIZE_MAX, 10.0);
@@ -251,6 +255,7 @@ void Widget::do_state_outputs() {
       recorder.exit();
     render = false;
     std::cout << "DONE" << std::endl;
+    QApplication::quit();
     break;
 
   default:
@@ -350,7 +355,7 @@ void Widget::draw() {
     program->setAttributeBuffer(color_location, GL_FLOAT, offset, 3,
                                 sizeof(VertexData));
 
-    glDrawArrays(GL_POINTS, 0, buffer_sizes[idx]);
+    glDrawArrays(GL_POINTS, 0, num_points_to_draw);
 
     points_drawn += num_points_to_draw;
     v->release();
@@ -396,7 +401,7 @@ void Widget::bounding_box() {
   distance = std::sqrt((sigma * delta).square().sum()) / 2.0;
   start_distance = distance;
 
-  camera_origin = Eigen::Vector2d(average[0], average[2]);
+  camera_origin = Eigen::Vector2d(average[0], average[1]);
   camera_y = 0;
 
   Eigen::Vector3d start_eye =

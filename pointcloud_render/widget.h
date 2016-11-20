@@ -34,7 +34,8 @@ class Widget : public QOpenGLWidget, protected QOpenGLFunctions_3_0 {
   Q_OBJECT
 
 public:
-  explicit Widget(const std::string &name, QWidget *parent = 0);
+  explicit Widget(const std::string &name, const std::string &out_folder,
+                  QWidget *parent = 0);
   ~Widget();
 
 protected:

@@ -22,3 +22,11 @@ file(GLOB src
 add_executable( preprocessor ${src})
 target_link_libraries( preprocessor ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 cotire(preprocessor)
+
+file(GLOB ply_src
+  "convert_to_ply.cpp")
+
+add_executable(convert_to_ply
+               ${ply_src})
+target_link_libraries( convert_to_ply ${globals_LIBS} ${PCL_LIBRARIES})
+cotire(convert_to_ply)

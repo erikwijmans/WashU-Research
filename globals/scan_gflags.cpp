@@ -113,6 +113,12 @@ int numberToIndex(const std::vector<std::string> &names, const int number) {
   exit(2);
 }
 
+void check_dir(const std::string &name) {
+  boost::filesystem::path folder(name);
+  if (!boost::filesystem::exists(folder))
+    boost::filesystem::create_directories(name);
+}
+
 /*int main() {
   prependDataPath();
   std::vector<std::string> test;

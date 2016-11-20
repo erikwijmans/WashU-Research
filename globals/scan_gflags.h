@@ -61,5 +61,6 @@ void parseFolder(const std::string &name, std::vector<std::string> &out,
   std::sort(out.begin(), out.end());
 }
 int numberToIndex(const std::vector<std::string> &names, const int number);
+void check_dir(const std::string &name);
 
 #endif // SCAN_GFLAGS_H
