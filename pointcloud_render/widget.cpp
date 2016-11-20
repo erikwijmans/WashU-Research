@@ -62,7 +62,7 @@ void Widget::allocate() {
   std::cout << "allocating" << std::endl;
 
   std::sort(cloud->begin(), cloud->end(),
-            [](auto &a, auto &b) { return a.z < b.z; });
+            [](PointType &a, PointType &b) { return a.z < b.z; });
 
   h_bins.resize(h_bin_scale * (cloud->at(cloud->size() - 1).z - min[1]) + 1, 0);
   std::vector<VertexData> points;
@@ -92,7 +92,8 @@ void Widget::allocate() {
 
   std::cout << points.size() << std::endl;
 
-  vertex_buffer = std::make_unique<QOpenGLBuffer>(QOpenGLBuffer::VertexBuffer);
+  vertex_buffer = std::unique_ptr<QOpenGLBuffer>(
+      new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer));
   vertex_buffer->create();
   vertex_buffer->bind();
   vertex_buffer->allocate(points.data(), sizeof(VertexData) * points.size());
@@ -122,7 +123,8 @@ void Widget::initializeGL() {
   glPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 0.5);
   glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations_params);
 
-  program = std::make_unique<QOpenGLShaderProgram>(context());
+  program = std::unique_ptr<QOpenGLShaderProgram>(
+      new QOpenGLShaderProgram(context()));
 
   program->addShaderFromSourceCode(
       QOpenGLShader::Vertex, "uniform mat4 mvp_matrix;\n"
