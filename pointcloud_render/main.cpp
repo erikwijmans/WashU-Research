@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
 
-  Widget w(FLAGS_outputV2 + "DUC_pointCloud.ply");
+  Widget w(FLAGS_outputV2 + "pointCloud.ply");
   w.setFixedSize(1920, 1080);
   w.show();
 

@@ -89,13 +89,14 @@ private:
   cv::AutoBuffer<uchar> buffer;
   cv::Mat img;
   FrameRecorder recorder;
-  std::unique_ptr<QOpenGLBuffer> vertex_buffer;
+  std::vector<std::unique_ptr<QOpenGLBuffer>> vertex_buffers;
   void allocate();
 
   std::unique_ptr<QOpenGLShaderProgram> program;
   int vertex_location, color_location;
   QMatrix4x4 projection;
   std::vector<int> h_bins;
+  std::vector<size_t> buffer_sizes;
   int binner(float y);
 };
 

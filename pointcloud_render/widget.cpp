@@ -91,13 +91,32 @@ void Widget::allocate() {
     h_bins[i] = points.size();
 
   std::cout << points.size() << std::endl;
+  std::cout << h_bins[h_bins.size() - 1] << std::endl;
 
-  vertex_buffer = std::unique_ptr<QOpenGLBuffer>(
-      new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer));
-  vertex_buffer->create();
-  vertex_buffer->bind();
-  vertex_buffer->allocate(points.data(), sizeof(VertexData) * points.size());
-  vertex_buffer->release();
+  size_t bytes_allocated = 0;
+  size_t points_buffered = 0;
+  for (int i = 0; true; ++i) {
+    const long bytes =
+        std::min(static_cast<size_t>(std::numeric_limits<int>::max()) / 2,
+                 sizeof(VertexData) * points.size() - bytes_allocated);
+
+    if (bytes <= 0)
+      break;
+
+    const size_t p = bytes / sizeof(VertexData);
+
+    vertex_buffers.push_back(std::unique_ptr<QOpenGLBuffer>(
+        new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer)));
+    vertex_buffers[i]->create();
+    vertex_buffers[i]->bind();
+    vertex_buffers[i]->allocate(points.data() + points_buffered, bytes);
+    vertex_buffers[i]->release();
+
+    bytes_allocated += bytes;
+    points_buffered += p;
+
+    buffer_sizes.push_back(p);
+  }
 }
 
 void Widget::initializeGL() {
@@ -116,11 +135,11 @@ void Widget::initializeGL() {
   constexpr double point_size_init = 3.0;
   glPointSize(point_size_init);
 
-  GLfloat attenuations_params[] = {1, 2, 1};
+  GLfloat attenuations_params[] = {1, 1, 1};
 
-  // glPointParameterf(GL_POINT_SIZE_MIN, 1.0);
-  glPointParameterf(GL_POINT_SIZE_MAX, 10.0);
-  glPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 0.5);
+  glPointParameterf(GL_POINT_SIZE_MIN, 0.2);
+  // glPointParameterf(GL_POINT_SIZE_MAX, 10.0);
+  glPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 0.25);
   glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, attenuations_params);
 
   program = std::unique_ptr<QOpenGLShaderProgram>(
@@ -310,20 +329,33 @@ void Widget::resizeGL(int width, int height) {
 }
 
 void Widget::draw() {
-  vertex_buffer->bind();
 
-  quintptr offset = 0;
+  int idx = 0;
+  size_t points_drawn = 0;
+  for (auto &&v : vertex_buffers) {
+    long num_points_to_draw = std::min(
+        buffer_sizes[idx], h_bins[binner(h_clipping_plane)] - points_drawn);
+    if (num_points_to_draw <= 0)
+      break;
+    v->bind();
 
-  program->enableAttributeArray(vertex_location);
-  program->setAttributeBuffer(vertex_location, GL_FLOAT, offset, 3,
-                              sizeof(VertexData));
-  offset += 3 * sizeof(float);
+    quintptr offset = 0;
 
-  program->enableAttributeArray(color_location);
-  program->setAttributeBuffer(color_location, GL_FLOAT, offset, 3,
-                              sizeof(VertexData));
+    program->enableAttributeArray(vertex_location);
+    program->setAttributeBuffer(vertex_location, GL_FLOAT, offset, 3,
+                                sizeof(VertexData));
+    offset += 3 * sizeof(float);
 
-  glDrawArrays(GL_POINTS, 0, h_bins[binner(h_clipping_plane)]);
+    program->enableAttributeArray(color_location);
+    program->setAttributeBuffer(color_location, GL_FLOAT, offset, 3,
+                                sizeof(VertexData));
+
+    glDrawArrays(GL_POINTS, 0, buffer_sizes[idx]);
+
+    points_drawn += num_points_to_draw;
+    v->release();
+    ++idx;
+  }
 }
 
 void Widget::bounding_box() {
@@ -343,10 +375,12 @@ void Widget::bounding_box() {
   sigma /= cloud->size() - 1;
   sigma.sqrt();
 
-  static const Eigen::Array3d delta(1, 1, 2.5);
+  static const Eigen::Array3d delta(0.25, 0.25, 4.0);
 
   max = average + delta * sigma / 2.0;
   min = average - delta * sigma / 2.0;
+
+  std::cout << max << std::endl << std::endl << min << std::endl << std::endl;
 
   double tmp = max[1];
   max[1] = max[2];
@@ -359,14 +393,15 @@ void Widget::bounding_box() {
   floor_box =
       Eigen::Vector2d(std::abs(max[0] - min[0]), std::abs(max[2] - min[2]));
 
-  distance = sqrt(sigma.square().sum()) / 6.0;
+  distance = std::sqrt((sigma * delta).square().sum()) / 2.0;
   start_distance = distance;
 
-  camera_origin = Eigen::Vector2d(average[0], average[1]);
+  camera_origin = Eigen::Vector2d(average[0], average[2]);
   camera_y = 0;
 
   Eigen::Vector3d start_eye =
-      Eigen::Vector3d(average[0], 0, average[1]) + distance * look_vector_start;
+      Eigen::Vector3d(camera_origin[0], 0, camera_origin[1]) +
+      distance * look_vector_start;
 
   eye = Eigen::Vector2d(start_eye[0], start_eye[2]);
   eye_y = start_eye[1];
@@ -384,7 +419,7 @@ void Widget::filter() {
   pcl::UniformSampling<PointType> uniform_sampling;
   uniform_sampling.setInputCloud(cloud);
   cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(1);
+  uniform_sampling.setRadiusSearch(0.1);
   uniform_sampling.filter(*cloud);
   std::cout << cloud->size() << std::endl;
 }

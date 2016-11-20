@@ -109,6 +109,34 @@ subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud);
 constexpr double targetNumPoints = 100e6;
 constexpr double startScale = 0.012;
 
+bool sanity_check(const Eigen::Matrix4f &T) {
+  for (int i = 0; i < 2; ++i)
+    if (std::abs(T(i, 3)) >= 0.2)
+      return false;
+
+  if (std::abs(T(2, 3)) >= 0.1)
+    return false;
+
+  Eigen::Vector3f x, y, z;
+
+  for (int j = 0; j < 3; ++j) {
+    x[j] = T(0, j);
+    y[j] = T(1, j);
+    z[j] = T(2, j);
+  }
+
+  if (std::acos(std::abs(x.dot(Eigen::Vector3f::UnitX()))) >= 0.05)
+    return false;
+
+  if (std::acos(std::abs(y.dot(Eigen::Vector3f::UnitY()))) >= 0.05)
+    return false;
+
+  if (std::acos(std::abs(z.dot(Eigen::Vector3f::UnitZ()))) >= 0.05)
+    return false;
+
+  return true;
+}
+
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
@@ -237,15 +265,10 @@ int main(int argc, char **argv) {
             // accumulate transformation between each Iteration
             Ti = icp.getFinalTransformation() * Ti;
 
-            if (icp.getFitnessScore() > 10)
+            if (!sanity_check(Ti) || icp.getFitnessScore() > 20) {
               run_icp = false;
-
-            for (int i = 0; i < 3; ++i)
-              if (std::abs(Ti(i, 3)) >= 0.2)
-                run_icp = false;
-
-            if (!run_icp)
               break;
+            }
 
             // if the difference between this transformation and the previous
             // one
@@ -272,21 +295,19 @@ int main(int argc, char **argv) {
             }
             prev_4.emplace_back(Ti);
           }
-
-          std::cout << "has converged: " << icp.hasConverged()
+          std::cout << "ICP worked: " << run_icp << std::endl
+                    << "has converged: " << icp.hasConverged()
                     << " score: " << icp.getFitnessScore() << std::endl
                     << "transformation: " << std::endl
                     << Ti << std::endl
                     << std::endl;
 
-          if (run_icp && icp.hasConverged() && icp.getFitnessScore() < 6) {
+          if (run_icp) {
             auto tmp = current_cloud;
             current_cloud =
                 pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
             pcl::transformPointCloud(*tmp, *current_cloud, Ti);
-
-          } else
-            run_icp = false;
+          }
         }
       }
 
