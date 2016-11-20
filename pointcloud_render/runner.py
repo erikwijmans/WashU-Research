@@ -18,6 +18,7 @@ for name in glob.glob("{}/*".format(data_dir)):
     print(command)
     subprocess.check_call(shlex.split(command))
 
-    command = "ffmpeg ffmpeg -framerate 60 -f image2 -s 1920x1080 -i {}/record/img%06d.png -c:v libx264 -preset veryslow -threads 4 -crf 30 -r 60 -pix_fmt yuv420p {}/out.mp4".format(exe_dir, exe_dir)
+    out_dir = cloud_name.split(".")[0]
+    command = "ffmpeg -framerate 60 -f image2 -s 1920x1080 -i {}/record/img%06d.png -c:v libx264 -preset veryslow -threads 4 -crf 24 -r 60 -pix_fmt yuv420p {}/out.mp4".format(out_dir, out_dir)
     print(command)
     subprocess.check_call(shlex.split(command))

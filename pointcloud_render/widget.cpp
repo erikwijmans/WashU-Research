@@ -46,13 +46,12 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
       cloud{new pcl::PointCloud<PointType>}, k_up{0, 1, 0}, frame_counter{0},
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
       current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
-      recorder{out_folder}, dist_to_spin{PI / 2.0},
-      after_spin_state{plane_down} {
+      recorder{out_folder}, dist_to_spin{2. * PI / 3.}, after_spin_state{done} {
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
 
-  // filter();
+  filter();
   bounding_box();
 
   // timer.start(1000 / FPS, this);
@@ -424,8 +423,16 @@ void Widget::filter() {
   pcl::UniformSampling<PointType> uniform_sampling;
   uniform_sampling.setInputCloud(cloud);
   cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(0.1);
+  uniform_sampling.setRadiusSearch(1e-3);
   uniform_sampling.filter(*cloud);
+
+  pcl::StatisticalOutlierRemoval<PointType> sor;
+  sor.setInputCloud(cloud);
+  sor.setMeanK(50);
+  sor.setStddevMulThresh(2.0);
+  cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+  sor.filter(*cloud);
+
   std::cout << cloud->size() << std::endl;
 }
 

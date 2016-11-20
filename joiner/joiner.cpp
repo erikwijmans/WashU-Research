@@ -343,6 +343,7 @@ int main(int argc, char **argv) {
       std::cout << "Leaving: " << output_cloud->size() << std::endl;
     }
     std::cout << "Final sample size: " << subSampleSize << std::endl;
+
     pcl::StatisticalOutlierRemoval<PointType> sor;
     sor.setInputCloud(output_cloud);
     sor.setMeanK(50);
