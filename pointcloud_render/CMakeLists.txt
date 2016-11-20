@@ -8,8 +8,6 @@ find_package (Qt5 COMPONENTS Core Gui OpenGL OpenGLExtensions Widgets REQUIRED)
 find_package (PCL 1.7.1 REQUIRED)
 find_package(OpenCV REQUIRED)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g")
-
 include_directories (${globals_INCLUDE})
 
 include_directories (${PCL_INCLUDE_DIRS})
@@ -37,6 +35,8 @@ link_directories    (${Qt5Widgets_LIBRARY_DIRS})
 add_definitions     (${Qt5Widgets_DEFINITIONS})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++14 -O3 -g")
+
 
 set  (project_SOURCES main.cpp widget.cpp framerecorder.cpp)
 set  (project_HEADERS widget.h)
