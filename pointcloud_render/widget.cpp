@@ -46,12 +46,12 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
       cloud{new pcl::PointCloud<PointType>}, k_up{0, 1, 0}, frame_counter{0},
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
       current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
-      recorder{out_folder}, dist_to_spin{2. * PI / 3.}, after_spin_state{done} {
+      recorder{out_folder}, dist_to_spin{PI / 8.}, after_spin_state{done} {
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
 
-  filter();
+  // filter();
   bounding_box();
 
   // timer.start(1000 / FPS, this);
@@ -379,12 +379,24 @@ void Widget::bounding_box() {
   sigma /= cloud->size() - 1;
   sigma.sqrt();
 
-  static const Eigen::Array3d delta(0.25, 0.25, 4.0);
+  static const Eigen::Array3d delta(5.5, 5.5, 5.5);
 
   max = average + delta * sigma / 2.0;
   min = average - delta * sigma / 2.0;
 
   std::cout << max << std::endl << std::endl << min << std::endl << std::endl;
+
+  cloud->erase(std::remove_if(cloud->begin(), cloud->end(),
+                              [&](auto &p) {
+                                bool in = true;
+                                for (int i = 0; i < 3; ++i)
+                                  if (p.getVector3fMap()[i] < min[i] ||
+                                      p.getVector3fMap()[i] > max[i])
+                                    in = false;
+
+                                return !in;
+                              }),
+               cloud->end());
 
   double tmp = max[1];
   max[1] = max[2];
@@ -397,7 +409,7 @@ void Widget::bounding_box() {
   floor_box =
       Eigen::Vector2d(std::abs(max[0] - min[0]), std::abs(max[2] - min[2]));
 
-  distance = std::sqrt((sigma * delta).square().sum()) / 2.0;
+  distance = std::max(15.0, std::sqrt((sigma * delta).square().sum()) / 2.0);
   start_distance = distance;
 
   camera_origin = Eigen::Vector2d(average[0], average[1]);
@@ -426,12 +438,12 @@ void Widget::filter() {
   uniform_sampling.setRadiusSearch(1e-3);
   uniform_sampling.filter(*cloud);
 
-  pcl::StatisticalOutlierRemoval<PointType> sor;
-  sor.setInputCloud(cloud);
-  sor.setMeanK(50);
-  sor.setStddevMulThresh(2.0);
-  cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  sor.filter(*cloud);
+  /* pcl::StatisticalOutlierRemoval<PointType> sor;
+   sor.setInputCloud(cloud);
+   sor.setMeanK(50);
+   sor.setStddevMulThresh(2.0);
+   cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+   sor.filter(*cloud);*/
 
   std::cout << cloud->size() << std::endl;
 }
