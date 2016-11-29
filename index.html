@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>RGBD Panorama Alignment by erikwijmans</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>RGBD Panorama Alignment</h1>
+        <p>RGBD Alignment - Wijmans and Furukawa</p>
+
+        <p class="view"><a href="https://github.com/erikwijmans/WashU_Research">View the Project on GitHub <small>erikwijmans/WashU_Research</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/erikwijmans/WashU_Research/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/erikwijmans/WashU_Research/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/erikwijmans/WashU_Research">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="rgbd-panorama-alignment" class="anchor" href="#rgbd-panorama-alignment" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RGBD Panorama Alignment</h1>
+
+<p>This website hosts the code (currently in pre-alpha) and results for our technique to align building scale RGDB panoramas.  We utilize a novel technique that leverages a ground truth floorplan and is capable of aligning panoramas with little to no overlap.</p>
+
+<h1>
+<a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Abstract</h1>
+
+<p>This paper presents a novel algorithm that utilizes a 2D floorplan to
+align panorama RGBD scans.</p>
+
+<p>While effective panorama RGBD alignment techniques exist, such a system
+requires extremely dense RGBD image sampling. Our approach can
+significantly reduce the number of necessary scans with the aid of a
+floorplan image. We formulate a novel Markov Random Field inference
+problem as a scan placement over the floorplan, as opposed to the
+conventional scan-to-scan alignment. The technical contributions lie in
+multi-modal image correspondence cues (between scans and schematic
+floorplan) as well as a novel coverage potential avoiding an inherent
+stacking bias.  The proposed approach has been evaluated on five
+challenging large indoor spaces. To the best of our knowledge, we
+present the first effective system that utilizes a 2D floorplan image
+for building-scale 3D pointcloud alignment. The source code and the data
+will be shared with the community to further enhance indoor mapping
+research.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/erikwijmans">erikwijmans</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
