@@ -20,3 +20,9 @@ file(GLOB src
 add_executable( joiner ${src})
 target_link_libraries( joiner ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
 cotire(joiner)
+
+file(GLOB src
+  "join_2.cpp")
+add_executable( join2 ${src})
+target_link_libraries( join2 ${globals_LIBS} ${OpenCV_LIBS} ${PCL_LIBRARIES})
+cotire(join2)

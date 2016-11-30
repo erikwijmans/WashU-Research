@@ -27,23 +27,28 @@ void FrameRecorder::save() {
   while (true) {
     unique_lock<mutex> lock(mt);
     cv.wait(lock, [&] {
-      return !this->saving_queue.empty() || this->is_interrupted.load();
+      return this->saving_queue.size() >= 3 || this->is_interrupted.load();
     });
     if (is_interrupted.load()) {
       int total = (int)saving_queue.size() + frame_counter;
-      while (!saving_queue.empty()) {
-        //                printf("saving image: %d/%d\n", frame_counter, total);
-        auto img = saving_queue.front();
+      while (saving_queue.size() >= 3) {
+        auto img0 = saving_queue.front();
         saving_queue.pop_front();
-        saveImage(img);
+        auto img1 = saving_queue.front();
+        saving_queue.pop_front();
+        auto img2 = saving_queue.front();
+        saveFrame(img0, img1, img2);
         frame_counter++;
       }
       break;
     } else {
-      auto img = saving_queue.front();
+      auto img0 = saving_queue.front();
       saving_queue.pop_front();
+      auto img1 = saving_queue.front();
+      saving_queue.pop_front();
+      auto img2 = saving_queue.front();
       lock.unlock();
-      saveImage(img);
+      saveFrame(img0, img1, img2);
       frame_counter++;
     }
   }
@@ -51,18 +56,22 @@ void FrameRecorder::save() {
 
 bool FrameRecorder::submit_frame(cv::Mat img) {
   lock_guard<mutex> guard(mt);
-  bool ret = false;
-  if (saving_queue.size() < max_frame_num) {
-    saving_queue.push_back(img);
-    ret = true;
-  }
-  cv.notify_all();
-  return ret;
+  saving_queue.push_back(img);
+
+  if (saving_queue.size() >= 3)
+    cv.notify_all();
 }
 
-void FrameRecorder::saveImage(cv::Mat &img) {
+void FrameRecorder::saveFrame(cv::Mat &img0, cv::Mat &img1, cv::Mat &img2) {
+  if (!last_img.data)
+    last_img = img0;
+  cv::Mat output;
+  cv::addWeighted(last_img, 0.1, img0, 0.4, 0.0, output);
+  cv::addWeighted(output.clone(), 1.0, img1, 0.4, 0.0, output);
+  cv::addWeighted(output.clone(), 1.0, img2, 0.1, 0.0, output);
   std::ostringstream ss;
   ss << datapath << "/img" << std::setfill('0') << std::setw(6) << frame_counter
      << ".png";
-  cv::imwrite(ss.str(), img);
+  cv::imwrite(ss.str(), output);
+  last_img = img1;
 }

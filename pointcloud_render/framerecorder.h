@@ -36,7 +36,7 @@ public:
 
 private:
   void save();
-  void saveImage(cv::Mat &img);
+  void saveFrame(cv::Mat &img0, cv::Mat &img1, cv::Mat &img2);
   std::string datapath;
   std::deque<cv::Mat> saving_queue;
   std::condition_variable cv;
@@ -45,6 +45,7 @@ private:
   std::atomic<bool> is_interrupted;
   const int max_frame_num;
   int frame_counter;
+  cv::Mat last_img;
 };
 
 #endif // FRAMERECORDER_H

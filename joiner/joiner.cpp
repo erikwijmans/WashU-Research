@@ -107,7 +107,7 @@ pcl::PointCloud<NormalType>::Ptr
 subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud);
 
 constexpr double targetNumPoints = 100e6;
-constexpr double startScale = 0.012;
+constexpr double startScale = 0.013;
 
 bool sanity_check(const Eigen::Matrix4f &T) {
   for (int i = 0; i < 2; ++i)
