@@ -8,6 +8,8 @@ This is a git repository where I keep my code related to my own going research a
 
 > mkdir build
 
+> cd build
+
 > cmake ..
 
 > make -j4
