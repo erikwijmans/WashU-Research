@@ -596,7 +596,7 @@ void Widget::bounding_box() {
 
   std::cout << max << std::endl << std::endl << min << std::endl << std::endl;
 
-  cloud->erase(std::remove_if(cloud->begin(), cloud->end(),
+  /*cloud->erase(std::remove_if(cloud->begin(), cloud->end(),
                               [&](PointType &p) {
                                 bool in = true;
                                 for (int i = 0; i < 3; ++i)
@@ -606,7 +606,7 @@ void Widget::bounding_box() {
 
                                 return !in;
                               }),
-               cloud->end());
+               cloud->end());*/
 
   double tmp = max[1];
   max[1] = max[2];
@@ -655,10 +655,11 @@ void Widget::filter() {
   static std::mt19937_64 gen(rng());
   static std::uniform_real_distribution<> dist(0.0, 1.0);
 
-  cloud->erase(
-      std::remove_if(cloud->begin(), cloud->end(),
-                     [&](PointType &p) { return dist(gen) < FLAGS_ss_factor; }),
-      cloud->end());
+  auto tmp = cloud;
+  cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+  for (auto &p : *tmp)
+    if (dist(gen) >= FLAGS_ss_factor)
+      cloud->push_back(p);
 
   /*pcl::UniformSampling<PointType> uniform_sampling;
   uniform_sampling.setInputCloud(cloud);
