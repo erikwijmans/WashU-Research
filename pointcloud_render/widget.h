@@ -111,7 +111,6 @@ private:
   int vertex_location, color_location, position_location, sampler_location,
       texcoord_location, viewport_location;
   QMatrix4x4 projection, mvp;
-  std::vector<int> h_bins;
   std::vector<size_t> buffer_sizes;
   int binner(float y);
   int aa_width, aa_height;

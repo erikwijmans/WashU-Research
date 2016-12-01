@@ -37,12 +37,6 @@ struct VertexData {
   float data[6];
 };
 
-int Widget::binner(float y) {
-  return std::max(
-      0, std::min(static_cast<int>(std::round(h_bin_scale * (y - min[1]))),
-                  static_cast<int>(h_bins.size() - 1)));
-}
-
 Widget::Widget(const std::string &name, const std::string &out_folder,
                QWidget *parent)
     : QOpenGLWidget(parent), ui(new Ui::Widget),
@@ -68,14 +62,14 @@ Widget::~Widget() { delete ui; }
 void Widget::allocate() {
   std::cout << "allocating" << std::endl;
 
-  std::sort(cloud->begin(), cloud->end(),
-            [](PointType &a, PointType &b) { return a.z < b.z; });
-
   constexpr size_t max_buffer_size =
       static_cast<size_t>(std::numeric_limits<int>::max()) / 2;
   std::cout << "max buffer size: " << max_buffer_size << std::endl;
-  h_bins.resize(h_bin_scale * (cloud->at(cloud->size() - 1).z - min[1]) + 1, 0);
-  h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
+
+  double max_z = 0;
+  for (auto &&p : *cloud)
+    max_z = std::max((double)p.z, max_z);
+  h_clipping_plane = max_z + 1.0;
   std::vector<VertexData> points;
   size_t bytes_allocated = 0;
   size_t points_buffered = 0;
@@ -84,7 +78,7 @@ void Widget::allocate() {
   std::function<void()> buffer_points = [&]() {
     const long bytes = points.size() * sizeof(VertexData);
 
-    const size_t p = bytes / sizeof(VertexData);
+    const size_t p = points.size();
 
     vertex_buffers.push_back(std::unique_ptr<QOpenGLBuffer>(
         new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer)));
@@ -105,8 +99,6 @@ void Widget::allocate() {
     points.clear();
   };
 
-  int idx_counter = 0;
-  int bin_index = binner(cloud->at(0).z);
   for (auto &p : *cloud) {
     VertexData tmp;
     tmp.data[0] = p.x;
@@ -123,23 +115,12 @@ void Widget::allocate() {
         max_buffer_size - sizeof(VertexData)) {
       buffer_points();
     }
-
-    int new_bin_index = binner(p.z);
-    if (new_bin_index != bin_index) {
-      for (int i = bin_index; i < new_bin_index; ++i)
-        h_bins[i] = points_buffered + points.size() - 1;
-
-      bin_index = new_bin_index;
-    }
   }
 
   buffer_points();
 
-  for (int i = bin_index; i < h_bins.size(); ++i)
-    h_bins[i] = points_buffered;
-
   std::cout << cloud->size() << std::endl;
-  std::cout << h_bins[h_bins.size() - 1] << std::endl;
+  std::cout << points_buffered << std::endl;
 
   index_buffer = std::unique_ptr<QOpenGLBuffer>(
       new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer));
@@ -317,7 +298,7 @@ void Widget::set_next_state() {
     break;
 
   case plane_final:
-    if (h_bins[binner(h_clipping_plane)] == 0)
+    if (num_points_drawn == 0)
       current_state = done;
     break;
 
@@ -344,8 +325,7 @@ void Widget::do_state_outputs() {
       h_clipping_plane -= h_v / FLAGS_FPS;
     }
 
-    if (h_bins[binner(h_clipping_plane)] < cloud->size() &&
-        distance >= FLAGS_d_min) {
+    if (num_points_drawn < cloud->size() && distance >= FLAGS_d_min) {
       d_v =
           std::max(0.5 * std::min(FLAGS_d_velocity, (distance - FLAGS_d_min)) +
                        0.5 * d_v,
@@ -509,11 +489,11 @@ void Widget::draw() {
 
   int idx = 0;
   size_t points_drawn = 0;
+  num_points_drawn = 0;
   for (auto &&v : vertex_buffers) {
-    long num_points_to_draw = std::min(
-        buffer_sizes[idx], h_bins[binner(h_clipping_plane)] - points_drawn);
-    if (num_points_to_draw <= 0)
-      break;
+    long num_points_to_draw = buffer_sizes[idx];
+    std::cout << num_points_to_draw << std::endl;
+
     v->bind();
 
     quintptr offset = 0;
@@ -529,19 +509,22 @@ void Widget::draw() {
 
     std::vector<uint32_t> indicies;
     for (uint32_t i = 0; i < num_points_to_draw; ++i)
-      if (!is_in_cube(cloud->at(points_drawn + i)))
+      if (cloud->at(points_drawn + i).z < h_clipping_plane &&
+          !is_in_cube(cloud->at(points_drawn + i)))
         indicies.emplace_back(i);
 
     if (indicies.size() > 0) {
 
       index_buffer->bind();
-      index_buffer->write(0, indicies.data(), indicies.size() * sizeof(int));
+      index_buffer->write(0, indicies.data(),
+                          indicies.size() * sizeof(uint32_t));
 
       glDrawElements(GL_POINTS, indicies.size(), GL_UNSIGNED_INT, 0);
       index_buffer->release();
     }
 
     points_drawn += num_points_to_draw;
+    num_points_drawn += indicies.size();
     v->release();
     ++idx;
   }
