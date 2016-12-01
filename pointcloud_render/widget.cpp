@@ -73,10 +73,10 @@ void Widget::allocate() {
 
   constexpr size_t max_buffer_size =
       static_cast<size_t>(std::numeric_limits<int>::max()) / 2;
+  std::cout << "max buffer size: " << max_buffer_size << std::endl;
   h_bins.resize(h_bin_scale * (cloud->at(cloud->size() - 1).z - min[1]) + 1, 0);
   h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
   std::vector<VertexData> points;
-  std::vector<int> idx_data;
   size_t bytes_allocated = 0;
   size_t points_buffered = 0;
   size_t max_p = 0;
@@ -96,6 +96,8 @@ void Widget::allocate() {
 
     bytes_allocated += bytes;
     points_buffered += p;
+
+    std::cout << "Buffered " << bytes << " bytes" << std::endl;
 
     max_p = std::max(max_p, p);
 
@@ -117,7 +119,8 @@ void Widget::allocate() {
 
     points.emplace_back(tmp);
 
-    if (points.size() * sizeof(VertexData) >= max_buffer_size) {
+    if (points.size() * sizeof(VertexData) >=
+        max_buffer_size - sizeof(VertexData)) {
       buffer_points();
     }
 
@@ -128,8 +131,6 @@ void Widget::allocate() {
 
       bin_index = new_bin_index;
     }
-
-    idx_data.emplace_back(idx_counter++);
   }
 
   buffer_points();
