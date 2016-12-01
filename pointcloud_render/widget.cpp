@@ -71,10 +71,38 @@ void Widget::allocate() {
   std::sort(cloud->begin(), cloud->end(),
             [](PointType &a, PointType &b) { return a.z < b.z; });
 
+  constexpr size_t max_buffer_size =
+      static_cast<size_t>(std::numeric_limits<int>::max()) / 2;
   h_bins.resize(h_bin_scale * (cloud->at(cloud->size() - 1).z - min[1]) + 1, 0);
   h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
   std::vector<VertexData> points;
   std::vector<int> idx_data;
+  size_t bytes_allocated = 0;
+  size_t points_buffered = 0;
+  size_t max_p = 0;
+
+  std::function<void()> buffer_points = [&]() {
+    const long bytes = points.size() * sizeof(VertexData);
+
+    const size_t p = bytes / sizeof(VertexData);
+
+    vertex_buffers.push_back(std::unique_ptr<QOpenGLBuffer>(
+        new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer)));
+    vertex_buffers.back()->create();
+    vertex_buffers.back()->bind();
+    vertex_buffers.back()->setUsagePattern(QOpenGLBuffer::StaticDraw);
+    vertex_buffers.back()->allocate(points.data(), bytes);
+    vertex_buffers.back()->release();
+
+    bytes_allocated += bytes;
+    points_buffered += p;
+
+    max_p = std::max(max_p, p);
+
+    buffer_sizes.push_back(p);
+    points.clear();
+  };
+
   int idx_counter = 0;
   int bin_index = binner(cloud->at(0).z);
   for (auto &p : *cloud) {
@@ -89,10 +117,14 @@ void Widget::allocate() {
 
     points.emplace_back(tmp);
 
+    if (points.size() * sizeof(VertexData) >= max_buffer_size) {
+      buffer_points();
+    }
+
     int new_bin_index = binner(p.z);
     if (new_bin_index != bin_index) {
       for (int i = bin_index; i < new_bin_index; ++i)
-        h_bins[i] = points.size() - 1;
+        h_bins[i] = points_buffered + points.size() - 1;
 
       bin_index = new_bin_index;
     }
@@ -100,40 +132,13 @@ void Widget::allocate() {
     idx_data.emplace_back(idx_counter++);
   }
 
+  buffer_points();
+
   for (int i = bin_index; i < h_bins.size(); ++i)
-    h_bins[i] = points.size();
+    h_bins[i] = points_buffered;
 
-  std::cout << points.size() << std::endl;
+  std::cout << cloud->size() << std::endl;
   std::cout << h_bins[h_bins.size() - 1] << std::endl;
-
-  size_t bytes_allocated = 0;
-  size_t points_buffered = 0;
-  size_t max_p = 0;
-  for (int i = 0; true; ++i) {
-    const long bytes =
-        std::min(static_cast<size_t>(std::numeric_limits<int>::max()) / 2,
-                 sizeof(VertexData) * points.size() - bytes_allocated);
-
-    if (bytes <= 0)
-      break;
-
-    const size_t p = bytes / sizeof(VertexData);
-
-    vertex_buffers.push_back(std::unique_ptr<QOpenGLBuffer>(
-        new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer)));
-    vertex_buffers[i]->create();
-    vertex_buffers[i]->bind();
-    vertex_buffers[i]->setUsagePattern(QOpenGLBuffer::StaticDraw);
-    vertex_buffers[i]->allocate(points.data() + points_buffered, bytes);
-    vertex_buffers[i]->release();
-
-    bytes_allocated += bytes;
-    points_buffered += p;
-
-    max_p = std::max(max_p, p);
-
-    buffer_sizes.push_back(p);
-  }
 
   index_buffer = std::unique_ptr<QOpenGLBuffer>(
       new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer));
