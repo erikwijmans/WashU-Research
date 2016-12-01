@@ -312,7 +312,7 @@ int main(int argc, char **argv) {
 
   uniform_sampling.setInputCloud(output);
   pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(0.025);
+  uniform_sampling.setRadiusSearch(0.02);
   uniform_sampling.filter(*ss);
   pcl::io::savePLYFileBinary("ss.ply", *ss);
   pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(ss);

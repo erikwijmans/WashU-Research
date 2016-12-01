@@ -19,6 +19,11 @@ DEFINE_double(h_min, 0, "Min height of the h_clipping_plane");
 DEFINE_double(d_min, 10, "Min distance");
 DEFINE_double(FPS, 1, "target fps");
 
+template <typename ArrayTypeA, typename ArrayTypeB>
+double gaussianWeight(const ArrayTypeA &pos, const ArrayTypeB &s) {
+  return std::exp(-(pos.square() / (2 * s.square())).sum());
+}
+
 constexpr double h_bin_size = 0.01, h_bin_scale = 1. / h_bin_size;
 
 constexpr double xRot = 0, yRot = 0, zRot = 0;
@@ -291,17 +296,23 @@ void Widget::set_next_state() {
     break;
 
   case zoom_out:
-    if (distance >= start_distance)
-      current_state = plane_up;
+    if (distance >= start_distance) {
+      current_state = pure_rotation;
+      start_PI = radians_traveled;
+      dist_to_spin = PI / 3.0;
+      state_after_spin = plane_final;
+    }
     break;
 
   case plane_up:
-    if (h_clipping_plane >= max[1]) {
+    if (h_clipping_plane >= max[1])
       current_state = pure_rotation;
-      start_PI = radians_traveled;
-      dist_to_spin = PI / 6.0;
-      state_after_spin = done;
-    }
+
+    break;
+
+  case plane_final:
+    if (h_bins[binner(h_clipping_plane)] == 0)
+      current_state = done;
     break;
 
   default:
@@ -363,7 +374,7 @@ void Widget::do_state_outputs() {
         std::max(0.5 * std::min(FLAGS_h_velocity, (max[1] - h_clipping_plane)) +
                      0.5 * h_v,
                  0.1 * FLAGS_h_velocity);
-    h_clipping_plane += 2 * FLAGS_h_velocity / FLAGS_FPS;
+    h_clipping_plane += 2 * h_v / FLAGS_FPS;
     break;
 
   case done:
@@ -372,6 +383,15 @@ void Widget::do_state_outputs() {
     render = false;
     std::cout << "DONE" << std::endl;
     QApplication::quit();
+    break;
+
+  case plane_final:
+    h_v = std::max(
+        0.5 * std::min(FLAGS_h_velocity, (h_clipping_plane - FLAGS_h_min)) +
+            0.5 * h_v,
+        0.1 * FLAGS_h_velocity);
+    h_clipping_plane -= 5.0 * h_v / FLAGS_FPS;
+    e_v *= 0.999;
     break;
 
   default:

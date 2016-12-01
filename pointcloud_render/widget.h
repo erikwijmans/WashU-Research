@@ -18,7 +18,8 @@
 
 #include "framerecorder.h"
 #include <scan_gflags.h>
-#include <scan_typedefs.hpp>
+// #include <scan_typedefs.hpp>
+constexpr double PI = 3.14159265358979323846;
 
 typedef pcl::PointXYZRGB PointType;
 
@@ -82,7 +83,15 @@ private:
 
   double start_PI;
 
-  enum states { pure_rotation, plane_down, zoom_in, zoom_out, plane_up, done };
+  enum states {
+    pure_rotation,
+    plane_down,
+    zoom_in,
+    zoom_out,
+    plane_up,
+    plane_final,
+    done
+  };
 
   states current_state, state_after_spin;
   double dist_to_spin;
