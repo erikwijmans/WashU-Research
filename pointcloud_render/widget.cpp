@@ -48,6 +48,7 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
+  std::cout << cloud->size() << std::endl;
 
   // filter();
   bounding_box();
@@ -60,16 +61,16 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
 Widget::~Widget() { delete ui; }
 
 void Widget::allocate() {
+  std::sort(cloud->begin(), cloud->end(),
+            [](PointType &p1, PointType &p2) { return p1.z < p2.z; });
+
   std::cout << "allocating" << std::endl;
 
   constexpr size_t max_buffer_size =
       static_cast<size_t>(std::numeric_limits<int>::max()) / 2;
   std::cout << "max buffer size: " << max_buffer_size << std::endl;
 
-  double max_z = 0;
-  for (auto &&p : *cloud)
-    max_z = std::max((double)p.z, max_z);
-  h_clipping_plane = max_z + 1.0;
+  h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
   std::vector<VertexData> points;
   size_t bytes_allocated = 0;
   size_t points_buffered = 0;
@@ -483,6 +484,7 @@ void Widget::draw() {
 
   if (!render_fbo->bind())
     std::cout << "Could not bind buffer!" << std::endl;
+
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif
   cloud_program->setUniformValue("mvp_matrix", mvp);
@@ -490,7 +492,7 @@ void Widget::draw() {
   int idx = 0;
   size_t points_drawn = 0;
   num_points_drawn = 0;
-  for (auto &&v : vertex_buffers) {
+  for (auto &v : vertex_buffers) {
     long num_points_to_draw = buffer_sizes[idx];
     std::cout << num_points_to_draw << std::endl;
 
@@ -508,6 +510,7 @@ void Widget::draw() {
                                       sizeof(VertexData));
 
     std::vector<uint32_t> indicies;
+    indicies.reserve(num_points_to_draw);
     for (uint32_t i = 0; i < num_points_to_draw; ++i)
       if (cloud->at(points_drawn + i).z < h_clipping_plane &&
           !is_in_cube(cloud->at(points_drawn + i)))
