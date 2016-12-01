@@ -3,6 +3,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <random>
 #include <sstream>
 
 #include <GL/gl.h>
@@ -18,6 +19,7 @@ DEFINE_double(d_velocity, 0, "Velocity of the distance from the center in m/s");
 DEFINE_double(h_min, 0, "Min height of the h_clipping_plane");
 DEFINE_double(d_min, 10, "Min distance");
 DEFINE_double(FPS, 1, "target fps");
+DEFINE_double(ss_factor, 0.5, "sub-sampling factor");
 
 template <typename ArrayTypeA, typename ArrayTypeB>
 double gaussianWeight(const ArrayTypeA &pos, const ArrayTypeB &s) {
@@ -50,7 +52,7 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
   pcl::io::loadPLYFile(name, *cloud);
   std::cout << cloud->size() << std::endl;
 
-  // filter();
+  filter();
   bounding_box();
 
   // timer.start(1000 / FPS, this);
@@ -126,8 +128,8 @@ void Widget::allocate() {
   index_buffer = std::unique_ptr<QOpenGLBuffer>(
       new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer));
   index_buffer->create();
-  index_buffer->setUsagePattern(QOpenGLBuffer::DynamicDraw);
   index_buffer->bind();
+  index_buffer->setUsagePattern(QOpenGLBuffer::DynamicDraw);
   index_buffer->allocate(max_p * sizeof(int));
   index_buffer->release();
 
@@ -494,7 +496,6 @@ void Widget::draw() {
   num_points_drawn = 0;
   for (auto &v : vertex_buffers) {
     long num_points_to_draw = buffer_sizes[idx];
-    std::cout << num_points_to_draw << std::endl;
 
     v->bind();
 
@@ -650,11 +651,20 @@ void Widget::bounding_box() {
 void Widget::timerEvent(QTimerEvent *) { update(); }
 
 void Widget::filter() {
-  pcl::UniformSampling<PointType> uniform_sampling;
+  static std::random_device rng;
+  static std::mt19937_64 gen(rng());
+  static std::uniform_real_distribution<> dist(0.0, 1.0);
+
+  cloud->erase(
+      std::remove_if(cloud->begin(), cloud->end(),
+                     [&](PointType &p) { return dist(gen) < FLAGS_ss_factor; }),
+      cloud->end());
+
+  /*pcl::UniformSampling<PointType> uniform_sampling;
   uniform_sampling.setInputCloud(cloud);
   cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
   uniform_sampling.setRadiusSearch(1e-3);
-  uniform_sampling.filter(*cloud);
+  uniform_sampling.filter(*cloud);*/
 
   /* pcl::StatisticalOutlierRemoval<PointType> sor;
    sor.setInputCloud(cloud);

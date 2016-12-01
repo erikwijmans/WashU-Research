@@ -29,6 +29,7 @@ DECLARE_double(h_min);
 DECLARE_double(d_min);
 DECLARE_double(d_velocity);
 DECLARE_double(FPS);
+DECLARE_double(ss_factor);
 
 namespace Ui {
 class Widget;

@@ -309,12 +309,17 @@ int main(int argc, char **argv) {
 #else
   pcl::io::loadPLYFile("double.ply", *output);
 #endif
+  pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
+  for (auto &p : cloud)
+    if (rand() % 2 == 0)
+      ss->push_back(p);
+  pcl::io::savePLYFileBinary("ss.ply", *ss);
 
   uniform_sampling.setInputCloud(output);
-  pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(0.02);
+
+  uniform_sampling.setRadiusSearch(0.01);
   uniform_sampling.filter(*ss);
-  pcl::io::savePLYFileBinary("ss.ply", *ss);
+
   pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(ss);
   while (!viewer->wasStopped()) {
     viewer->spinOnce(100);
