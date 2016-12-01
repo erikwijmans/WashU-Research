@@ -604,7 +604,7 @@ void Widget::bounding_box() {
   std::cout << max << std::endl << std::endl << min << std::endl << std::endl;
 
   cloud->erase(std::remove_if(cloud->begin(), cloud->end(),
-                              [&](auto &p) {
+                              [&](PointType &p) {
                                 bool in = true;
                                 for (int i = 0; i < 3; ++i)
                                   if (p.getVector3fMap()[i] < min[i] ||
