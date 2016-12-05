@@ -175,7 +175,7 @@ private:
       calc_planes();
     }
 
-    void grow(double amount, Eigen::Vector3d &axis) {
+    void grow(double amount, const Eigen::Vector3d &axis) {
       for (int i = 0; i < num_corners; ++i) {
         Eigen::Vector3d direction = (corners[i] - center());
         direction = (direction.array() * (axis.array())).matrix().normalized();
@@ -184,7 +184,7 @@ private:
       calc_planes();
     }
 
-    void grow(double amount, Eigen::Vector3d &&axis) {
+    void grow(double amount, const Eigen::Vector3d &&axis) {
       for (int i = 0; i < num_corners; ++i) {
         Eigen::Vector3d direction = (corners[i] - center());
         direction = (direction.array() * axis.array()).matrix().normalized();
@@ -198,6 +198,27 @@ private:
     void growY(double amount) { grow(amount, Eigen::Vector3d::UnitY()); }
 
     void growZ(double amount) { grow(amount, Eigen::Vector3d::UnitZ()); }
+
+    void growXZ(double amount) {
+      grow(amount, Eigen::Vector3d::UnitX() + Eigen::Vector3d::UnitZ());
+    }
+
+    void translate(double amount, const Eigen::Vector3d &direction) {
+      for (int i = 0; i < num_corners; ++i)
+        corners[i] += direction * amount;
+
+      calc_planes();
+    }
+
+    void set_center(const Eigen::Vector3d &new_center) {
+      Eigen::Vector3d trans = new_center - center();
+      translate(trans.norm(), trans.normalized());
+    }
+
+    void set_center(const Eigen::Vector3d &&new_center) {
+      Eigen::Vector3d trans = new_center - center();
+      translate(trans.norm(), trans.normalized());
+    }
 
   private:
     void set_corners(AB &aligned_box) {
@@ -252,7 +273,7 @@ private:
     double k[num_planes];
     bool _active = true;
   };
-  std::vector<ClippingCube> cubes;
+  std::list<ClippingCube> cubes;
 
   bool is_in_cube(PointType &p);
 };

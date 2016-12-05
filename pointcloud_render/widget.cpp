@@ -45,7 +45,7 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
       cloud{new pcl::PointCloud<PointType>}, k_up{0, 1, 0}, frame_counter{0},
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
       current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
-      recorder{out_folder}, dist_to_spin{PI / 2.},
+      recorder{out_folder, FLAGS_save}, dist_to_spin{PI / 2.},
       state_after_spin{plane_down} {
   ui->setupUi(this);
 
@@ -268,8 +268,12 @@ void Widget::initializeGL() {
 void Widget::set_next_state() {
   switch (current_state) {
   case pure_rotation:
-    if (radians_traveled - start_PI >= dist_to_spin)
+    if (radians_traveled - start_PI >= dist_to_spin) {
       current_state = state_after_spin;
+
+      for (auto &&c : cubes)
+        c.activate();
+    }
     break;
 
   case plane_down:
@@ -291,6 +295,8 @@ void Widget::set_next_state() {
       start_PI = radians_traveled;
       dist_to_spin = PI / 3.0;
       state_after_spin = plane_final;
+      for (auto &&c : cubes)
+        c.deactivate();
     }
     break;
 
@@ -337,6 +343,8 @@ void Widget::do_state_outputs() {
       eye_y -= d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
       camera_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]) / 2.0;
       camera_y = std::min(2.5, camera_y);
+      for (auto &&c : cubes)
+        c.growXZ(-d_v / FLAGS_FPS / 1.5);
     }
 
     break;
@@ -380,7 +388,7 @@ void Widget::do_state_outputs() {
             0.5 * h_v,
         0.1 * FLAGS_h_velocity);
     h_clipping_plane -= 5.0 * h_v / FLAGS_FPS;
-    e_v *= 0.999;
+    e_v *= 0.99;
     break;
 
   default:
@@ -401,6 +409,9 @@ void Widget::set_matrices() {
 
     const double eye_distance = (eye - camera_origin).norm();
     eye += e_v * eye_distance * perp_vector;
+
+    for (auto &&c : cubes)
+      c.set_center(Eigen::Vector3d(eye[0], 0, eye[1]));
 
     const double rails_distance = (rails_eye - camera_origin).norm();
     rails_eye += e_v * rails_distance * perp_vector;
@@ -640,12 +651,12 @@ void Widget::bounding_box() {
   h_clipping_plane = max[1];
 
   static const Eigen::Vector3d diag = Eigen::Vector3d(1, 1, 1).normalized();
-  cubes.emplace_back(Eigen::Vector3d(average[0], average[2], average[1]),
-                     Eigen::Vector3d(average[0], average[2], average[1]) +
-                         15 * diag);
-  cubes.back().growX(20);
-  cubes.back().growZ(20);
-  cubes.back().growY(3);
+  cubes.emplace_back(Eigen::Vector3d(eye[0], 0, eye[1]),
+                     Eigen::Vector3d(eye[0], 0, eye[1]) + 15 * diag);
+  cubes.back().growX(50);
+  cubes.back().growZ(50);
+  cubes.back().growY(20);
+  cubes.back().deactivate();
 }
 
 void Widget::timerEvent(QTimerEvent *) { update(); }

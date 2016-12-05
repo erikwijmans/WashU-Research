@@ -26,7 +26,7 @@
 
 class FrameRecorder {
 public:
-  FrameRecorder(const std::string &datapath_);
+  FrameRecorder(const std::string &datapath_, bool save_);
   ~FrameRecorder();
   bool submit_frame(cv::Mat img);
   inline void exit() {
@@ -46,6 +46,7 @@ private:
   const int max_frame_num;
   int frame_counter;
   cv::Mat last_img;
+  bool _save;
 };
 
 #endif // FRAMERECORDER_H
