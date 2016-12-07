@@ -91,6 +91,7 @@ private:
     zoom_out,
     plane_up,
     plane_final,
+    zoom_out_and_plane_down,
     done
   };
 
@@ -105,7 +106,8 @@ private:
   FrameRecorder recorder;
   std::vector<std::unique_ptr<QOpenGLBuffer>> vertex_buffers;
   std::unique_ptr<QOpenGLBuffer> aa_buffer, index_buffer;
-  std::unique_ptr<QOpenGLFramebufferObject> render_fbo, texture_fbo;
+  std::unique_ptr<QOpenGLFramebufferObject> render_fbo = nullptr,
+                                            texture_fbo = nullptr;
   void allocate();
 
   std::unique_ptr<QOpenGLShaderProgram> cloud_program, aa_program;

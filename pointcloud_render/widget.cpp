@@ -46,7 +46,7 @@ Widget::Widget(const std::string &name, const std::string &out_folder,
       render{false}, radians_traveled{0}, omega{FLAGS_omega / FLAGS_FPS},
       current_state{pure_rotation}, start_PI{0}, h_v{0}, d_v{0}, e_v{0},
       recorder{out_folder, FLAGS_save}, dist_to_spin{PI / 2.},
-      state_after_spin{plane_down} {
+      state_after_spin{zoom_in} {
   ui->setupUi(this);
 
   pcl::io::loadPLYFile(name, *cloud);
@@ -285,7 +285,8 @@ void Widget::set_next_state() {
     if (distance <= FLAGS_d_min) {
       current_state = pure_rotation;
       start_PI = radians_traveled;
-      state_after_spin = zoom_out;
+      dist_to_spin = PI;
+      state_after_spin = zoom_out_and_plane_down;
     }
     break;
 
@@ -305,6 +306,16 @@ void Widget::set_next_state() {
       current_state = pure_rotation;
 
     break;
+
+  case zoom_out_and_plane_down:
+    if (h_clipping_plane <= FLAGS_h_min && distance >= start_distance) {
+      current_state = pure_rotation;
+      start_PI = radians_traveled;
+      dist_to_spin = PI / 2.0;
+      state_after_spin = plane_final;
+      for (auto &&c : cubes)
+        c.deactivate();
+    }
 
   case plane_final:
     if (num_points_drawn == 0)
@@ -349,12 +360,38 @@ void Widget::do_state_outputs() {
 
     break;
 
+  case zoom_out_and_plane_down:
+    if (h_clipping_plane >= FLAGS_h_min) {
+      h_v = std::max(
+          0.5 * std::min(FLAGS_h_velocity, (h_clipping_plane - FLAGS_h_min)) +
+              0.5 * h_v,
+          0.1 * FLAGS_h_velocity);
+      h_clipping_plane -= h_v / FLAGS_FPS;
+    }
+
+    if (num_points_drawn < cloud->size() && distance <= start_distance) {
+      d_v = std::max(
+          0.5 * std::min(FLAGS_d_velocity, (start_distance - distance)) +
+              0.5 * d_v,
+          0.1 * FLAGS_d_velocity);
+      distance += d_v / FLAGS_FPS;
+      eye_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
+      for (auto &&c : cubes)
+        c.growXZ(-d_v / FLAGS_FPS / 1.5);
+    }
+
+    break;
+
   case zoom_in:
     d_v = std::max(0.5 * std::min(FLAGS_d_velocity, (distance - FLAGS_d_min)) +
                        0.5 * d_v,
                    0.1 * FLAGS_d_velocity);
     distance -= d_v / FLAGS_FPS;
     eye_y -= d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
+    camera_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]) / 2.0;
+    camera_y = std::min(2.5, camera_y);
+    for (auto &&c : cubes)
+      c.growXZ(-d_v / FLAGS_FPS / 1.5);
     break;
 
   case zoom_out:
@@ -364,6 +401,8 @@ void Widget::do_state_outputs() {
                  0.1 * FLAGS_d_velocity);
     distance += 2 * d_v / FLAGS_FPS;
     eye_y += 2 * d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
+    for (auto &&c : cubes)
+      c.growXZ(-d_v / FLAGS_FPS / 1.5);
     break;
 
   case plane_up:
@@ -388,7 +427,7 @@ void Widget::do_state_outputs() {
             0.5 * h_v,
         0.1 * FLAGS_h_velocity);
     h_clipping_plane -= 5.0 * h_v / FLAGS_FPS;
-    e_v *= 0.99;
+    e_v *= 0.995;
     break;
 
   default:
@@ -486,14 +525,13 @@ void Widget::draw() {
   cloud_program->bind();
 
 #if 1
-  QOpenGLFramebufferObjectFormat format;
-  format.setAttachment(QOpenGLFramebufferObject::NoAttachment);
-  format.setSamples(4);
-  render_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
-      new QOpenGLFramebufferObject(aa_width, aa_height, format));
-
-  if (!render_fbo->isValid())
-    std::cout << "buffer invalid!" << std::endl;
+  if (!render_fbo || !render_fbo->isValid()) {
+    QOpenGLFramebufferObjectFormat format;
+    format.setAttachment(QOpenGLFramebufferObject::NoAttachment);
+    format.setSamples(4);
+    render_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
+        new QOpenGLFramebufferObject(aa_width, aa_height, format));
+  }
 
   if (!render_fbo->bind())
     std::cout << "Could not bind buffer!" << std::endl;
@@ -503,7 +541,7 @@ void Widget::draw() {
   cloud_program->setUniformValue("mvp_matrix", mvp);
 
   int idx = 0;
-  size_t points_drawn = 0;
+  size_t points_analyzed = 0;
   num_points_drawn = 0;
   for (auto &v : vertex_buffers) {
     long num_points_to_draw = buffer_sizes[idx];
@@ -523,22 +561,37 @@ void Widget::draw() {
 
     std::vector<uint32_t> indicies;
     indicies.reserve(num_points_to_draw);
-    for (uint32_t i = 0; i < num_points_to_draw; ++i)
-      if (cloud->at(points_drawn + i).z < h_clipping_plane &&
-          !is_in_cube(cloud->at(points_drawn + i)))
+    uint32_t min_i = std::numeric_limits<uint32_t>::max(), last_i;
+    bool is_ordered = true;
+    for (uint32_t i = 0; i < num_points_to_draw; ++i) {
+      if (cloud->at(points_analyzed + i).z < h_clipping_plane &&
+          !is_in_cube(cloud->at(points_analyzed + i))) {
         indicies.emplace_back(i);
+
+        min_i = std::min(min_i, i);
+        if (indicies.size() > 1)
+          is_ordered = is_ordered && i == last_i + 1;
+
+        last_i = i;
+      }
+    }
 
     if (indicies.size() > 0) {
 
-      index_buffer->bind();
-      index_buffer->write(0, indicies.data(),
-                          indicies.size() * sizeof(uint32_t));
+      if (is_ordered) {
+        glDrawArrays(GL_POINTS, min_i, indicies.size());
+      } else {
 
-      glDrawElements(GL_POINTS, indicies.size(), GL_UNSIGNED_INT, 0);
-      index_buffer->release();
+        index_buffer->bind();
+        index_buffer->write(0, indicies.data(),
+                            indicies.size() * sizeof(uint32_t));
+
+        glDrawElements(GL_POINTS, indicies.size(), GL_UNSIGNED_INT, 0);
+        index_buffer->release();
+      }
     }
 
-    points_drawn += num_points_to_draw;
+    points_analyzed += num_points_to_draw;
     num_points_drawn += indicies.size();
     v->release();
     ++idx;
@@ -548,8 +601,10 @@ void Widget::draw() {
 
 #if 1
 
-  texture_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
-      new QOpenGLFramebufferObject(aa_width, aa_height));
+  if (!texture_fbo || !texture_fbo->isValid())
+    texture_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
+        new QOpenGLFramebufferObject(aa_width, aa_height));
+
   QRect rect(0, 0, render_fbo->width(), render_fbo->height());
   QOpenGLFramebufferObject::blitFramebuffer(texture_fbo.get(), rect,
                                             render_fbo.get(), rect);
@@ -631,7 +686,7 @@ void Widget::bounding_box() {
       Eigen::Vector2d(std::abs(max[0] - min[0]), std::abs(max[2] - min[2]));
 
   distance = std::max(
-      10.0, std::min(60.0, std::sqrt((sigma * delta).square().sum()) / 2.0));
+      10.0, std::min(50.0, std::sqrt((sigma * delta).square().sum()) / 2.0));
   start_distance = distance;
 
   camera_origin = Eigen::Vector2d(average[0], average[1]);
@@ -653,15 +708,20 @@ void Widget::bounding_box() {
   static const Eigen::Vector3d diag = Eigen::Vector3d(1, 1, 1).normalized();
   cubes.emplace_back(Eigen::Vector3d(eye[0], 0, eye[1]),
                      Eigen::Vector3d(eye[0], 0, eye[1]) + 15 * diag);
-  cubes.back().growX(50);
-  cubes.back().growZ(50);
-  cubes.back().growY(20);
+  cubes.back().growX(35);
+  cubes.back().growZ(35);
+  cubes.back().growY(50);
+  cubes.back().rotate(PI / 4.0);
   cubes.back().deactivate();
 }
 
 void Widget::timerEvent(QTimerEvent *) { update(); }
 
 void Widget::filter() {
+
+  if (std::abs(FLAGS_ss_factor - 0.0) < 1e-12)
+    return;
+
   static std::random_device rng;
   static std::mt19937_64 gen(rng());
   static std::uniform_real_distribution<> dist(0.0, 1.0);
