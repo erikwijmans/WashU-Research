@@ -310,10 +310,6 @@ int main(int argc, char **argv) {
   pcl::io::loadPLYFile("double.ply", *output);
 #endif
   pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
-  for (auto &p : cloud)
-    if (rand() % 2 == 0)
-      ss->push_back(p);
-  pcl::io::savePLYFileBinary("ss.ply", *ss);
 
   uniform_sampling.setInputCloud(output);
 

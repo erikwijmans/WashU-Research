@@ -68,20 +68,20 @@ void Widget::allocate() {
 
   std::cout << "allocating" << std::endl;
 
-  constexpr size_t max_buffer_size =
-      static_cast<size_t>(std::numeric_limits<int>::max()) / 2;
+  constexpr long max_buffer_size =
+      static_cast<long>(std::numeric_limits<int>::max()) / 2;
   std::cout << "max buffer size: " << max_buffer_size << std::endl;
 
   h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
   std::vector<VertexData> points;
-  size_t bytes_allocated = 0;
-  size_t points_buffered = 0;
-  size_t max_p = 0;
+  long bytes_allocated = 0;
+  long points_buffered = 0;
+  long max_p = 0;
 
   std::function<void()> buffer_points = [&]() {
     const long bytes = points.size() * sizeof(VertexData);
 
-    const size_t p = points.size();
+    const long p = points.size();
 
     vertex_buffers.push_back(std::unique_ptr<QOpenGLBuffer>(
         new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer)));
@@ -101,6 +101,10 @@ void Widget::allocate() {
     buffer_sizes.push_back(p);
     points.clear();
   };
+
+  h_scale = 1.0 / (FLAGS_h_velocity / FLAGS_FPS);
+  height_max = cloud->at(cloud->size() - 1).z + 0.1;
+  height_min = cloud->at(0).z - 0.1;
 
   for (auto &p : *cloud) {
     VertexData tmp;
@@ -124,14 +128,15 @@ void Widget::allocate() {
 
   std::cout << cloud->size() << std::endl;
   std::cout << points_buffered << std::endl;
+  // std::cout << h_bins[h_bins.size() - 1] << std::endl;
 
-  index_buffer = std::unique_ptr<QOpenGLBuffer>(
+  /*index_buffer = std::unique_ptr<QOpenGLBuffer>(
       new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer));
   index_buffer->create();
   index_buffer->bind();
   index_buffer->setUsagePattern(QOpenGLBuffer::DynamicDraw);
   index_buffer->allocate(max_p * sizeof(int));
-  index_buffer->release();
+  index_buffer->release();*/
 
   /* clang-format off */
   //                          x     y
@@ -171,6 +176,8 @@ void Widget::initializeGL() {
   // glEnable(GL_LIGHTING);
   glEnable(GL_ARB_texture_non_power_of_two);
   glEnable(GL_ARB_arrays_of_arrays);
+  // glEnable(GL_CLIP_DISTANCE0);
+  // glEnable(GL_CLIP_PLANE0);
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -190,31 +197,32 @@ void Widget::initializeGL() {
   aa_program = std::unique_ptr<QOpenGLShaderProgram>(
       new QOpenGLShaderProgram(context()));
 
-  aa_program->addShaderFromSourceCode(
-      QOpenGLShader::Vertex,
-      "attribute vec2 position, tex_coord;\n"
-      "varying vec2 v_tex_coord;\n"
+  aa_program->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                                      R"(
+      attribute vec2 position, tex_coord;
+      varying vec2 v_tex_coord;
 
-      "void main() {\n"
-      "  v_tex_coord = position * 0.5 + 0.5;\n"
-      "  gl_Position = vec4(position.x, position.y, 0.0, 1.0);\n"
-      "}");
-  aa_program->addShaderFromSourceCode(
-      QOpenGLShader::Fragment, "uniform sampler2D texture;\n"
-                               "varying vec2 v_tex_coord;\n"
-                               "uniform vec2 viewport;\n"
-                               "uniform float weights [25];\n"
-                               "void main() {\n"
-                               "  vec3 color = vec3(0.0);\n"
-                               "  for (int j = 0; j < 5; j++) {\n"
-                               "    for (int i = 0; i < 5; i++) {\n"
-                               "      vec2 off = vec2(i - 2, j - 2)/viewport;\n"
-                               "      color += texture2D(texture, "
-                               "v_tex_coord + off).rgb * weights[j*5 + i];\n"
-                               "    }\n"
-                               "  }\n"
-                               "  gl_FragColor = vec4(color, 1.0);\n"
-                               "}");
+      void main() {
+        v_tex_coord = position * 0.5 + 0.5;
+        gl_Position = vec4(position.x, position.y, 0.0, 1.0);
+      })");
+  aa_program->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                                      R"(
+                               uniform sampler2D texture;
+                               varying vec2 v_tex_coord;
+                               uniform vec2 viewport;
+                               uniform float weights [25];
+                               void main() {
+                                 vec3 color = vec3(0.0);
+                                 for (int j = 0; j < 5; j++) {
+                                   for (int i = 0; i < 5; i++) {
+                                     vec2 off = vec2(i - 2, j - 2)/viewport;
+                                     color += texture2D(texture,
+                               v_tex_coord + off).rgb * weights[j*5 + i];
+                                   }
+                                 }
+                                 gl_FragColor = vec4(color, 1.0);
+                               })");
 
   aa_program->link();
   aa_program->bind();
@@ -242,25 +250,40 @@ void Widget::initializeGL() {
   cloud_program = std::unique_ptr<QOpenGLShaderProgram>(
       new QOpenGLShaderProgram(context()));
 
-  cloud_program->addShaderFromSourceCode(
-      QOpenGLShader::Vertex, "uniform mat4 mvp_matrix;\n"
-                             "attribute vec3 vertex;\n"
-                             "attribute vec3 color;\n"
-                             "varying vec3 v_color;\n"
-                             "void main() {\n"
-                             "  v_color = color;\n"
-                             "  gl_Position = mvp_matrix * vec4(vertex, 1.0);\n"
-                             "}");
-  cloud_program->addShaderFromSourceCode(
-      QOpenGLShader::Fragment, "varying vec3 v_color;\n"
-                               "void main() {\n"
-                               "  gl_FragColor = vec4(v_color, 1.0);\n"
-                               "}");
+  cloud_program->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                                         R"(
+      #define num_planes 6
+      uniform mat4 mvp_matrix;
+      uniform vec4 planes[num_planes];
+      attribute vec3 vertex;
+      attribute vec3 color;
+      varying vec3 v_color;
+      varying float clip_dist;
+      void main() {
+        vec4 vert4 = vec4(vertex, 1.0);
+        float min_dst = dot(planes[0], vert4);
+        for (int i = 1; i < num_planes; i++)
+          min_dst = min(dot(planes[i], vert4), min_dst);
+
+        v_color = color;
+        clip_dist = -1.0 * min_dst;
+        gl_Position = mvp_matrix * vert4;
+      })");
+  cloud_program->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                                         R"(
+                               varying vec3 v_color;
+                               varying float clip_dist;
+                               void main() {
+                                if (clip_dist < 0.0)
+                                  discard;
+                                gl_FragColor = vec4(v_color, 1.0);
+                               })");
   cloud_program->link();
   cloud_program->bind();
 
   vertex_location = cloud_program->attributeLocation("vertex");
   color_location = cloud_program->attributeLocation("color");
+  planes_location = cloud_program->uniformLocation("planes");
 
   allocate();
 }
@@ -318,7 +341,7 @@ void Widget::set_next_state() {
     }
 
   case plane_final:
-    if (num_points_drawn == 0)
+    if (h_clipping_plane < cloud->at(0).z)
       current_state = done;
     break;
 
@@ -345,7 +368,8 @@ void Widget::do_state_outputs() {
       h_clipping_plane -= h_v / FLAGS_FPS;
     }
 
-    if (num_points_drawn < cloud->size() && distance >= FLAGS_d_min) {
+    if (h_clipping_plane <= cloud->at(cloud->size() - 1).z &&
+        distance >= FLAGS_d_min) {
       d_v =
           std::max(0.5 * std::min(FLAGS_d_velocity, (distance - FLAGS_d_min)) +
                        0.5 * d_v,
@@ -369,7 +393,8 @@ void Widget::do_state_outputs() {
       h_clipping_plane -= h_v / FLAGS_FPS;
     }
 
-    if (num_points_drawn < cloud->size() && distance <= start_distance) {
+    if (h_clipping_plane <= cloud->at(cloud->size() - 1).z &&
+        distance <= start_distance) {
       d_v = std::max(
           0.5 * std::min(FLAGS_d_velocity, (start_distance - distance)) +
               0.5 * d_v,
@@ -527,10 +552,11 @@ void Widget::draw() {
 #if 1
   if (!render_fbo || !render_fbo->isValid()) {
     QOpenGLFramebufferObjectFormat format;
-    format.setAttachment(QOpenGLFramebufferObject::NoAttachment);
+    format.setAttachment(QOpenGLFramebufferObject::Depth);
     format.setSamples(4);
     render_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
         new QOpenGLFramebufferObject(aa_width, aa_height, format));
+    std::cout << "Allocated render_fbo" << std::endl;
   }
 
   if (!render_fbo->bind())
@@ -540,9 +566,12 @@ void Widget::draw() {
 #endif
   cloud_program->setUniformValue("mvp_matrix", mvp);
 
+  auto clipping_planes = cubes.back().package_planes();
+  cloud_program->setUniformValueArray(planes_location, clipping_planes.data(),
+                                      clipping_planes.size());
+
   int idx = 0;
-  size_t points_analyzed = 0;
-  num_points_drawn = 0;
+  long points_analyzed = 0;
   for (auto &v : vertex_buffers) {
     long num_points_to_draw = buffer_sizes[idx];
 
@@ -559,41 +588,21 @@ void Widget::draw() {
     cloud_program->setAttributeBuffer(color_location, GL_FLOAT, offset, 3,
                                       sizeof(VertexData));
 
-    std::vector<uint32_t> indicies;
-    indicies.reserve(num_points_to_draw);
-    uint32_t min_i = std::numeric_limits<uint32_t>::max(), last_i;
-    bool is_ordered = true;
-    for (uint32_t i = 0; i < num_points_to_draw; ++i) {
-      if (cloud->at(points_analyzed + i).z < h_clipping_plane &&
-          !is_in_cube(cloud->at(points_analyzed + i))) {
-        indicies.emplace_back(i);
-
-        min_i = std::min(min_i, i);
-        if (indicies.size() > 1)
-          is_ordered = is_ordered && i == last_i + 1;
-
-        last_i = i;
-      }
+    long true_num_points = 0;
+    for (; true_num_points < num_points_to_draw &&
+           cloud->at(true_num_points + points_analyzed).z < h_clipping_plane;
+         ++true_num_points) {
     }
 
-    if (indicies.size() > 0) {
-
-      if (is_ordered) {
-        glDrawArrays(GL_POINTS, min_i, indicies.size());
-      } else {
-
-        index_buffer->bind();
-        index_buffer->write(0, indicies.data(),
-                            indicies.size() * sizeof(uint32_t));
-
-        glDrawElements(GL_POINTS, indicies.size(), GL_UNSIGNED_INT, 0);
-        index_buffer->release();
-      }
+    if (true_num_points <= 0) {
+      v->release();
+      break;
     }
+
+    glDrawArrays(GL_POINTS, 0, true_num_points);
 
     points_analyzed += num_points_to_draw;
-    num_points_drawn += indicies.size();
-    v->release();
+
     ++idx;
   }
 
@@ -601,16 +610,17 @@ void Widget::draw() {
 
 #if 1
 
-  if (!texture_fbo || !texture_fbo->isValid())
+  if (!texture_fbo || !texture_fbo->isValid()) {
     texture_fbo = std::unique_ptr<QOpenGLFramebufferObject>(
         new QOpenGLFramebufferObject(aa_width, aa_height));
+    std::cout << "Allocated texture_fbo" << std::endl;
+  }
 
   QRect rect(0, 0, render_fbo->width(), render_fbo->height());
-  QOpenGLFramebufferObject::blitFramebuffer(texture_fbo.get(), rect,
-                                            render_fbo.get(), rect);
-
-  if (!QOpenGLFramebufferObject::bindDefault())
-    std::cout << "Could not bind default!" << std::endl;
+  QOpenGLFramebufferObject::blitFramebuffer(
+      texture_fbo.get(), rect, render_fbo.get(), rect, GL_COLOR_BUFFER_BIT,
+      GL_LINEAR, 0, 0,
+      QOpenGLFramebufferObject::RestoreFramebufferBindingToDefault);
 
   glViewport(0, 0, aa_width / aa_factor, aa_height / aa_factor);
   aa_program->bind();
@@ -712,7 +722,7 @@ void Widget::bounding_box() {
   cubes.back().growZ(35);
   cubes.back().growY(50);
   cubes.back().rotate(PI / 4.0);
-  cubes.back().deactivate();
+  // cubes.back().deactivate();
 }
 
 void Widget::timerEvent(QTimerEvent *) { update(); }

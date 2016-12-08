@@ -3,6 +3,7 @@
 
 #include <QBasicTimer>
 #include <QOpenGLBuffer>
+#include <QOpenGLFramebufferObject>
 #include <QOpenGLFunctions_3_0>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLTexture>
@@ -80,7 +81,6 @@ private:
   double distance, radians_traveled, start_distance;
   double h_clipping_plane;
   const double omega;
-  long num_points_drawn;
 
   double start_PI;
 
@@ -112,10 +112,9 @@ private:
 
   std::unique_ptr<QOpenGLShaderProgram> cloud_program, aa_program;
   int vertex_location, color_location, position_location, sampler_location,
-      texcoord_location, viewport_location;
+      texcoord_location, viewport_location, planes_location;
   QMatrix4x4 projection, mvp;
-  std::vector<size_t> buffer_sizes;
-  int binner(float y);
+  std::vector<long> buffer_sizes;
   int aa_width, aa_height;
   int aa_factor = 2;
 
@@ -140,11 +139,17 @@ private:
         return false;
 
       Eigen::Vector3d point(p.x, p.z, p.y);
+
+      bool is_in = true;
       for (int i = 0; i < num_planes; ++i)
         if (normals[i].dot(point) + k[i] < 0)
-          return false;
+          is_in = false;
 
-      return true;
+      double min_dist = normals[0].dot(point) + k[0];
+      for (int i = 1; i < num_planes; ++i)
+        min_dist = std::min(min_dist, normals[i].dot(point) + k[i]);
+
+      return min_dist > 0.0;
     }
 
     void activate(void) { _active = true; };
@@ -222,6 +227,21 @@ private:
       translate(trans.norm(), trans.normalized());
     }
 
+    std::vector<QVector4D> package_planes() {
+      std::vector<QVector4D> res;
+      if (_active) {
+        for (int i = 0; i < num_planes; ++i) {
+          res.emplace_back(normals[i][0], normals[i][1], normals[i][2], k[i]);
+        }
+      } else {
+        for (int i = 0; i < num_planes; ++i) {
+          res.emplace_back(0, 0, 0, -5);
+        }
+      }
+
+      return res;
+    }
+
   private:
     void set_corners(AB &aligned_box) {
       corners[0] = aligned_box.corner(AB::BottomLeftFloor);
@@ -278,6 +298,13 @@ private:
   std::list<ClippingCube> cubes;
 
   bool is_in_cube(PointType &p);
+  double height_max, height_min, h_scale;
+  std::vector<long> h_bins;
+  inline long binner(float h) {
+    return std::max(0l,
+                    std::min((long)h_bins.size(),
+                             static_cast<long>((h - height_min) * h_scale)));
+  }
 };
 
 #endif // WIDGET_H

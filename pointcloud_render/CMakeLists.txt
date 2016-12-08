@@ -26,6 +26,7 @@ include_directories (${Qt5OpenGL_INCLUDE_DIRS})
 link_directories    (${Qt5OpenGL_LIBRARY_DIRS})
 add_definitions     (${Qt5OpenGL_DEFINITIONS})
 
+
 include_directories (${Qt5OpenGLExtensions_INCLUDE_DIRS})
 link_directories    (${Qt5OpenGLExtensions_LIBRARY_DIRS})
 add_definitions     (${Qt5OpenGLExtensions_DEFINITIONS})
