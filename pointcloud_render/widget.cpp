@@ -72,7 +72,7 @@ void Widget::allocate() {
       static_cast<long>(std::numeric_limits<int>::max()) / 2;
   std::cout << "max buffer size: " << max_buffer_size << std::endl;
 
-  h_clipping_plane = cloud->at(cloud->size() - 1).z - 5.0;
+  h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
   std::vector<VertexData> points;
   long bytes_allocated = 0;
   long points_buffered = 0;
