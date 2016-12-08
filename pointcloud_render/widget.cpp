@@ -72,7 +72,7 @@ void Widget::allocate() {
       static_cast<long>(std::numeric_limits<int>::max()) / 2;
   std::cout << "max buffer size: " << max_buffer_size << std::endl;
 
-  h_clipping_plane = cloud->at(cloud->size() - 1).z + 1.0;
+  h_clipping_plane = cloud->at(cloud->size() - 1).z - 5.0;
   std::vector<VertexData> points;
   long bytes_allocated = 0;
   long points_buffered = 0;
@@ -102,10 +102,13 @@ void Widget::allocate() {
     points.clear();
   };
 
-  h_scale = 1.0 / (FLAGS_h_velocity / FLAGS_FPS);
+  h_scale = 5.0 / (FLAGS_h_velocity / FLAGS_FPS);
   height_max = cloud->at(cloud->size() - 1).z + 0.1;
   height_min = cloud->at(0).z - 0.1;
+  h_bins.resize((height_max - height_min) * h_scale, 0);
+  std::cout << h_bins.size() << std::endl;
 
+  long count = 0;
   for (auto &p : *cloud) {
     VertexData tmp;
     tmp.data[0] = p.x;
@@ -122,13 +125,17 @@ void Widget::allocate() {
         max_buffer_size - sizeof(VertexData)) {
       buffer_points();
     }
+    h_bins[binner(p.z)] = ++count;
+  }
+  for (int i = binner(cloud->at(cloud->size() - 1).z); i < h_bins.size(); ++i) {
+    h_bins[i] = count;
   }
 
   buffer_points();
 
   std::cout << cloud->size() << std::endl;
   std::cout << points_buffered << std::endl;
-  // std::cout << h_bins[h_bins.size() - 1] << std::endl;
+  std::cout << h_bins[h_bins.size() - 1] << std::endl;
 
   /*index_buffer = std::unique_ptr<QOpenGLBuffer>(
       new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer));
@@ -247,11 +254,11 @@ void Widget::initializeGL() {
   aa_program->setUniformValueArray("weights", values, 25, 1);
   aa_program->release();
 
-  cloud_program = std::unique_ptr<QOpenGLShaderProgram>(
+  clipping_program = std::shared_ptr<QOpenGLShaderProgram>(
       new QOpenGLShaderProgram(context()));
 
-  cloud_program->addShaderFromSourceCode(QOpenGLShader::Vertex,
-                                         R"(
+  clipping_program->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                                            R"(
       #define num_planes 6
       uniform mat4 mvp_matrix;
       uniform vec4 planes[num_planes];
@@ -269,8 +276,8 @@ void Widget::initializeGL() {
         clip_dist = -1.0 * min_dst;
         gl_Position = mvp_matrix * vert4;
       })");
-  cloud_program->addShaderFromSourceCode(QOpenGLShader::Fragment,
-                                         R"(
+  clipping_program->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                                            R"(
                                varying vec3 v_color;
                                varying float clip_dist;
                                void main() {
@@ -278,12 +285,37 @@ void Widget::initializeGL() {
                                   discard;
                                 gl_FragColor = vec4(v_color, 1.0);
                                })");
-  cloud_program->link();
-  cloud_program->bind();
+  clipping_program->link();
+  clipping_program->bind();
 
-  vertex_location = cloud_program->attributeLocation("vertex");
-  color_location = cloud_program->attributeLocation("color");
-  planes_location = cloud_program->uniformLocation("planes");
+  planes_location = clipping_program->uniformLocation("planes");
+  clipping_program->release();
+
+  nonclipping_program = std::shared_ptr<QOpenGLShaderProgram>(
+      new QOpenGLShaderProgram(context()));
+
+  nonclipping_program->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                                               R"(
+      uniform mat4 mvp_matrix;
+      attribute vec3 vertex;
+      attribute vec3 color;
+      varying vec3 v_color;
+
+      void main() {
+        vec4 vert4 = vec4(vertex, 1.0);
+
+        v_color = color;
+        gl_Position = mvp_matrix * vert4;
+      })");
+  nonclipping_program->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                                               R"(
+                               varying vec3 v_color;
+                               void main() {
+                                gl_FragColor = vec4(v_color, 1.0);
+                               })");
+  nonclipping_program->link();
+  nonclipping_program->bind();
+  nonclipping_program->release();
 
   allocate();
 }
@@ -294,8 +326,7 @@ void Widget::set_next_state() {
     if (radians_traveled - start_PI >= dist_to_spin) {
       current_state = state_after_spin;
 
-      for (auto &&c : cubes)
-        c.activate();
+      cube.activate();
     }
     break;
 
@@ -319,8 +350,8 @@ void Widget::set_next_state() {
       start_PI = radians_traveled;
       dist_to_spin = PI / 3.0;
       state_after_spin = plane_final;
-      for (auto &&c : cubes)
-        c.deactivate();
+
+      cube.deactivate();
     }
     break;
 
@@ -336,8 +367,8 @@ void Widget::set_next_state() {
       start_PI = radians_traveled;
       dist_to_spin = PI / 2.0;
       state_after_spin = plane_final;
-      for (auto &&c : cubes)
-        c.deactivate();
+
+      cube.deactivate();
     }
 
   case plane_final:
@@ -354,8 +385,8 @@ void Widget::do_state_outputs() {
   switch (current_state) {
   case pure_rotation:
     e_v = (e_v + omega) / 2.0;
-    for (auto &&c : cubes)
-      c.rotate(-e_v);
+
+    cube.rotate(-e_v);
 
     break;
 
@@ -378,8 +409,8 @@ void Widget::do_state_outputs() {
       eye_y -= d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
       camera_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]) / 2.0;
       camera_y = std::min(2.5, camera_y);
-      for (auto &&c : cubes)
-        c.growXZ(-d_v / FLAGS_FPS / 1.5);
+
+      cube.growXZ(-d_v / FLAGS_FPS / 1.5);
     }
 
     break;
@@ -401,8 +432,8 @@ void Widget::do_state_outputs() {
           0.1 * FLAGS_d_velocity);
       distance += d_v / FLAGS_FPS;
       eye_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
-      for (auto &&c : cubes)
-        c.growXZ(-d_v / FLAGS_FPS / 1.5);
+
+      cube.growXZ(-d_v / FLAGS_FPS / 1.5);
     }
 
     break;
@@ -415,8 +446,8 @@ void Widget::do_state_outputs() {
     eye_y -= d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
     camera_y += d_v / FLAGS_FPS * std::abs(look_vector_start[1]) / 2.0;
     camera_y = std::min(2.5, camera_y);
-    for (auto &&c : cubes)
-      c.growXZ(-d_v / FLAGS_FPS / 1.5);
+
+    cube.growXZ(-d_v / FLAGS_FPS / 1.5);
     break;
 
   case zoom_out:
@@ -426,8 +457,8 @@ void Widget::do_state_outputs() {
                  0.1 * FLAGS_d_velocity);
     distance += 2 * d_v / FLAGS_FPS;
     eye_y += 2 * d_v / FLAGS_FPS * std::abs(look_vector_start[1]);
-    for (auto &&c : cubes)
-      c.growXZ(-d_v / FLAGS_FPS / 1.5);
+
+    cube.growXZ(-d_v / FLAGS_FPS / 1.5);
     break;
 
   case plane_up:
@@ -474,8 +505,7 @@ void Widget::set_matrices() {
     const double eye_distance = (eye - camera_origin).norm();
     eye += e_v * eye_distance * perp_vector;
 
-    for (auto &&c : cubes)
-      c.set_center(Eigen::Vector3d(eye[0], 0, eye[1]));
+    cube.set_center(Eigen::Vector3d(eye[0], 0, eye[1]));
 
     const double rails_distance = (rails_eye - camera_origin).norm();
     rails_eye += e_v * rails_distance * perp_vector;
@@ -535,19 +565,29 @@ void Widget::resizeGL(int width, int height) {
                          200.);
 }
 
-bool Widget::is_in_cube(PointType &p) {
-  for (auto &cube : cubes)
-    if (cube.is_in(p))
-      return true;
+void Widget::set_cloud_program() {
+  if (cube.active()) {
+    cloud_program = clipping_program;
+    cloud_program->bind();
+    auto clipping_planes = cube.package_planes();
+    cloud_program->setUniformValueArray(planes_location, clipping_planes.data(),
+                                        clipping_planes.size());
 
-  return false;
+  } else {
+    cloud_program = nonclipping_program;
+    cloud_program->bind();
+  }
+
+  vertex_location = cloud_program->attributeLocation("vertex");
+  color_location = cloud_program->attributeLocation("color");
 }
 
 void Widget::draw() {
   glEnable(GL_DEPTH_TEST);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, aa_width, aa_height);
-  cloud_program->bind();
+
+  set_cloud_program();
 
 #if 1
   if (!render_fbo || !render_fbo->isValid()) {
@@ -565,10 +605,6 @@ void Widget::draw() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif
   cloud_program->setUniformValue("mvp_matrix", mvp);
-
-  auto clipping_planes = cubes.back().package_planes();
-  cloud_program->setUniformValueArray(planes_location, clipping_planes.data(),
-                                      clipping_planes.size());
 
   int idx = 0;
   long points_analyzed = 0;
@@ -588,11 +624,12 @@ void Widget::draw() {
     cloud_program->setAttributeBuffer(color_location, GL_FLOAT, offset, 3,
                                       sizeof(VertexData));
 
-    long true_num_points = 0;
-    for (; true_num_points < num_points_to_draw &&
+    long true_num_points = std::min(
+        num_points_to_draw, h_bins[binner(h_clipping_plane)] - points_analyzed);
+    /*for (; true_num_points < num_points_to_draw &&
            cloud->at(true_num_points + points_analyzed).z < h_clipping_plane;
          ++true_num_points) {
-    }
+    }*/
 
     if (true_num_points <= 0) {
       v->release();
@@ -716,13 +753,13 @@ void Widget::bounding_box() {
   h_clipping_plane = max[1];
 
   static const Eigen::Vector3d diag = Eigen::Vector3d(1, 1, 1).normalized();
-  cubes.emplace_back(Eigen::Vector3d(eye[0], 0, eye[1]),
-                     Eigen::Vector3d(eye[0], 0, eye[1]) + 15 * diag);
-  cubes.back().growX(35);
-  cubes.back().growZ(35);
-  cubes.back().growY(50);
-  cubes.back().rotate(PI / 4.0);
-  // cubes.back().deactivate();
+  cube = ClippingCube(Eigen::Vector3d(eye[0], 0, eye[1]),
+                      Eigen::Vector3d(eye[0], 0, eye[1]) + 15 * diag);
+  cube.growX(35);
+  cube.growZ(35);
+  cube.growY(50);
+  cube.rotate(PI / 4.0);
+  cube.deactivate();
 }
 
 void Widget::timerEvent(QTimerEvent *) { update(); }

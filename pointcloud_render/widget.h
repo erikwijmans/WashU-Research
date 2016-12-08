@@ -110,7 +110,10 @@ private:
                                             texture_fbo = nullptr;
   void allocate();
 
-  std::unique_ptr<QOpenGLShaderProgram> cloud_program, aa_program;
+  std::shared_ptr<QOpenGLShaderProgram> clipping_program, nonclipping_program,
+      cloud_program;
+  void set_cloud_program();
+  std::unique_ptr<QOpenGLShaderProgram> aa_program;
   int vertex_location, color_location, position_location, sampler_location,
       texcoord_location, viewport_location, planes_location;
   QMatrix4x4 projection, mvp;
@@ -124,6 +127,7 @@ private:
     static constexpr int num_corners = 7, num_planes = 6;
 
   public:
+    ClippingCube(){};
     ClippingCube(Eigen::Vector3d &bl_corner, Eigen::Vector3d &tr_corner) {
       AB aligned_box(bl_corner, tr_corner);
       set_corners(aligned_box);
@@ -155,6 +159,8 @@ private:
     void activate(void) { _active = true; };
 
     void deactivate(void) { _active = false; };
+
+    bool active() { return _active; };
 
     void rotate(const Eigen::Matrix3d &mat) {
       const Eigen::Vector3d _center = center();
@@ -295,14 +301,14 @@ private:
     double k[num_planes];
     bool _active = true;
   };
-  std::list<ClippingCube> cubes;
+  ClippingCube cube;
 
   bool is_in_cube(PointType &p);
   double height_max, height_min, h_scale;
   std::vector<long> h_bins;
   inline long binner(float h) {
     return std::max(0l,
-                    std::min((long)h_bins.size(),
+                    std::min((long)h_bins.size() - 1,
                              static_cast<long>((h - height_min) * h_scale)));
   }
 };
