@@ -9,6 +9,8 @@
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
   </head>
   <body>
     <section class="page-header">
@@ -23,14 +25,15 @@
       <p>This page hosts the code (currently in pre-alpha), results, and paper for our technique to align building scale RGDB panoramas.  We utilize a novel technique that leverages a ground truth floorplan and is capable of aligning panoramas with little to no overlap.</p>
 
 <h1>
+<a id="video" class="anchor" href="#video" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Danforth University Center Teaser</h1>
+
+      <iframe width="100%" src="https://www.youtube.com/embed/Nx9YZlnREiA?modestbranding=1?playsinline=1" frameborder="0" allowfullscreen class="video_src"></iframe>
+<h1>
+
+<h1>
 <a id="video" class="anchor" href="#video" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Video of Results</h1>
 
-      <iframe width="100%" src="https://www.youtube.com/embed/HLeO6nLWMVs?modestbranding=1?playsinline=1" frameborder="0" allowfullscreen id="video_src"></iframe>
-      <script>
-        var video = document.getElementById("video_src");
-        video.style.height = 9.0/16.0 * video.offsetWidth + "px";
-      </script>
-
+      <iframe width="100%" src="https://www.youtube.com/embed/HLeO6nLWMVs?modestbranding=1?playsinline=1" frameborder="0" allowfullscreen class="video_src"></iframe>
 <h1>
 <a id="abstract" class="anchor" href="#abstract" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Abstract</h1>
 
@@ -65,6 +68,22 @@ research.</p>
 
     </section>
 
+
+    <script>
+  $(function() {
+    var handle_resize = function() {
+      $(".video_src").each(function() {
+        var vid = $(this);
+        var width = vid.width();
+        console.log(width)
+        vid.css("height", 9.0 / 16.0 * width);
+      });
+    };
+
+    $(window).resize(handle_resize);
+    handle_resize();
+  });
+    </script>
 
   </body>
 </html>
