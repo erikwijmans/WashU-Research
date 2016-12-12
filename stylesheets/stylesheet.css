@@ -26,6 +26,28 @@ a {
   color: rgba(255, 255, 255, 0.5);
 }
 
+.header-link {
+  color: rgb(165, 20, 23);
+  /*background-color: rgba(255, 255, 255, 0.08);*/
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+
+  border-bottom: 1px solid rgba(165, 20, 23, 0);
+  /* ^- the important bit. RGB 192,192,192 is the same as #C0C0C0*/
+
+  -webkit-transition: border 500ms ease;
+  -moz-transition: border 500ms ease;
+  -ms-transition: border 500ms ease;
+  -o-transition: border 500ms ease;
+  transition: border 500ms ease;
+}
+
+.header-link:hover {
+  /*color: rgba(165, 20, 23, 0.5);*/
+  border-bottom: 1px solid rgba(108, 115, 115, 1);
+  text-decoration: none;
+  color: rgb(108, 115, 115);
+}
+
 .btn {
   display: inline-block;
   margin-bottom: 1rem;
