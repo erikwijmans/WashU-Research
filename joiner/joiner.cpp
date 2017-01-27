@@ -1,5 +1,7 @@
+#include <Eigen/Geometry>
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
+
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/uniform_sampling.h>
@@ -18,6 +20,9 @@
 
 typedef pcl::PointXYZRGB PointType;
 typedef pcl::PointNormal NormalType;
+
+DEFINE_string(transformation_folder, "transformations/",
+              "Folder to write transformation matricies");
 
 class MyPointRepresentation : public pcl::PointRepresentation<NormalType> {
   using pcl::PointRepresentation<NormalType>::nr_dimensions_;
@@ -98,7 +103,7 @@ rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
   return (viewer);
 }
 
-std::tuple<Eigen::Array3f, Eigen::Array3f>
+std::tuple<Eigen::Array3f, Eigen::Array3f, Eigen::Matrix4f>
 createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                     pcl::PointCloud<PointType>::Ptr &cloud,
                     const Eigen::Matrix3d &rotMat,
@@ -107,7 +112,7 @@ pcl::PointCloud<NormalType>::Ptr
 subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud);
 
 constexpr double targetNumPoints = 100e6;
-constexpr double startScale = 0.013;
+constexpr double startScale = 0.02;
 
 bool sanity_check(const Eigen::Matrix4f &T) {
   for (int i = 0; i < 2; ++i)
@@ -140,6 +145,9 @@ bool sanity_check(const Eigen::Matrix4f &T) {
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
+
+  FLAGS_transformation_folder =
+      FLAGS_dataPath + "/" + FLAGS_transformation_folder;
 
   std::vector<std::string> binaryFileNames;
   parseFolder(FLAGS_binaryFolder, binaryFileNames);
@@ -181,8 +189,14 @@ int main(int argc, char **argv) {
     for (int k = FLAGS_startIndex;
          k < std::min((int)rotMats.size(), FLAGS_startIndex + num); ++k) {
       std::cout << "Enter: " << binaryFileNames[k] << std::endl;
+
+      const std::string scan_number =
+          binaryFileNames[k].substr(binaryFileNames[k].find(".") - 3, 3);
+      const std::string build_name = binaryFileNames[k].substr(0, 3);
+
       if (rotMats[k] == Eigen::Matrix3d::Zero())
         continue;
+
       in.open(FLAGS_binaryFolder + binaryFileNames[k],
               std::ios::in | std::ios::binary);
       int rows, cols;
@@ -196,8 +210,20 @@ int main(int argc, char **argv) {
       pcl::PointCloud<PointType>::Ptr current_cloud(
           new pcl::PointCloud<PointType>);
       Eigen::Array3f min, max;
-      std::tie(min, max) = createPCLPointCloud(points, current_cloud,
-                                               rotMats[k], translations[k]);
+      Eigen::Matrix4f transformation;
+      std::tie(min, max, transformation) = createPCLPointCloud(
+          points, current_cloud, rotMats[k], translations[k]);
+
+      const std::string out_name = FLAGS_transformation_folder + build_name +
+                                   "_trans_" + scan_number + ".txt";
+
+      if (!FLAGS_quietMode)
+        std::cout << out_name << std::endl;
+
+      std::ofstream trans_out(out_name, std::ios::out);
+      trans_out << "Before general icp:" << std::endl
+                << transformation << std::endl
+                << std::endl;
 
       bool run_icp = output_cloud->size() > 0;
 
@@ -307,9 +333,20 @@ int main(int argc, char **argv) {
             current_cloud =
                 pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
             pcl::transformPointCloud(*tmp, *current_cloud, Ti);
+
+            transformation = Ti * transformation;
           }
         }
       }
+
+      std::cout << "Final transformation: " << std::endl
+                << transformation << std::endl
+                << std::endl;
+
+      trans_out << "After general icp:" << std::endl
+                << transformation << std::endl
+                << std::endl;
+      trans_out.close();
 
       output_cloud->insert(output_cloud->end(), current_cloud->begin(),
                            current_cloud->end());
@@ -332,13 +369,13 @@ int main(int argc, char **argv) {
         uniform_sampling.filter(*output_cloud);
       }
 
-      if (false) {
-        pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
-        while (!viewer->wasStopped()) {
-          viewer->spinOnce(100);
-          boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-        }
+#if 0
+      pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
+      while (!viewer->wasStopped()) {
+        viewer->spinOnce(100);
+        boost::this_thread::sleep(boost::posix_time::microseconds(100000));
       }
+#endif
 
       std::cout << "Leaving: " << output_cloud->size() << std::endl;
     }
@@ -399,7 +436,7 @@ void boundingBox(const pcl::PointCloud<PointType>::Ptr &cloud,
   boundingBox(cloud, pointMin, pointMax, Eigen::Array3f(3.5, 3.5, 4.0));
 }
 
-std::tuple<Eigen::Array3f, Eigen::Array3f>
+std::tuple<Eigen::Array3f, Eigen::Array3f, Eigen::Matrix4f>
 createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                     pcl::PointCloud<PointType>::Ptr &cloud,
                     const Eigen::Matrix3d &rotMat,
@@ -430,14 +467,36 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
 
   corrected_rot = corrected_rot.inverse().eval();
 
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+
+  for (int j = 0; j < 3; ++j) {
+    for (int i = 0; i < 3; ++i) {
+      T(j, i) = corrected_rot(j, i);
+    }
+
+    T(j, 3) = trans[j];
+  }
+
+  Eigen::Matrix4d correction;
+
+  /* clang-format off */
+  correction << 1,  0, 0, 0,
+                0, -1, 0, 0,
+                0,  0, 1, 0,
+                0,  0, 0, 1;
+  /* clang-format on */
+
+  T = correction * T * correction;
+  std::cout << "Transformation before ICP: " << std::endl
+            << T << std::endl
+            << std::endl;
+
   for (auto it = points.begin(); it != points.end();) {
     auto &p = *it;
 
-    Eigen::Vector3d point = p.point.cast<double>();
-    point[1] *= -1;
-    point = corrected_rot * point;
-    point += corrected_trans;
-    point[1] *= -1;
+    Eigen::Vector3d point =
+        (T * p.point.cast<double>().homogeneous()).eval().hnormalized();
+
     auto &rgb = p.rgb;
     PointType tmp;
     tmp.x = point[0];
@@ -487,7 +546,7 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
 
   boundingBox(cloud, min, max, Eigen::Array3f(3., 3., 3.));
 
-  return std::make_tuple(min, max);
+  return std::make_tuple(min, max, T.cast<float>());
 }
 
 pcl::PointCloud<NormalType>::Ptr

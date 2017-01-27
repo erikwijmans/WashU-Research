@@ -22,6 +22,8 @@ DEFINE_double(y, 0, "bleh");
 
 DEFINE_double(z, 0, "bleh");
 
+DEFINE_double(theta, 0, "bleh");
+
 typedef pcl::PointXYZRGB PointType;
 typedef pcl::PointNormal NormalType;
 
@@ -148,74 +150,69 @@ int main(int argc, char **argv) {
   prependDataPath();
 
   pcl::UniformSampling<PointType> uniform_sampling;
-  pcl::PointCloud<PointType>::Ptr duc1(new pcl::PointCloud<PointType>),
-      duc2(new pcl::PointCloud<PointType>),
+  pcl::PointCloud<PointType>::Ptr target(new pcl::PointCloud<PointType>),
+      source(new pcl::PointCloud<PointType>),
       output(new pcl::PointCloud<PointType>);
 
-#if 0
 #if 1
-  pcl::io::loadPLYFile("/home/erik/Projects/currentBest/DUC/Floor1/"
+#if 1
+  pcl::io::loadPLYFile("cse_double.ply", *target);
+  pcl::io::loadPLYFile("/home/erik/Projects/currentBest/CSE/Floor5/"
                        "placementOptions/V2/pointCloud.ply",
-                       *duc1);
-  pcl::io::loadPLYFile("/home/erik/Projects/currentBest/DUC/Floor2/"
-                       "placementOptions/V2/pointCloud.ply",
-                       *duc2);
+                       *source);
 #else
-  pcl::io::loadPLYFile("duc1_mini.ply", *duc1);
-  /*for (auto &&p : *duc1) {
+  pcl::io::loadPLYFile("cse_double_mini.ply", *target);
+  for (auto &&p : *target) {
     p.r = 255;
     p.g = 0;
     p.b = 0;
-  }*/
+  }
 
-  pcl::io::loadPLYFile("duc2_mini.ply", *duc2);
-/*for (auto &&p : *duc2) {
-  p.r = 0;
-  p.g = 255;
-  p.b = 0;
-}*/
+  pcl::io::loadPLYFile("cse5_mini.ply", *source);
+  for (auto &&p : *source) {
+    p.r = 0;
+    p.g = 255;
+    p.b = 0;
+  }
 #endif
 
 #if 0
 
-  uniform_sampling.setInputCloud(duc1);
-  duc1 = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(0.05);
-  uniform_sampling.filter(*duc1);
+  uniform_sampling.setInputCloud(target);
+  target = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+  uniform_sampling.setRadiusSearch(0.15);
+  uniform_sampling.filter(*target);
 
-  pcl::io::savePLYFileBinary("duc1_mini.ply", *duc1);
+  pcl::io::savePLYFileBinary("cse_double_mini.ply", *target);
 
-  uniform_sampling.setInputCloud(duc2);
-  duc2 = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-  uniform_sampling.setRadiusSearch(0.05);
-  uniform_sampling.filter(*duc2);
+  uniform_sampling.setInputCloud(source);
+  source = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+  uniform_sampling.setRadiusSearch(0.15);
+  uniform_sampling.filter(*source);
 
-  pcl::io::savePLYFileBinary("duc2_mini.ply", *duc2);
+  pcl::io::savePLYFileBinary("cse5_mini.ply", *source);
 
+  exit(0);
 #endif
 
   {
-    Eigen::Vector3d trans(-4.1 + FLAGS_x, -3.1 + FLAGS_y, 4.5 + FLAGS_z);
-    Eigen::Matrix4f Ti;
-    Ti << 0.999993, 9.9858e-05, -0.00363249, -0.00860352, -0.000105884,
-        0.999999, -0.00165889, -0.0319539, 0.00363232, 0.00165926, 0.999992,
-        0.109477, 0, 0, 0, 1;
+    Eigen::Vector3d trans(FLAGS_x, FLAGS_y, FLAGS_z);
+    Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity();
     Ti(0, 3) += trans[0];
     Ti(1, 3) += trans[1];
     Ti(2, 3) += trans[2];
 
-    Eigen::Matrix4f Ti_2;
-    Ti_2 << 0.999955, -0.00100807, -0.0094549, 0.0782838, 0.00102519, 0.999998,
-        0.00180521, -0.00168812, 0.00945306, -0.00181482, 0.999954, 0.0309096,
-        0, 0, 0, 1;
-
+    Eigen::Transform<float, 3, Eigen::TransformTraits::Affine> Ti_2(
+        Eigen::AngleAxis<float>(FLAGS_theta * PI / 180.,
+                                Eigen::Vector3f::UnitZ()));
     Ti = Ti_2 * Ti;
 
-    auto tmp = duc2;
-    duc2 = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-    pcl::transformPointCloud(*tmp, *duc2, Ti);
+    auto tmp = source;
+    source = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+    pcl::transformPointCloud(*tmp, *source, Ti);
   }
 
+#if 0
   bool run_icp = true;
   pcl::search::KdTree<NormalType>::Ptr tree_source(
       new pcl::search::KdTree<NormalType>),
@@ -233,13 +230,13 @@ int main(int argc, char **argv) {
   icp.setSearchMethodTarget(tree_target);
   icp.setSearchMethodSource(tree_source);
 
-  auto source_with_normals = subsample_normals(duc2);
-  auto target_with_normals = subsample_normals(duc1);
+  auto source_with_normals = subsample_normals(source);
+  auto target_with_normals = subsample_normals(target);
 
   icp.setInputSource(source_with_normals);
   icp.setInputTarget(target_with_normals);
   icp.setTransformationEpsilon(1e-6);
-  icp.setMaxCorrespondenceDistance(8e-2);
+  icp.setMaxCorrespondenceDistance(1e-1);
 
   Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity(), prev, targetToSource;
   auto icp_result = source_with_normals;
@@ -295,26 +292,32 @@ int main(int argc, char **argv) {
             << std::endl;
 
   if (run_icp) {
-    auto tmp = duc2;
-    duc2 = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-    pcl::transformPointCloud(*tmp, *duc2, Ti);
+    auto tmp = source;
+    source = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+    pcl::transformPointCloud(*tmp, *source, Ti);
   }
 
-  output->insert(output->end(), duc1->begin(), duc1->end());
-  duc1 = nullptr;
-  output->insert(output->end(), duc2->begin(), duc2->end());
-  duc2 = nullptr;
+  output->insert(output->end(), target->begin(), target->end());
+  target = nullptr;
+  output->insert(output->end(), source->begin(), source->end());
+  source = nullptr;
 
   pcl::io::savePLYFileBinary("double.ply", *output);
+
 #else
-  pcl::io::loadPLYFile("double.ply", *output);
+  output->insert(output->end(), target->begin(), target->end());
+  output->insert(output->end(), source->begin(), source->end());
 #endif
-  pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
 
-  uniform_sampling.setInputCloud(output);
+  pcl::io::savePLYFileBinary("cse_triple.ply", *output);
+  return 0;
+#endif
+  pcl::PointCloud<PointType>::Ptr ss = output;
 
-  uniform_sampling.setRadiusSearch(0.01);
-  uniform_sampling.filter(*ss);
+  // uniform_sampling.setInputCloud(output);
+
+  // uniform_sampling.setRadiusSearch(0.01);
+  // uniform_sampling.filter(*ss);
 
   pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(ss);
   while (!viewer->wasStopped()) {

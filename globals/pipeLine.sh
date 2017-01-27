@@ -25,6 +25,7 @@ mkdir -p $1/voxelGrids/R2
 mkdir -p $1/voxelGrids/metaData
 mkdir -p $1/doors/pointcloud
 mkdir -p $1/doors/floorplan
+mkdir -p $1/transformations
 
 #run the 4 programs
 
