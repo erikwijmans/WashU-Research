@@ -2,9 +2,8 @@
 #ifndef PLACE_SCAN_DOOR_DETECTOR_H
 #define PLACE_SCAN_DOOR_DETECTOR_H
 
-#include <scan_typedefs.hpp>
-
 #include <eigen3/Eigen/Eigen>
+#include <etw_utils.hpp>
 #include <opencv/cv.hpp>
 
 namespace place {

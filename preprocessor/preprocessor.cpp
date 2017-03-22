@@ -52,14 +52,16 @@ rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
 static int PTXrows, PTXcols;
 
 int main(int argc, char *argv[]) {
+  google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
 
   std::vector<std::string> csvFileNames;
 
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir(FLAGS_PTXFolder.data())) != NULL) {
+  {
+    DIR *dir = opendir(FLAGS_PTXFolder.data());
+    CHECK_NOTNULL(dir);
+    struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
       std::string fileName = ent->d_name;
       if (fileName != ".." && fileName != ".") {
@@ -67,9 +69,6 @@ int main(int argc, char *argv[]) {
       }
     }
     closedir(dir);
-  } else {
-    perror("");
-    return EXIT_FAILURE;
   }
 
   sort(csvFileNames.begin(), csvFileNames.end(),
@@ -86,9 +85,7 @@ int main(int argc, char *argv[]) {
   if (FLAGS_threads)
     omp_set_num_threads(FLAGS_threads);
 
-  boost::progress_display *show_progress = nullptr;
-  if (FLAGS_quietMode)
-    show_progress = new boost::progress_display(FLAGS_numScans * 5);
+  boost::progress_display show_progress(FLAGS_numScans * 5);
 
   for (int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
     const std::string number =
@@ -116,16 +113,13 @@ int main(int argc, char *argv[]) {
           fexists(doorName))) {
       std::vector<scan::PointXYZRGBA> pointCloud;
       convertToBinary(csvFileName, binaryFileName, pointCloud);
-      if (show_progress)
-        ++(*show_progress);
+
+      ++show_progress;
 
       pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
       createPCLPointCloud(pointCloud, cloud);
-      if (show_progress)
-        ++(*show_progress);
 
-      if (!FLAGS_quietMode)
-        std::cout << "Calculating Normals" << std::endl;
+      ++show_progress;
 
       pcl::PointCloud<NormalType>::Ptr cloud_normals(
           new pcl::PointCloud<NormalType>);
@@ -133,33 +127,23 @@ int main(int argc, char *argv[]) {
           new pcl::PointCloud<PointType>);
       getNormals(cloud, cloud_normals, normals_points, normalsName);
 
-      if (show_progress)
-        ++(*show_progress);
+      ++show_progress;
 
       Eigen::Vector3d M1, M2, M3;
       getRotations(cloud_normals, rotName, M1, M2, M3);
 
       findDoors(normals_points, M1, M2, M3, doorName);
 
-      if (show_progress)
-        ++(*show_progress);
-
-      if (!FLAGS_quietMode)
-        std::cout << "Creating Panorama" << std::endl;
+      ++show_progress;
 
       createPanorama(pointCloud, cloud_normals, normals_points, panoName,
                      dataName);
 
-      if (show_progress)
-        ++(*show_progress);
-    } else if (show_progress)
-      *show_progress += 5;
+      ++show_progress;
+    } else
+      show_progress += 5;
   }
 
-  if (show_progress)
-    delete show_progress;
-
-  std::cout << "Leaving" << std::endl;
   return 0;
 }
 
@@ -229,7 +213,7 @@ static Eigen::VectorXd getZPlanes(const std::vector<double> &z) {
     double z0 = ransacZ(zCoords);
 
     zCoords.erase(
-        std::remove_if(zCoords.begin(), zCoords.end(),
+        std::remove_if(zCoords,
                        [&z0](auto &z) { return std::abs(z - z0) < 0.05; }),
         zCoords.end());
 
@@ -311,14 +295,14 @@ static void dispSurfaceNormals(const Eigen::ArrayXV3f &sn) {
 void convertToBinary(const std::string &fileNameIn, const std::string &outName,
                      std::vector<scan::PointXYZRGBA> &pointCloud) {
 
-  if (!FLAGS_quietMode)
-    std::cout << outName << std::endl;
+  LOG(INFO) << "Working on: " << outName << std::endl;
 
   std::ifstream in(outName, std::ios::in | std::ios::binary);
 
   if (!in.is_open() || FLAGS_redo) {
     in.close();
     std::ifstream scanFile(fileNameIn, std::ios::in);
+    CHECK(scanFile.is_open()) << "Could not open " << fileNameIn << std::endl;
     int columns, rows;
     scanFile >> columns >> rows;
     std::ofstream out(outName, std::ios::out | std::ios::binary);
@@ -327,8 +311,8 @@ void convertToBinary(const std::string &fileNameIn, const std::string &outName,
     PTXcols = columns;
     PTXrows = rows;
     std::string line;
-    if (!FLAGS_quietMode)
-      std::cout << rows << "   " << columns << std::endl;
+
+    LOG(INFO) << rows << "   " << columns << std::endl;
     pointCloud.reserve(columns * rows);
     for (int i = 0; i < 9; ++i) {
       getline(scanFile, line);
@@ -655,8 +639,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   pano.surfaceNormals = scaledSurfNormals;
   pano.floorCoord = domZs.minCoeff();
 
-  if (!FLAGS_quietMode)
-    std::cout << "Floorcoord: " << domZs.minCoeff() << std::endl;
+  LOG(INFO) << "Floorcoord: " << domZs.minCoeff() << std::endl;
 
   SIFT->detect(pano.imgs[0], keypoints);
 
@@ -670,14 +653,14 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
   cv::KeyPoint::convert(keypoints, pano.keypoints);
 
   double startSize = pano.keypoints.size();
-  pano.keypoints.erase(
-      std::remove_if(pano.keypoints.begin(), pano.keypoints.end(),
-                     [&pano](const auto &kp) {
-                       return !pano.rMap(kp.y, kp.x) ||
-                              pano.surfaceNormals(kp.y, kp.x) ==
-                                  Eigen::Vector3f::Zero();
-                     }),
-      pano.keypoints.end());
+  pano.keypoints.erase(std::remove_if(pano.keypoints,
+                                      [&pano](const auto &kp) {
+                                        return !pano.rMap(kp.y, kp.x) ||
+                                               pano.surfaceNormals(kp.y,
+                                                                   kp.x) ==
+                                                   Eigen::Vector3f::Zero();
+                                      }),
+                       pano.keypoints.end());
 
   // pano.imgs[0] =
   //     cv::Mat(scaledPTX.size(), scaledPTX.type(), cv::Scalar::all(0));
@@ -874,11 +857,6 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
                                                  domZs.minCoeff()))) *
       voxelsPerMeter;
 
-  if (!FLAGS_quietMode) {
-    std::cout << hMax << std::endl;
-    std::cout << domZs.maxCoeff() << "  " << domZs.minCoeff() << std::endl;
-  }
-
   const double hMin =
       std::min(1.8, 0.5 * std::abs(domZs.maxCoeff() - domZs.minCoeff())) *
       voxelsPerMeter;
@@ -1025,9 +1003,6 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
 
         doors.emplace_back(current / voxelsPerMeter, axis, M1,
                            h / voxelsPerMeter, w / voxelsPerMeter);
-
-        if (!FLAGS_quietMode)
-          std::cout << "Door found!" << std::endl;
       }
     }
   }
@@ -1036,18 +1011,17 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
   for (auto &d : doors)
     heights.push_back(d.h);
 
-  auto t = place::aveAndStdev(heights.begin(), heights.end());
+  auto t = utils::aveAndStdev(heights);
 
   double ave, sigma;
   std::tie(ave, sigma) = t;
 
-  if (!FLAGS_quietMode)
-    std::cout << "Culling inconsistent heights: " << t << std::endl;
+  LOG(INFO) << "Culling inconsistent heights: " << t << std::endl;
 
-  doors.erase(std::remove_if(
-                  doors.begin(), doors.end(),
-                  [&](auto &d) { return std::abs(d.h - ave) / sigma > 1.0; }),
-              doors.end());
+  doors.erase(
+      std::remove_if(
+          doors, [&](auto &d) { return std::abs(d.h - ave) / sigma > 1.0; }),
+      doors.end());
 
   if (FLAGS_save) {
     int numDoors = doors.size();

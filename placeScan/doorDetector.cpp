@@ -187,14 +187,13 @@ void place::DoorDetector::run(
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
   }
 
-  std::sort(minima.begin(), minima.end(),
-            [](const place::posInfo *a, const place::posInfo *b) {
-              return (a->score < b->score);
-            });
+  std::sort(minima, [](const place::posInfo *a, const place::posInfo *b) {
+    return (a->score < b->score);
+  });
 
   double average, sigma;
-  std::tie(average, sigma) = place::aveAndStdev(
-      minima.begin(), minima.end(), [](auto &m) { return m->score; });
+  std::tie(average, sigma) =
+      utils::aveAndStdev(minima, [](auto &m) { return m->score; });
 
   cv::Mat_<cv::Vec3b> out = fpColor.clone();
   Eigen::RowMatrixXb denseMap =

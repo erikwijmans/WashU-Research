@@ -5,7 +5,9 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Sparse>
 #include <eigen3/Eigen/StdVector>
+#include <fmt/format.h>
 #include <fstream>
+#include <glog/logging.h>
 #include <iostream>
 #include <memory>
 #include <opencv2/highgui.hpp>
@@ -16,6 +18,7 @@
 #include <omp.h>
 
 #define NUM_ROTS 4
+using namespace fmt::literals;
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double maxPhi = 2.61946;
@@ -278,44 +281,6 @@ struct Panorama {
   const cv::Mat &operator[](int n);
 };
 
-template <class It, class UnaryFunc, class UnaryPredicate>
-std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
-                                       UnaryPredicate filter) {
-  double average = 0;
-  int count = 0;
-  std::for_each(first, last, [&](auto &e) {
-    if (filter(e)) {
-      auto val = selector(e);
-      if (Eigen::numext::isfinite(val)) {
-        average += val;
-        ++count;
-      }
-    }
-  });
-  average /= count;
-
-  double sigma = 0;
-  std::for_each(first, last, [&](auto &e) {
-    if (filter(e)) {
-      auto val = selector(e);
-      if (Eigen::numext::isfinite(val))
-        sigma += (val - average) * (val - average);
-    }
-  });
-  sigma /= count - 1;
-  sigma = std::sqrt(sigma);
-  return std::make_tuple(average, sigma);
-}
-
-template <class It, class UnaryFunc>
-std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector) {
-  return aveAndStdev(first, last, selector, [](auto &e) { return true; });
-}
-
-template <class It> std::tuple<double, double> aveAndStdev(It first, It last) {
-  return aveAndStdev(first, last, [](auto &e) { return e; });
-}
-
 struct Door {
   Eigen::Vector3d corner;
   Eigen::Vector3d xAxis;
@@ -471,6 +436,82 @@ inline bool fexists(const std::string &file) {
   std::ifstream in(file, std::ios::in);
   return in.is_open();
 }
+
+/* Light wrappers to the functional programming functions so they only take
+   an iterable instead of two iterators */
+namespace std {
+template <class Iterable, class UnaryFunction>
+UnaryFunction for_each(Iterable &i, UnaryFunction f) {
+  return for_each(i.begin(), i.end(), f);
+}
+
+template <class Iterable, class UnaryPredicate>
+auto remove_if(Iterable &i, UnaryPredicate p) {
+  return remove_if(i.begin(), i.end(), p);
+}
+
+template <class Iterable, class Compare> void sort(Iterable &i, Compare comp) {
+  sort(i.begin(), i.end(), comp);
+}
+
+template <class Iterable> void sort(Iterable &i) { sort(i.begin(), i.end()); }
+} // std
+
+namespace utils {
+template <class It, class UnaryFunc, class UnaryPredicate>
+std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector,
+                                       UnaryPredicate filter) {
+  double average = 0;
+  int count = 0;
+  std::for_each(first, last, [&](auto &e) {
+    if (filter(e)) {
+      auto val = selector(e);
+      if (Eigen::numext::isfinite(val)) {
+        average += val;
+        ++count;
+      }
+    }
+  });
+  average /= count;
+
+  double sigma = 0;
+  std::for_each(first, last, [&](auto &e) {
+    if (filter(e)) {
+      auto val = selector(e);
+      if (Eigen::numext::isfinite(val))
+        sigma += (val - average) * (val - average);
+    }
+  });
+  sigma /= count - 1;
+  sigma = std::sqrt(sigma);
+  return std::make_tuple(average, sigma);
+}
+
+template <class Iterable, class UnaryFunc, class UnaryPredicate>
+std::tuple<double, double> aveAndStdev(Iterable &i, UnaryFunc selector,
+                                       UnaryPredicate filter) {
+  return aveAndStdev(i.begin(), i.end(), selector, filter);
+}
+
+template <class It, class UnaryFunc>
+std::tuple<double, double> aveAndStdev(It first, It last, UnaryFunc selector) {
+  return aveAndStdev(first, last, selector, [](auto &e) { return true; });
+}
+
+template <class Iterable, class UnaryFunc>
+std::tuple<double, double> aveAndStdev(Iterable &i, UnaryFunc selector) {
+  return aveAndStdev(i.begin(), i.end(), selector);
+}
+
+template <class It> std::tuple<double, double> aveAndStdev(It first, It last) {
+  return aveAndStdev(first, last, [](auto &e) { return e; });
+}
+
+template <class Iterable> std::tuple<double, double> aveAndStdev(Iterable &i) {
+  return aveAndStdev(i.begin(), i.end());
+}
+
+} // utils
 
 namespace std {
 template <typename _Scalar, int _Rows, int _Cols, int _Options, int _MaxRows,

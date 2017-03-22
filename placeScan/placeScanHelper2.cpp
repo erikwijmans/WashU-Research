@@ -31,7 +31,7 @@ static void displayCollapsed(T &collapsed, const std::string &windowName) {
   double average, sigma;
   const auto dataPtr = collapsed.data();
   std::tie(average, sigma) =
-      place::aveAndStdev(dataPtr, dataPtr + collapsed.size(),
+      utils::aveAndStdev(dataPtr, dataPtr + collapsed.size(),
                          [](auto &v) { return v; }, [](auto &v) { return v; });
 
   cv::Mat heatMap(collapsed.rows(), collapsed.cols(), CV_8UC3,
@@ -99,12 +99,12 @@ static void displayCollapsed(const T &collapsedA, const S &collapsedB,
   double averageA, sigmaA, averageB, sigmaB;
   const auto dataPtrA = collapsedA.data();
   std::tie(averageA, sigmaA) =
-      place::aveAndStdev(dataPtrA, dataPtrA + collapsedA.size(),
+      utils::aveAndStdev(dataPtrA, dataPtrA + collapsedA.size(),
                          [](auto &v) { return v; }, [](auto &v) { return v; });
 
   const auto dataPtrB = collapsedB.data();
   std::tie(averageB, sigmaB) =
-      place::aveAndStdev(dataPtrB, dataPtrB + collapsedB.size(),
+      utils::aveAndStdev(dataPtrB, dataPtrB + collapsedB.size(),
                          [](auto &v) { return v; }, [](auto &v) { return v; });
 
   cv::Mat heatMap(Xrows, Xcols, CV_8UC3, cv::Scalar::all(255));
@@ -494,8 +494,7 @@ void place::loadInPlacementGraph(const std::string &imageName,
 
   double average, sigma;
   std::tie(average, sigma) =
-      place::aveAndStdev(nodestmp.begin(), nodestmp.end(),
-                         [](const place::node &n) { return n.w; });
+      utils::aveAndStdev(nodestmp, [](const place::node &n) { return n.w; });
 
   for (auto &n : nodestmp)
     n.nw = (n.w - average) / sigma;

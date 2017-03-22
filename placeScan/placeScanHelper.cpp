@@ -613,7 +613,7 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
 
   double average = 0.0, sigma = 0.0;
   const int *countPerLabelPtr = countPerLabel.data();
-  std::tie(average, sigma) = place::aveAndStdev(
+  std::tie(average, sigma) = utils::aveAndStdev(
       countPerLabelPtr + 1, countPerLabelPtr + countPerLabel.size());
 
   double threshHold = average;

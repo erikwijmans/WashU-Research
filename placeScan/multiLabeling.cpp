@@ -126,9 +126,8 @@ static void exclusionLite(
 static void unlockNodes(std::vector<place::SelectedNode> &nodes) {
 
   double average, sigma;
-  std::tie(average, sigma) = place::aveAndStdev(
-      nodes.begin(), nodes.end(),
-      [](const place::SelectedNode &n) { return n.agreement; },
+  std::tie(average, sigma) = utils::aveAndStdev(
+      nodes, [](const place::SelectedNode &n) { return n.agreement; },
       [](const place::SelectedNode &n) {
         return n.locked && n.numberOfCandidates > 1;
       });

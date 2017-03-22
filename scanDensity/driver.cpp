@@ -24,6 +24,7 @@ void saveDoors(const std::vector<std::vector<place::Door>> &doors,
 static constexpr double voxelsPerMeter = 20.0;
 
 int main(int argc, char *argv[]) {
+  google::InitGoogleLogging(argv[0]);
   DensityMapsManager manager(argc, argv);
 
   boost::progress_display *show_progress = nullptr;
@@ -141,13 +142,15 @@ int main(int argc, char *argv[]) {
 
 void saveImages(const std::vector<cv::Mat> &images,
                 const std::vector<std::string> &names) {
-  assert(names.size() == images.size());
+  CHECK(images.size() == names.size()) << "More images than names to save as!"
+                                       << std::endl;
   for (int i = 0; i < names.size(); ++i)
     cv::imwrite(names[i], images[i]);
 }
 
 void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name) {
   std::ofstream out(name, std::ios::out | std::ios::binary);
+  CHECK(out.is_open()) << "Could not open " << name << std::endl;
   for (int i = 0; i < NUM_ROTS; ++i)
     out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
   out.close();
@@ -156,6 +159,7 @@ void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name) {
 void saveDoors(const std::vector<std::vector<place::Door>> &doors,
                const std::string &name) {
   std::ofstream out(name, std::ios::out | std::ios::binary);
+  CHECK(out.is_open()) << "Could not open " << name << std::endl;
   for (auto &ds : doors) {
     int num = ds.size();
     out.write(reinterpret_cast<const char *>(&num), sizeof(num));

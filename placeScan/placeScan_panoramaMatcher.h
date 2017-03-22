@@ -4,10 +4,10 @@
 
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/StdVector>
+#include <etw_utils.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <scan_typedefs.hpp>
 
 namespace pano {
 

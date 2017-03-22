@@ -2,8 +2,8 @@
 #ifndef PREPROCESSOR_H
 #define PREPROCESSOR_H
 
+#include <etw_utils.hpp>
 #include <scan_gflags.h>
-#include <scan_typedefs.hpp>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>

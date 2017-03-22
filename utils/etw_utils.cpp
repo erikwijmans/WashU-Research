@@ -1,10 +1,12 @@
-#include "scan_typedefs.hpp"
+#include "etw_utils.hpp"
 #include <locale>
 #include <opencv2/core.hpp>
 
 double BuildingScale::getScale() {
   if (this->scale == -1) {
     std::ifstream in(FLAGS_dataPath + "/scale.txt");
+    CHECK(in.is_open()) << "Could not open " << FLAGS_dataPath << "/scale.txt"
+                        << std::endl;
     in >> this->scale;
     in.close();
   }
@@ -14,6 +16,8 @@ double BuildingScale::getScale() {
 void BuildingScale::update(double scale) {
   this->scale = scale;
   std::ofstream out(FLAGS_dataPath + "/scale.txt");
+  CHECK(out.is_open()) << "Could not open " << FLAGS_dataPath << "/scale.txt"
+                       << std::endl;
   out << scale;
   out.close();
 }
@@ -269,10 +273,8 @@ size_t std::hash<place::posInfo>::operator()(const place::posInfo &e) const {
 }
 
 std::ostream &place::operator<<(std::ostream &os, const place::cube &print) {
-  os << "(" << print.X1 << ", " << print.Y1 << ", " << print.Z1 << ")"
-     << std::endl;
-  os << "      "
-     << "(" << print.X2 << ", " << print.Y2 << ", " << print.Z2 << ")";
+  os << "({}, {}, {})"_format(print.X1, print.Y1, print.Z1) << std::endl
+     << "({}, {}, {})"_format(print.X2, print.Y2, print.Z2);
   return os;
 }
 

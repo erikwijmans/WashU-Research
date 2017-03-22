@@ -68,11 +68,10 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   if (FLAGS_numScans == -1)
     FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
 
-  if (FLAGS_startIndex + FLAGS_numScans > binaryNames.size() ||
-      FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size()) {
-    std::cout << "Not enough binary or rot files" << std::endl;
-    exit(1);
-  }
+  CHECK(FLAGS_startIndex + FLAGS_numScans > binaryNames.size())
+      << "Not enough binary files" << std::endl;
+  CHECK(FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size())
+      << "Not enough rotations files" << std::endl;
   this->current = FLAGS_startIndex;
 }
 
@@ -87,10 +86,11 @@ void DensityMapsManager::run() {
   if (!FLAGS_redo && exists2D() && exists3D() && existsDoors())
     return;
 
-  if (!FLAGS_quietMode)
-    std::cout << scanNumber << std::endl;
+  LOG(INFO) << "Working on number " << scanNumber << std::endl;
 
   std::ifstream binaryReader(rotationFile, std::ios::in | std::ios::binary);
+  CHECK(binaryReader.is_open()) << "Could not open " << rotationFile
+                                << std::endl;
   R = std::make_shared<std::vector<Eigen::Matrix3d>>(4);
   for (int i = 0; i < R->size(); ++i) {
     binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
@@ -99,6 +99,7 @@ void DensityMapsManager::run() {
   binaryReader.close();
 
   binaryReader.open(doorName, std::ios::in | std::ios::binary);
+  CHECK(binaryReader.is_open()) << "Could not open " << doorName << std::endl;
   int num;
   binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
   doors = std::make_shared<std::vector<place::Door>>(num);
@@ -107,6 +108,7 @@ void DensityMapsManager::run() {
   binaryReader.close();
 
   binaryReader.open(fileName, std::ios::in | std::ios::binary);
+  CHECK(binaryReader.is_open()) << "Could not open " << fileName << std::endl;
 
   int columns, rows;
   binaryReader.read(reinterpret_cast<char *>(&columns), sizeof(int));
@@ -325,7 +327,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
     double average, sigma;
     const float *dataPtr = total.data();
-    std::tie(average, sigma) = place::aveAndStdev(
+    std::tie(average, sigma) = utils::aveAndStdev(
         dataPtr, dataPtr + total.size(), [](auto v) { return v; },
         [](auto v) -> bool { return v; });
 
@@ -451,7 +453,7 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
 
     double average, sigma;
     const double *vPtr = collapsedCount.data();
-    std::tie(average, sigma) = place::aveAndStdev(
+    std::tie(average, sigma) = utils::aveAndStdev(
         vPtr, vPtr + collapsedCount.size(), [](double v) { return v; },
         [](double v) -> bool { return v; });
 

@@ -11,10 +11,10 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Sparse>
 #include <eigen3/Eigen/StdVector>
+#include <etw_utils.hpp>
 #include <gflags/gflags.h>
 #include <iostream>
 #include <opencv2/core.hpp>
-#include <scan_typedefs.hpp>
 
 extern const double maxDelta, maxTotal;
 

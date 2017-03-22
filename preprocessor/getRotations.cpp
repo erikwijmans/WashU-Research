@@ -56,14 +56,12 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   for (auto &n : *cloud_normals)
     normals.emplace_back(n.normal_x, n.normal_y, n.normal_z);
 
-  if (!FLAGS_quietMode)
-    std::cout << "N size: " << normals.size() << std::endl;
+  VLOG(1) << "N size: " << normals.size() << std::endl;
 
   std::vector<Eigen::Vector3d> M(3);
   satoshiRansacManhattan1(normals, M[0]);
-  if (!FLAGS_quietMode) {
-    std::cout << "D1: " << M[0] << std::endl << std::endl;
-  }
+
+  LOG(INFO) << "D1: " << M[0] << std::endl << std::endl;
 
   // NB: Select normals that are perpendicular to the first
   // dominate direction
@@ -72,15 +70,12 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
     if (std::asin(n.cross(M[0]).norm()) > PI / 2.0 - 0.02)
       N2.push_back(n);
 
-  if (!FLAGS_quietMode)
-    std::cout << "N2 size: " << N2.size() << std::endl;
+  VLOG(1) << "N2 size: " << N2.size() << std::endl;
 
   satoshiRansacManhattan2(N2, M[0], M[1], M[2]);
 
-  if (!FLAGS_quietMode) {
-    std::cout << "D2: " << M[1] << std::endl << std::endl;
-    std::cout << "D3: " << M[2] << std::endl << std::endl;
-  }
+  LOG(INFO) << "D2: " << M[1] << std::endl << std::endl;
+  LOG(INFO) << "D3: " << M[2] << std::endl << std::endl;
 
   if (std::abs(M[0][2]) > 0.5) {
     M1 = M[0];
@@ -106,10 +101,8 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
   getMajorAngles(M1, M2, M3, R);
 
-  if (!FLAGS_quietMode) {
-    for (auto &r : R)
-      std::cout << r << std::endl << std::endl;
-  }
+  for (auto &r : R)
+    LOG(INFO) << r << std::endl << std::endl;
 
   if (FLAGS_save) {
     std::ofstream binaryWriter(outName, std::ios::out | std::ios::binary);

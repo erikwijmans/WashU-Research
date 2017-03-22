@@ -2,7 +2,7 @@
 #ifndef PLACESCAN_PLACE_SCAN_H_
 #define PLACESCAN_PLACE_SCAN_H_
 
-#include <scan_typedefs.hpp>
+#include <etw_utils.hpp>
 
 #include "placeScan_doorDetector.h"
 #include "placeScan_placeScanHelper.h"

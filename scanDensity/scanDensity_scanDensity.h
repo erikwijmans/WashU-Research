@@ -16,8 +16,9 @@
 #include <time.h>
 
 #include <DirectVoxel.hpp>
+#include <etw_utils.hpp>
+#include <glog/logging.h>
 #include <scan_gflags.h>
-#include <scan_typedefs.hpp>
 
 class DensityMapsManager {
 public:

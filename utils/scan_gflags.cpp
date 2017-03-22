@@ -1,4 +1,5 @@
 #include "scan_gflags.h"
+#include <etw_utils.hpp>
 
 #include <iostream>
 
@@ -91,7 +92,7 @@ void prependDataPath() {
 void parseFolder(const std::string &name, std::vector<std::string> &out) {
   for (auto &file : folderToIterator(name))
     out.push_back(file.path().filename().string());
-  std::sort(out.begin(), out.end());
+  std::sort(out);
 }
 
 boost::filesystem::directory_iterator

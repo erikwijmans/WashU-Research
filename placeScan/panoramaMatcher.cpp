@@ -2,7 +2,6 @@
 #include "placeScan_placeScanHelper2.h"
 
 #include <iostream>
-#include <scan_typedefs.hpp>
 
 static constexpr int NCCSize = 11;
 static_assert(NCCSize % 2 == 1, "NCCSize isn't odd");

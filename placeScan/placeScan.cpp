@@ -13,6 +13,7 @@
 #include <boost/progress.hpp>
 #include <boost/timer/timer.hpp>
 
+#include <glog/logging.h>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -36,6 +37,7 @@ static constexpr int searchKernelSize = errosionKernelSize + 2;
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
+  google::InitGoogleLogging(argv[0]);
 
   if (!FLAGS_V1 && !FLAGS_V2)
     FLAGS_V1 = FLAGS_V2 = true;
@@ -452,10 +454,9 @@ void place::analyzePlacement(
 #endif
   }
 
-  std::sort(minima.begin(), minima.end(),
-            [](const place::posInfo *a, const place::posInfo *b) {
-              return (a->score < b->score);
-            });
+  std::sort(minima, [](const place::posInfo *a, const place::posInfo *b) {
+    return (a->score < b->score);
+  });
 
   if (timer)
     delete timer;
@@ -485,9 +486,8 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
                hardX = maps.exclusionSize * hardFactor;
 
   double averageScore, sigScore;
-  std::tie(averageScore, sigScore) =
-      place::aveAndStdev(scores.begin(), scores.end(),
-                         [](const place::posInfo &s) { return s.score; });
+  std::tie(averageScore, sigScore) = utils::aveAndStdev(
+      scores, [](const place::posInfo &s) { return s.score; });
 
   if (!FLAGS_quietMode) {
     std::cout << "Average         Sigma" << std::endl;

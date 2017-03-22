@@ -5,7 +5,6 @@
 #include "placeScan_placeScanHelper.h"
 
 #include <FeatureVoxel.hpp>
-#include <scan_typedefs.hpp>
 
 DECLARE_int32(graphColor);
 

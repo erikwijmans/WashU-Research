@@ -10,16 +10,7 @@
 #include <opencv2/core.hpp>
 #include <unordered_map>
 
-#include <scan_gflags.h>
-#include <scan_typedefs.hpp>
-
 namespace place {
-void createHigherOrderTerms(
-    const std::vector<std::vector<Eigen::MatrixXb>> &scans,
-    const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
-    const std::vector<place::R2Node> &nodes,
-    const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors,
-    multi::Labeler::HighOrder &highOrder);
 
 void createHigherOrderTermsV2(
     const std::vector<std::vector<Eigen::MatrixXb>> &freeSpace,

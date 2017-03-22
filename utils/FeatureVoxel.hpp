@@ -1,10 +1,11 @@
+#pragma once
 #ifndef FEATURE_VOXEL_HPP
 #define FEATURE_VOXEL_HPP
 
+#include <etw_utils.hpp>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <scan_typedefs.hpp>
 #include <vector>
 
 namespace voxel {

@@ -3,8 +3,8 @@
 #define DIRECT_VOXEL_HPP
 
 #include <eigen3/Eigen/Eigen>
+#include <etw_utils.hpp>
 #include <memory>
-#include <scan_typedefs.hpp>
 #include <vector>
 
 namespace voxel {
