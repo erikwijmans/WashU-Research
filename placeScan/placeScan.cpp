@@ -595,11 +595,11 @@ void place::trimScanPryamids(
         for (Eigen::SparseMatrix<double>::InnerIterator it(scanThreshHolded, k);
              it; ++it) {
           if (it.value() != 0) {
-            maxRow = std::max(maxRow, it.row());
-            minRow = std::min(minRow, it.row());
+            maxRow = std::max(maxRow, int(it.row()));
+            minRow = std::min(minRow, int(it.row()));
 
-            maxCol = std::max(maxCol, it.col());
-            minCol = std::min(minCol, it.col());
+            maxCol = std::max(maxCol, int(it.col()));
+            minCol = std::min(minCol, int(it.col()));
           }
         }
       }
