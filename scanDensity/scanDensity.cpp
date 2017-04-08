@@ -52,11 +52,11 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   if (!FLAGS_pe && !FLAGS_fe)
     FLAGS_pe = FLAGS_fe = true;
 
-  parseFolder(FLAGS_binaryFolder, binaryNames);
-  parseFolder(FLAGS_rotFolder, rotationsFiles);
-  parseFolder(FLAGS_doorsFolder + "/pointcloud", doorsNames);
+  utils::parse_folder(FLAGS_binaryFolder, binaryNames);
+  utils::parse_folder(FLAGS_rotFolder, rotationsFiles);
+  utils::parse_folder(FLAGS_doorsFolder + "/pointcloud", doorsNames);
 
-  std::string buildName = rotationsFiles[0].substr(0, 3);
+  auto[buildName, tmp] = parse_name(rotationsFiles[0]);
 
   if (FLAGS_scale == -1) {
     FLAGS_scale = buildingScale.getScale();
@@ -76,21 +76,21 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
 }
 
 void DensityMapsManager::run() {
-  rotationFile = FLAGS_rotFolder + rotationsFiles[current];
-  fileName = FLAGS_binaryFolder + binaryNames[current];
-  doorName = FLAGS_doorsFolder + "/pointcloud/" + doorsNames[current];
+  rotationFile = fs::path(FLAGS_rotFolder) / rotationsFiles[current];
+  fileName = fs::path(FLAGS_binaryFolder) / binaryNames[current];
+  doorName = fs::path(FLAGS_doorsFolder) / "pointcloud" / doorsNames[current];
 
-  scanNumber = fileName.substr(fileName.find(".") - 3, 3);
-  buildName = fileName.substr(fileName.rfind("/") + 1, 3);
+  std::tie(scanNumber, buildName) = parse_name(fileName);
 
   if (!FLAGS_redo && exists2D() && exists3D() && existsDoors())
     return;
 
   LOG(INFO) << "Working on number " << scanNumber << std::endl;
 
-  std::ifstream binaryReader(rotationFile, std::ios::in | std::ios::binary);
-  CHECK(binaryReader.is_open()) << "Could not open " << rotationFile
-                                << std::endl;
+  CHECK(fs::exists(rotationFile))
+      << "Could not open " << rotationFile << std::endl;
+  std::ifstream binaryReader(rotationFile.string(),
+                             std::ios::in | std::ios::binary);
   R = std::make_shared<std::vector<Eigen::Matrix3d>>(4);
   for (int i = 0; i < R->size(); ++i) {
     binaryReader.read(reinterpret_cast<char *>(R->at(i).data()),
@@ -98,8 +98,8 @@ void DensityMapsManager::run() {
   }
   binaryReader.close();
 
-  binaryReader.open(doorName, std::ios::in | std::ios::binary);
-  CHECK(binaryReader.is_open()) << "Could not open " << doorName << std::endl;
+  CHECK(fs::exists(doorName)) << "Could not open " << doorName << std::endl;
+  binaryReader.open(doorName.string(), std::ios::in | std::ios::binary);
   int num;
   binaryReader.read(reinterpret_cast<char *>(&num), sizeof(num));
   doors = std::make_shared<std::vector<place::Door>>(num);
@@ -107,8 +107,8 @@ void DensityMapsManager::run() {
     d.loadFromFile(binaryReader);
   binaryReader.close();
 
-  binaryReader.open(fileName, std::ios::in | std::ios::binary);
-  CHECK(binaryReader.is_open()) << "Could not open " << fileName << std::endl;
+  CHECK(fs::exists(fileName)) << "Could not open " << fileName << std::endl;
+  binaryReader.open(fileName.string(), std::ios::in | std::ios::binary);
 
   int columns, rows;
   binaryReader.read(reinterpret_cast<char *>(&columns), sizeof(int));
@@ -143,74 +143,75 @@ bool DensityMapsManager::hasNext() {
 
 void DensityMapsManager::setNext() { ++current; }
 
-void DensityMapsManager::get2DPointNames(std::vector<std::string> &names) {
+void DensityMapsManager::get2DPointNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
-    names.push_back(FLAGS_dmFolder + "R" + std::to_string(r) + "/" + buildName +
-                    "_point_" + scanNumber + ".png");
+    names.push_back(fs::path(FLAGS_dmFolder) / "R{}"_format(r) /
+                    "{}_point_{}.png"_format(buildName, scanNumber));
   }
 }
 
-void DensityMapsManager::get3DPointNames(std::vector<std::string> &names) {
+void DensityMapsManager::get3DPointNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
-    names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r) + "/" +
-                    buildName + "_point_" + scanNumber + ".dat");
+    names.push_back(fs::path(FLAGS_voxelFolder) / "R{}"_format(r) /
+                    "{}_point_{}.dat"_format(buildName, scanNumber));
   }
 }
 
-void DensityMapsManager::get2DFreeNames(std::vector<std::string> &names) {
+void DensityMapsManager::get2DFreeNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
-    names.push_back(FLAGS_dmFolder + "R" + std::to_string(r) + "/" + buildName +
-                    "_freeSpace_" + scanNumber + ".png");
+    names.push_back(fs::path(FLAGS_voxelFolder) / "R{}"_format(r) /
+                    "{}_freeSpace_{}.dat"_format(buildName, scanNumber));
   }
 }
 
-void DensityMapsManager::get3DFreeNames(std::vector<std::string> &names) {
+void DensityMapsManager::get3DFreeNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
-    names.push_back(FLAGS_voxelFolder + "R" + std::to_string(r) + "/" +
-                    buildName + "_freeSpace_" + scanNumber + ".dat");
+    names.push_back(fs::path(FLAGS_dmFolder) / "R{}"_format(r) /
+                    "{}_freeSpace_{}.png"_format(buildName, scanNumber));
   }
 }
 
-std::string DensityMapsManager::getZerosName() {
-  return FLAGS_zerosFolder + buildName + "_zeros_" + scanNumber + ".dat";
+fs::path DensityMapsManager::getZerosName() {
+  return fs::path(FLAGS_zerosFolder) /
+         "{}_zeros_{}.dat"_format(buildName, scanNumber);
 }
 
-std::string DensityMapsManager::getDoorsName() {
-  return FLAGS_doorsFolder + "floorplan/" + buildName + "_doors_" + scanNumber +
-         ".dat";
+fs::path DensityMapsManager::getDoorsName() {
+  return fs::path(FLAGS_doorsFolder) / "floorplan" /
+         "{}_doors_{}.dat"_format(buildName, scanNumber);
 }
 
-std::string DensityMapsManager::getMetaDataName() {
-  return FLAGS_voxelFolder + "metaData/" + buildName + "_metaData_" +
-         scanNumber + ".dat";
+fs::path DensityMapsManager::getMetaDataName() {
+  return fs::path(FLAGS_voxelFolder) / "metaData" /
+         "{}_metaData_{}.dat"_format(buildName, scanNumber);
 }
 
 bool DensityMapsManager::exists2D() {
-  std::vector<std::string> names;
+  std::vector<fs::path> names;
   if (FLAGS_pe)
     get2DPointNames(names);
   if (FLAGS_fe)
     get2DFreeNames(names);
   for (auto &n : names)
-    if (!fexists(n))
+    if (!fs::exists(n))
       return false;
   return true;
 }
 
 bool DensityMapsManager::exists3D() {
-  std::vector<std::string> names;
+  std::vector<fs::path> names;
   if (FLAGS_pe)
     get3DPointNames(names);
   if (FLAGS_fe)
     get3DFreeNames(names);
 
   for (auto &n : names)
-    if (!fexists(n))
+    if (!fs::exists(n))
       return false;
   return true;
 }
 
-bool DensityMapsManager::existsDoors() { return fexists(getDoorsName()); }
+bool DensityMapsManager::existsDoors() { return fs::exists(getDoorsName()); }
 
 BoundingBox::BoundingBox(
     const std::shared_ptr<const std::vector<Eigen::Vector3f>> &points,
@@ -325,10 +326,9 @@ void CloudAnalyzer2D::examinePointEvidence() {
       }
     }
 
-    double average, sigma;
     const float *dataPtr = total.data();
-    std::tie(average, sigma) = utils::aveAndStdev(
-        dataPtr, dataPtr + total.size(), [](auto v) { return v; },
+    auto[average, sigma] = utils::ave_and_stdev(
+        dataPtr, dataPtr + total.size(), 0.0, [](auto v) { return v; },
         [](auto v) -> bool { return v; });
 
     cv::Mat heatMap(newRows, newCols, CV_8UC1, cv::Scalar::all(255));
@@ -365,7 +365,7 @@ void CloudAnalyzer2D::examinePointEvidence() {
 
         double w = d.w * FLAGS_scale;
 
-        auto color = randomColor();
+        auto color = utils::randomColor();
         for (int i = 0; i < w; ++i) {
           Eigen::Vector3d pix =
               (bl + i * xAxis + i * zAxis + newZZ).unaryExpr([](auto v) {
@@ -451,10 +451,9 @@ void CloudAnalyzer2D::examineFreeSpaceEvidence() {
       }
     }
 
-    double average, sigma;
     const double *vPtr = collapsedCount.data();
-    std::tie(average, sigma) = utils::aveAndStdev(
-        vPtr, vPtr + collapsedCount.size(), [](double v) { return v; },
+    auto[average, sigma] = utils::ave_and_stdev(
+        vPtr, vPtr + collapsedCount.size(), 0.0, [](double v) { return v; },
         [](double v) -> bool { return v; });
 
     cv::Mat heatMap(newRows, newCols, CV_8UC1, cv::Scalar::all(255));

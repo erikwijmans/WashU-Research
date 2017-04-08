@@ -5,7 +5,6 @@
 #include <fstream>
 #include <iostream>
 
-#include <boost/progress.hpp>
 #include <boost/timer/timer.hpp>
 
 #include <opencv2/core/eigen.hpp>
@@ -28,11 +27,9 @@ DEFINE_int32(graphColor, -1, "Color of the graph to display");
 
 template <typename T>
 static void displayCollapsed(T &collapsed, const std::string &windowName) {
-  double average, sigma;
   const auto dataPtr = collapsed.data();
-  std::tie(average, sigma) =
-      utils::aveAndStdev(dataPtr, dataPtr + collapsed.size(),
-                         [](auto &v) { return v; }, [](auto &v) { return v; });
+  auto[average, sigma] =
+      utils::ave_and_stdev(dataPtr, dataPtr + collapsed.size());
 
   cv::Mat heatMap(collapsed.rows(), collapsed.cols(), CV_8UC3,
                   cv::Scalar::all(255));
@@ -96,16 +93,13 @@ static void displayCollapsed(const T &collapsedA, const S &collapsedB,
   const int Xrows = aRect.Y2 - aRect.Y1 + 1;
   const int Xcols = aRect.X2 - aRect.X1 + 1;
 
-  double averageA, sigmaA, averageB, sigmaB;
   const auto dataPtrA = collapsedA.data();
-  std::tie(averageA, sigmaA) =
-      utils::aveAndStdev(dataPtrA, dataPtrA + collapsedA.size(),
-                         [](auto &v) { return v; }, [](auto &v) { return v; });
+  auto[averageA, sigmaA] =
+      utils::ave_and_stdev(dataPtrA, dataPtrA + collapsedA.size());
 
   const auto dataPtrB = collapsedB.data();
-  std::tie(averageB, sigmaB) =
-      utils::aveAndStdev(dataPtrB, dataPtrB + collapsedB.size(),
-                         [](auto &v) { return v; }, [](auto &v) { return v; });
+  auto[averageB, sigmaB] =
+      utils::ave_and_stdev(dataPtrB, dataPtrB + collapsedB.size());
 
   cv::Mat heatMap(Xrows, Xcols, CV_8UC3, cv::Scalar::all(255));
   for (int i = 0; i < heatMap.rows; ++i) {
@@ -204,16 +198,16 @@ static void displayVoxelGridS(const TA &voxelA, const TB &voxelB,
 }
 
 void place::loadInScansGraph(
-    const std::vector<std::string> &pointFileNames,
-    const std::vector<std::string> &freeFileNames,
-    const std::vector<std::string> &zerosFileNames,
+    const std::vector<fs::path> &pointFileNames,
+    const std::vector<fs::path> &freeFileNames,
+    const std::vector<fs::path> &zerosFileNames,
     std::vector<std::vector<Eigen::MatrixXb>> &scans,
     std::vector<std::vector<Eigen::MatrixXb>> &masks,
     std::vector<std::vector<Eigen::Vector2i>> &zeroZeros) {
   for (int i = 0; i < zeroZeros.size(); ++i) {
-    const std::string scanName = pointFileNames[i];
-    const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
-    const std::string maskName = freeFileNames[i];
+    const auto &scanName = pointFileNames[i];
+    const auto &zerosFile = zerosFileNames[i];
+    const auto &maskName = freeFileNames[i];
 
     std::vector<cv::Mat> toTrimScans, toTrimMasks, trimmedScans, trimmedMasks,
         toTrimMasksD;
@@ -277,8 +271,8 @@ template <> struct hash<std::pair<int, int>> {
 void place::weightEdges(
     const std::vector<place::node> &nodes,
     const std::vector<std::vector<place::MetaData>> &voxelInfo,
-    const std::vector<std::string> &pointVoxelFileNames,
-    const std::vector<std::string> &freeVoxelFileNames,
+    const std::vector<fs::path> &pointVoxelFileNames,
+    const std::vector<fs::path> &freeVoxelFileNames,
     const std::vector<std::vector<Eigen::Matrix3d>> &rotationMatricies,
     std::vector<place::Panorama> &panoramas, Eigen::MatrixXE &adjacencyMatrix) {
   adjacencyMatrix = Eigen::MatrixXE(nodes.size(), nodes.size());
@@ -365,12 +359,12 @@ void place::weightEdges(
 
     auto loaded = pointGrids.find(a);
     if (loaded == pointGrids.cend()) {
-      std::string name = FLAGS_voxelFolder + "R" +
-                         std::to_string(nodeA.rotation) + "/" +
-                         pointVoxelFileNames[nodeA.color];
+      fs::path name = fs::path(FLAGS_voxelFolder) /
+                      "R{}"_format(nodeA.rotation) /
+                      pointVoxelFileNames[nodeA.color];
       pointGrids.emplace(a, loadInVoxel(name));
 
-      name = FLAGS_voxelFolder + "R" + std::to_string(nodeA.rotation) + "/" +
+      name = fs::path(FLAGS_voxelFolder) / "R{}"_format(nodeA.rotation) /
              freeVoxelFileNames[nodeA.color];
       freeGrids.emplace(a, loadInVoxel(name));
     }
@@ -378,20 +372,20 @@ void place::weightEdges(
     auto b = std::make_pair(nodeB.color, nodeB.rotation);
     loaded = pointGrids.find(b);
     if (loaded == pointGrids.cend()) {
-      std::string name = FLAGS_voxelFolder + "R" +
-                         std::to_string(nodeB.rotation) + "/" +
-                         pointVoxelFileNames[nodeB.color];
+      fs::path name = fs::path(FLAGS_voxelFolder) /
+                      "R{}"_format(nodeB.rotation) /
+                      pointVoxelFileNames[nodeB.color];
       pointGrids.emplace(b, loadInVoxel(name));
 
-      name = FLAGS_voxelFolder + "R" + std::to_string(nodeB.rotation) + "/" +
+      name = fs::path(FLAGS_voxelFolder) / "R{}"_format(nodeB.rotation) /
              freeVoxelFileNames[nodeB.color];
       freeGrids.emplace(b, loadInVoxel(name));
     }
   }
 
   std::cout << tracker.size() << std::endl;
-  boost::progress_display *show_progress =
-      new boost::progress_display(tracker.size());
+  utils::progress_display *show_progress =
+      new utils::progress_display(tracker.size());
   boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer();
 
   for (int k = 0; k < tracker.size(); ++k) {
@@ -465,13 +459,14 @@ void place::weightEdges(
       adjacencyMatrix(i, j) = adjacencyMatrix(j, i);
 }
 
-void place::loadInPlacementGraph(const std::string &imageName,
+void place::loadInPlacementGraph(const fs::path &imageName,
                                  std::vector<place::node> &nodes,
                                  const int num) {
-  const std::string placementName =
-      FLAGS_outputV1 + imageName.substr(imageName.find("_") - 3, 3) +
-      "_placement_" + imageName.substr(imageName.find(".") - 3, 3) + ".dat";
-  std::ifstream in(placementName, std::ios::in | std::ios::binary);
+  auto[buildName, scanNumber] = parse_name(imageName);
+  const fs::path placementName =
+      fs::path(FLAGS_outputV1) /
+      "{}_placement_{}.dat"_format(buildName, scanNumber);
+  std::ifstream in(placementName.string(), std::ios::in | std::ios::binary);
 
   int numToLoad;
   in.read(reinterpret_cast<char *>(&numToLoad), sizeof(numToLoad));
@@ -492,9 +487,8 @@ void place::loadInPlacementGraph(const std::string &imageName,
     n.w = w;
   }
 
-  double average, sigma;
-  std::tie(average, sigma) =
-      utils::aveAndStdev(nodestmp, [](const place::node &n) { return n.w; });
+  auto[average, sigma] = utils::ave_and_stdev(
+      nodestmp, 0.0, [](const place::node &n) { return n.w; });
 
   for (auto &n : nodestmp)
     n.nw = (n.w - average) / sigma;
@@ -687,7 +681,7 @@ void place::displayBest(
     auto &zeroZero = zeroZeros[n.color][n.rotation];
     const int xOffset = n.x - zeroZero[0];
     const int yOffset = n.y - zeroZero[1];
-    auto color = randomColor();
+    auto color = utils::randomColor();
 
     for (int i = 0; i < scan.cols(); ++i) {
       if (i + xOffset < 0 || i + xOffset >= all.cols)
@@ -867,7 +861,7 @@ place::compare3D(const place::VoxelGrid &aPoint, const place::VoxelGrid &bPoint,
 
   const double expectedCount = (aPoint.c + bPoint.c + aFree.c + bFree.c) / 2.0;
   const double significance =
-      sigmoidWeight(totalCount, expectedCount * precent);
+      utils::sigmoidWeight(totalCount, expectedCount * precent);
 
   return significance < sigCutoff || std::abs(weight) < scoreCutoff
              ? place::edge()
@@ -877,14 +871,14 @@ place::compare3D(const place::VoxelGrid &aPoint, const place::VoxelGrid &bPoint,
                            significance);
 }
 
-inline place::VoxelGrid place::loadInVoxel(const std::string &name) {
+inline place::VoxelGrid place::loadInVoxel(const fs::path &name) {
   place::VoxelGrid tmp;
   place::loadInVoxel(name, tmp);
   return tmp;
 }
 
-inline void place::loadInVoxel(const std::string &name, place::VoxelGrid &dst) {
-  std::ifstream in(name, std::ios::in | std::ios::binary);
+inline void place::loadInVoxel(const fs::path &name, place::VoxelGrid &dst) {
+  std::ifstream in(name.string(), std::ios::in | std::ios::binary);
   dst.loadFromFile(in);
   in.close();
 }
@@ -1073,12 +1067,13 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
 }
 
 bool place::reloadGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
-  const std::string graphName =
-      FLAGS_outputV2 + "graph" + std::to_string(level) + ".dat";
-  std::ifstream in(graphName, std::ios::in | std::ios::binary);
+  const fs::path graphName =
+      fs::path(FLAGS_outputV2) / "graph{}.dat"_format(level);
 
-  if (!in.is_open())
+  if (!fs::exists(graphName))
     return false;
+
+  std::ifstream in(graphName.string(), std::ios::in | std::ios::binary);
 
   int cols, rows;
   in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
@@ -1094,9 +1089,9 @@ bool place::reloadGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
 }
 
 void place::saveGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
-  const std::string graphName =
-      FLAGS_outputV2 + "graph" + std::to_string(level) + ".dat";
-  std::ofstream out(graphName, std::ios::out | std::ios::binary);
+  const fs::path graphName =
+      fs::path(FLAGS_outputV2) / "graph{}.dat"_format(level);
+  std::ofstream out(graphName.string(), std::ios::out | std::ios::binary);
 
   if (!FLAGS_save)
     return;

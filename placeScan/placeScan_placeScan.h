@@ -12,9 +12,9 @@ namespace place {
 void analyzePlacement(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    const std::vector<Eigen::MatrixXb> &fpMasks, const std::string &scanName,
-    const std::string &zerosFile, const std::string &maskName,
-    const std::string &doorName, const place::DoorDetector &d);
+    const std::vector<Eigen::MatrixXb> &fpMasks, const fs::path &scanName,
+    const fs::path &zerosFile, const fs::path &maskName,
+    const fs::path &doorName, const place::DoorDetector &d);
 
 void findLocalMinima(const std::vector<place::posInfo> &scores,
                      const float bias, place::ExclusionMap &maps,
@@ -73,8 +73,8 @@ void findNumPixelsUnderMask(
 void analyzePlacementWeighted(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    const std::string &scanName, const std::string &zerosFile,
-    const std::string &maskName);
+    const fs::path &scanName, const fs::path &zerosFile,
+    const fs::path &maskName);
 
 void createFPPyramidsWeighted(
     const Eigen::SparseMatrix<double> &weightedFloorPlan,

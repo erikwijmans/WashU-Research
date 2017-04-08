@@ -35,9 +35,9 @@ private:
   std::vector<place::node> nodes, R1Nodes;
   std::vector<std::vector<Eigen::Vector2i>> zeroZeros;
   std::vector<place::SelectedNode> bestNodes;
-  std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames;
-  std::vector<std::string> pointVoxelFileNames, freeVoxelFileNames;
-  std::vector<std::string> metaDataFiles, rotationsFiles, panoFiles;
+  std::vector<fs::path> pointFileNames, zerosFileNames, freeFileNames;
+  std::vector<fs::path> pointVoxelFileNames, freeVoxelFileNames;
+  std::vector<fs::path> metaDataFiles, rotationsFiles, panoFiles;
   std::vector<std::vector<place::MetaData>> voxelInfo;
   std::vector<std::vector<Eigen::MatrixXb>> scans, masks;
   HighOrder highOrder;

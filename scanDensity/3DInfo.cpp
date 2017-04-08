@@ -151,8 +151,8 @@ template <typename T> static void displayVoxelGrid(const T &voxelB) {
 
 /* This method is destructive to the things created by run */
 void voxel::CloudAnalyzer3D::saveVoxelGrids(
-    const std::vector<std::string> &pointNames,
-    const std::vector<std::string> &freeNames, const std::string &metaData) {
+    const std::vector<fs::path> &pointNames,
+    const std::vector<fs::path> &freeNames, const fs::path &metaData) {
   std::vector<Eigen::MatrixXi> &pointGrid = pointsPerVoxel;
   std::vector<Eigen::MatrixXi> &freeSpace = numTimesSeen;
 
@@ -232,7 +232,8 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
   newZZ[0] += dX;
   newZZ[1] += dY;
 
-  std::ofstream metaDataWriter(metaData, std::ios::out | std::ios::binary);
+  std::ofstream metaDataWriter(metaData.string(),
+                               std::ios::out | std::ios::binary);
   for (int r = 0; r < NUM_ROTS; ++r) {
     place::VoxelGrid rotatedFree, rotatedPoint;
     rotatedFree.v = std::vector<Eigen::MatrixXb>(
@@ -321,11 +322,11 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     trimmedPoint.zZ = meta.zZ;
     trimmedFree.zZ = meta.zZ;
 
-    std::ofstream out(freeNames[r], std::ios::out | std::ios::binary);
+    std::ofstream out(freeNames[r].string(), std::ios::out | std::ios::binary);
     trimmedFree.writeToFile(out);
     out.close();
 
-    out.open(pointNames[r], std::ios::out | std::ios::binary);
+    out.open(pointNames[r].string(), std::ios::out | std::ios::binary);
     trimmedPoint.writeToFile(out);
     out.close();
   }

@@ -8,13 +8,14 @@ interface rect {
 }
 
 class Blurrer {
-  private image_url: string;
   private image;
   private canvas;
   private ctx;
   private offset;
   private width: number;
   private height: number;
+  private img_width: number;
+  private img_height: number;
   private drawable: boolean;
   private aspect_ratio: number;
   private rects: Array<rect>;
@@ -22,8 +23,8 @@ class Blurrer {
   private new_rect: rect;
   private clicked: boolean = false;
   private delete: boolean = false;
-  constructor(_image_url: string, old_rects: Array<rect>) {
-    this.rects = old_rects;
+  constructor(_image_url: string, old_rects: string, active: boolean) {
+    this.rects = JSON.parse(old_rects);
     this.new_rect = {
       x: 0,
       y: 0,
@@ -32,18 +33,20 @@ class Blurrer {
     };
     this.aspect_ratio = 1.0;
     this.drawable = false;
-    this.image_url = _image_url;
-    this.canvas = $("#main-canvas");
-    this.canvas.on('mousemove', (e: JQueryEventObject) => {
-      this.mouse_move(e.pageX - this.offset.left, e.pageY - this.offset.top);
-    });
-    this.canvas.click((e: JQueryEventObject) => {
-      this.click(e.pageX - this.offset.left, e.pageY - this.offset.top)
-    });
 
-    $("#delete-btn").click(() => {
-      this.delete = true;
-    });
+    this.canvas = $("#main-canvas");
+    if (active) {
+      this.canvas.on('mousemove', (e: JQueryEventObject) => {
+        this.mouse_move(e.pageX - this.offset.left, e.pageY - this.offset.top);
+      });
+      this.canvas.click((e: JQueryEventObject) => {
+        this.click(e.pageX - this.offset.left, e.pageY - this.offset.top)
+      });
+
+      $("#delete-btn").click(() => {
+        this.delete = true;
+      });
+    }
 
 
     $(window).on('resize', () => {
@@ -53,27 +56,28 @@ class Blurrer {
     this.resize();
 
 
-
     this.ctx = this.canvas[0].getContext("2d");
     this.image = new Image();
     this.image.onload = () => {
       this.aspect_ratio = this.image.width / this.image.height;
-      console.log(this.aspect_ratio);
+
       this.drawable = true;
       this.run();
     };
-    this.image.src = `/${this.image_url}`;
+    this.image.src = _image_url;
   }
 
 
   resize() {
-    this.width = window.innerWidth;
+    this.width = 0.99*window.innerWidth ;
     this.height = this.width / this.aspect_ratio;
     this.offset = this.canvas.offset();
 
-
     this.canvas.prop("width", this.width);
     this.canvas.prop("height", this.height);
+
+    this.img_height = this.canvas.prop("height");
+    this.img_width = this.canvas.prop("width");
 
     if (this.drawable) {
       this.draw();
@@ -84,7 +88,7 @@ class Blurrer {
     if (!this.drawable)
       return;
 
-    this.ctx.drawImage(this.image, 0, 0, this.width, this.height);
+    this.ctx.drawImage(this.image, 0, 0, this.img_width, this.img_height);
 
     if (this.clicked && this.new_rect.width > 0 && this.new_rect.height > 0) {
       this.ctx.lineWidth = 1;
@@ -95,8 +99,9 @@ class Blurrer {
 
     this.ctx.lineWidth = 1;
     this.ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
-    for (let r of this.rects) {
-      this.ctx.fillRect(r.x * this.width, r.y * this.height, r.width * this.width, r.height * this.height);
+    for (const r of this.rects) {
+      this.ctx.fillRect(r.x * this.img_width, r.y * this.img_height,
+                        r.width * this.img_width, r.height * this.img_height);
     }
   }
 
@@ -111,11 +116,11 @@ class Blurrer {
 
   click(x: number, y: number) {
     if (this.delete) {
-      var idx: number = -1;
-      x /= this.width;
-      y /= this.height;
-      for (var i = 0; i < this.rects.length; ++i) {
-        let r = this.rects[i];
+      let idx: number = -1;
+      x /= this.img_width;
+      y /= this.img_height;
+      for (let i = 0; i < this.rects.length; ++i) {
+        const r = this.rects[i];
 
         if (x > r.x && y > r.y && x < (r.x + r.width) && y < (r.y + r.height)) {
           idx = i;
@@ -134,10 +139,10 @@ class Blurrer {
       } else {
         if (this.new_rect.width > 0 && this.new_rect.height > 0) {
           this.rects.push({
-            x: this.new_rect.x / this.width,
-            y: this.new_rect.y / this.height,
-            height: this.new_rect.height / this.height,
-            width: this.new_rect.width / this.width
+            x: this.new_rect.x / this.img_width,
+            y: this.new_rect.y / this.img_height,
+            height: this.new_rect.height / this.img_height,
+            width: this.new_rect.width / this.img_width
           });
         }
         this.new_rect.width = 0;

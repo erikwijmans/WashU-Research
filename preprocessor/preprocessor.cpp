@@ -23,7 +23,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/xfeatures2d.hpp>
 
-#include <boost/progress.hpp>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
@@ -56,23 +55,11 @@ int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   prependDataPath();
 
-  std::vector<std::string> csvFileNames;
-
-  {
-    DIR *dir = opendir(FLAGS_PTXFolder.data());
-    CHECK_NOTNULL(dir);
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      if (fileName != ".." && fileName != ".") {
-        csvFileNames.push_back(fileName);
-      }
-    }
-    closedir(dir);
-  }
+  auto csvFileNames = utils::parse_folder(FLAGS_PTXFolder);
 
   sort(csvFileNames.begin(), csvFileNames.end(),
-       [](const std::string &a, const std::string &b) {
+       [](const fs::path &_a, const fs::path &_b) {
+         auto a = _a.string(), b = _b.string();
          int numA = std::stoi(a.substr(a.find(".") - 3, 3));
          int numB = std::stoi(b.substr(b.find(".") - 3, 3));
          return numA < numB;
@@ -85,32 +72,32 @@ int main(int argc, char *argv[]) {
   if (FLAGS_threads)
     omp_set_num_threads(FLAGS_threads);
 
-  boost::progress_display show_progress(FLAGS_numScans * 5);
+  utils::progress_display show_progress(FLAGS_numScans * 5);
 
   for (int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
-    const std::string number =
-        csvFileNames[i].substr(csvFileNames[i].find(".") - 3, 3);
-    const std::string buildName =
-        csvFileNames[i].substr(csvFileNames[i].rfind("/") + 1, 3);
-    const std::string csvFileName = FLAGS_PTXFolder + csvFileNames[i];
+    auto[building_name, scan_id] = parse_name(csvFileNames[i]);
+    const auto &csvFileName = csvFileNames[i];
 
-    const std::string binaryFileName =
-        FLAGS_binaryFolder + buildName + "_binary_" + number + ".dat";
-    const std::string normalsName =
-        FLAGS_normalsFolder + buildName + "_normals_" + number + ".dat";
-    const std::string dataName =
-        FLAGS_panoFolder + "data/" + buildName + "_data_" + number + ".dat";
-    const std::string rotName =
-        FLAGS_rotFolder + buildName + "_rotations_" + number + ".dat";
-    const std::string panoName = FLAGS_panoFolder + "images/" + buildName +
-                                 "_panorama_" + number + ".png";
-    const std::string doorName = FLAGS_doorsFolder + "pointcloud/" + buildName +
-                                 "_doors_" + number + ".dat";
-
+    const fs::path binaryFileName =
+        fs::path(FLAGS_binaryFolder) /
+        "{}_binary_{}.dat"_format(building_name, scan_id);
+    const fs::path normalsName =
+        fs::path(FLAGS_normalsFolder) /
+        "{}_normals_{}.dat"_format(building_name, scan_id);
+    const fs::path dataName = fs::path(FLAGS_panoFolder) / "data" /
+                              "{}_data_{}.dat"_format(building_name, scan_id);
+    const fs::path rotName =
+        fs::path(FLAGS_rotFolder) /
+        "{}_rotations_{}.dat"_format(building_name, scan_id);
+    const fs::path panoName =
+        fs::path(FLAGS_panoFolder) / "images" /
+        "{}_panorama_{}.png"_format(building_name, scan_id);
+    const fs::path doorName = fs::path(FLAGS_doorsFolder) / "pointcloud" /
+                              "{}_doors_{}.dat"_format(building_name, scan_id);
     if (FLAGS_redo ||
-        !(fexists(binaryFileName) && fexists(normalsName) &&
-          fexists(dataName) && fexists(rotName) && fexists(panoName) &&
-          fexists(doorName))) {
+        !(fs::exists(binaryFileName) && fs::exists(normalsName) &&
+          fs::exists(dataName) && fs::exists(rotName) && fs::exists(panoName) &&
+          fs::exists(doorName))) {
       std::vector<scan::PointXYZRGBA> pointCloud;
       convertToBinary(csvFileName, binaryFileName, pointCloud);
 
@@ -148,61 +135,8 @@ int main(int argc, char *argv[]) {
 }
 
 static double ransacZ(const std::vector<double> &Z) {
-  const int m = Z.size();
-
-  double maxInliers = 0, K = 1e5;
-  int k = 0;
-
-  static std::random_device seed;
-  static std::mt19937_64 gen(seed());
-  std::uniform_int_distribution<int> dist(0, m - 1);
-  double domz = 0;
-
-  while (k < K) {
-    // random sampling
-    int randomIndex = dist(gen);
-    // compute the model parameters
-    auto zest = Z[randomIndex];
-
-    // Count the number of inliers
-    double numInliers = 0;
-    double average = 0;
-#pragma omp parallel
-    {
-      double privateInliers = 0;
-      double privateAve = 0;
-#pragma omp for nowait schedule(static)
-      for (int i = 0; i < m; ++i) {
-        auto &z = Z[i];
-        if (std::abs(z - zest) < 0.03) {
-          ++privateInliers;
-          privateAve += z;
-        }
-      }
-
-#pragma omp for schedule(static) ordered
-      for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp ordered
-        {
-          average += privateAve;
-          numInliers += privateInliers;
-        }
-      }
-    }
-
-    if (numInliers > maxInliers) {
-      maxInliers = numInliers;
-
-      domz = average / numInliers;
-      // NB: Ransac formula to check for consensus
-      double w = (numInliers - 3) / m;
-      double p = std::max(0.001, std::pow(w, 3));
-      K = log(1 - 0.999) / log(1 - p);
-    }
-    ++k;
-  }
-
-  return domz;
+  return utils::ransac(
+      Z, 0.0, [](double z, double zest) { return std::abs(z - zest) < 0.03; });
 }
 
 static Eigen::VectorXd getZPlanes(const std::vector<double> &z) {
@@ -292,20 +226,17 @@ static void dispSurfaceNormals(const Eigen::ArrayXV3f &sn) {
   cv::imshow("sn", heatMap);
 }
 
-void convertToBinary(const std::string &fileNameIn, const std::string &outName,
+void convertToBinary(const fs::path &fileNameIn, const fs::path &outName,
                      std::vector<scan::PointXYZRGBA> &pointCloud) {
 
   LOG(INFO) << "Working on: " << outName << std::endl;
 
-  std::ifstream in(outName, std::ios::in | std::ios::binary);
-
-  if (!in.is_open() || FLAGS_redo) {
-    in.close();
-    std::ifstream scanFile(fileNameIn, std::ios::in);
+  if (!fs::exists(outName) || FLAGS_redo) {
+    std::ifstream scanFile(fileNameIn.string(), std::ios::in);
     CHECK(scanFile.is_open()) << "Could not open " << fileNameIn << std::endl;
     int columns, rows;
     scanFile >> columns >> rows;
-    std::ofstream out(outName, std::ios::out | std::ios::binary);
+    std::ofstream out(outName.string(), std::ios::out | std::ios::binary);
     out.write(reinterpret_cast<const char *>(&columns), sizeof(columns));
     out.write(reinterpret_cast<const char *>(&rows), sizeof(rows));
     PTXcols = columns;
@@ -337,6 +268,7 @@ void convertToBinary(const std::string &fileNameIn, const std::string &outName,
     out.close();
 
   } else {
+    std::ifstream in(outName.string(), std::ios::in | std::ios::binary);
     int columns, rows;
     in.read(reinterpret_cast<char *>(&columns), sizeof(columns));
     in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
@@ -501,8 +433,8 @@ template <class T1, class T2> void fillGaps(T1 &mat, T2 &mask) {
 void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
                     pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                     pcl::PointCloud<PointType>::Ptr &normals_points,
-                    const std::string &panoName, const std::string &dataName) {
-  if (!FLAGS_redo && fexists(panoName) && fexists(dataName))
+                    const fs::path &panoName, const fs::path &dataName) {
+  if (!FLAGS_redo && fs::exists(panoName) && fs::exists(dataName))
     return;
   cv::Mat trackingPanorama(PTXrows, PTXcols, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat_<cv::Vec3b> _trackingPanorama = trackingPanorama;
@@ -643,9 +575,9 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
 
   SIFT->detect(pano.imgs[0], keypoints);
 
-  std::sort(
-      keypoints.begin(), keypoints.end(),
-      [](const auto &a, const auto &b) { return a.response > b.response; });
+  std::sort(keypoints, [](const auto &a, const auto &b) {
+    return a.response > b.response;
+  });
 
   keypoints.erase(keypoints.begin() + 0.7 * keypoints.size() + 1,
                   keypoints.end());
@@ -670,8 +602,9 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
     pano.writeToFile(panoName, dataName);
 
   if (FLAGS_preview) {
-    std::cout << "Well formed kps: " << pano.keypoints.size() / startSize * 100
-              << "\%" << std::endl;
+
+    fmt::print("Well formed kps: {:f}%",
+               pano.keypoints.size() / startSize * 100);
 
     dispDepthMap(scaledRMap);
     dispSurfaceNormals(scaledSurfNormals);
@@ -721,11 +654,11 @@ void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
 
 bool reloadNormals(pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                    pcl::PointCloud<PointType>::Ptr &normals_points,
-                   const std::string &outName) {
-  std::ifstream in(outName, std::ios::in | std::ios::binary);
-  if (!in.is_open())
+                   const fs::path &outName) {
+  if (!fs::exists(outName))
     return false;
 
+  std::ifstream in(outName.string(), std::ios::in | std::ios::binary);
   size_t size;
   in.read(reinterpret_cast<char *>(&size), sizeof(size_t));
 
@@ -745,7 +678,7 @@ bool reloadNormals(pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
                 pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                 pcl::PointCloud<PointType>::Ptr &normals_points,
-                const std::string &outName) {
+                const fs::path &outName) {
 
   if (!FLAGS_redo && reloadNormals(cloud_normals, normals_points, outName))
     return;
@@ -783,9 +716,9 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
 
 void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
                  pcl::PointCloud<PointType>::Ptr &normals_points,
-                 const std::string &outName) {
+                 const fs::path &outName) {
   assert(cloud_normals->size() == normals_points->size());
-  std::ofstream out(outName, std::ios::out | std::ios::binary);
+  std::ofstream out(outName.string(), std::ios::out | std::ios::binary);
 
   size_t size = cloud_normals->points.size();
   out.write(reinterpret_cast<const char *>(&size), sizeof(size_t));
@@ -802,7 +735,7 @@ void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
 void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
                  Eigen::Vector3f &pointMin, Eigen::Vector3f &pointMax) {
-  Eigen::Vector3f average = Eigen::Vector3f::Zero();
+  /*Eigen::Vector3f average = Eigen::Vector3f::Zero();
   Eigen::Vector3f sigma = Eigen::Vector3f::Zero();
   for (auto &point : points)
     average += point.point;
@@ -816,19 +749,23 @@ void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
 
   sigma /= points.size() - 1;
   for (int i = 0; i < 3; ++i)
-    sigma[i] = sqrt(sigma[i]);
+    sigma[i] = sqrt(sigma[i]);*/
 
-  Eigen::Vector3f range(10, 10, 6);
-  Eigen::Vector3f delta = 1.1 * sigma.cwiseProduct(range);
+  Eigen::Array3f init = Eigen::Array3f::Zero();
+  auto[average, sigma] = utils::ave_and_stdev(
+      points, init, [](auto &p) -> Eigen::Array3f { return p.point.array(); });
 
-  pointMin = average - delta / 2.0;
-  pointMax = average + delta / 2.0;
+  Eigen::Array3f range(10, 10, 6);
+  Eigen::Vector3f delta = (1.1 * sigma * range).matrix();
+
+  pointMin = average.matrix() - delta / 2.0;
+  pointMax = average.matrix() + delta / 2.0;
 }
 
 void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
                const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
-               const Eigen::Vector3d &M3, const std::string &outName) {
-  if (!FLAGS_redo && fexists(outName))
+               const Eigen::Vector3d &M3, const fs::path &outName) {
+  if (!FLAGS_redo && fs::exists(outName))
     return;
 
   constexpr double voxelsPerMeter = 50, gradCutoff = 2.0,
@@ -853,8 +790,9 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
   auto domZs = getZPlanes(zCoords);
 
   const double hMax =
-      std::max(2.1, std::min(2.6, 0.9 * std::abs(domZs.maxCoeff() -
-                                                 domZs.minCoeff()))) *
+      std::max(
+          2.1,
+          std::min(2.6, 0.9 * std::abs(domZs.maxCoeff() - domZs.minCoeff()))) *
       voxelsPerMeter;
 
   const double hMin =
@@ -908,8 +846,8 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
 
 #pragma omp declare reduction(                                                 \
     merge : std::vector <                                                      \
-    place::Door > : omp_out.insert(omp_out.end(), omp_in.begin(),              \
-                                                               omp_in.end()))
+    place::Door > : omp_out.insert(omp_out.end(),                              \
+                                               omp_in.begin(), omp_in.end()))
 
 #pragma omp parallel for reduction(merge : doors)
   for (int j = grid.min()[1]; j < grid.max()[1]; ++j) {
@@ -1011,12 +949,10 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
   for (auto &d : doors)
     heights.push_back(d.h);
 
-  auto t = utils::aveAndStdev(heights);
-
   double ave, sigma;
-  std::tie(ave, sigma) = t;
+  std::tie(ave, sigma) = utils::ave_and_stdev(heights);
 
-  LOG(INFO) << "Culling inconsistent heights: " << t << std::endl;
+  LOG(INFO) << "Culling inconsistent heights: {} {}"_format(ave, sigma);
 
   doors.erase(
       std::remove_if(
@@ -1025,7 +961,7 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
 
   if (FLAGS_save) {
     int numDoors = doors.size();
-    std::ofstream out(outName, std::ios::out | std::ios::binary);
+    std::ofstream out(outName.string(), std::ios::out | std::ios::binary);
     out.write(reinterpret_cast<const char *>(&numDoors), sizeof(numDoors));
     for (auto &d : doors)
       d.writeToFile(out);
@@ -1045,7 +981,7 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
 
       direction[2] = 0;
       direction /= direction.norm();
-      auto color = randomColor();
+      auto color = utils::randomColor();
       for (double z = 0; z <= h; z += 0.015) {
 
         auto point = traverse(direction, 0, d.zAxis, z) + bl;

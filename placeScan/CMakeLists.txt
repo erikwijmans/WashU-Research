@@ -19,5 +19,4 @@ target_link_libraries( placeScan PRIVATE etw_utils
                       ${Boost_TIMER_LIBRARIES} gflags
                       glog)
 target_include_directories(placeScan PRIVATE ${Boost_INCLUDE_DIRS})
-set_property(TARGET placeScan PROPERTY CXX_STANDARD 14)
 cotire(placeScan)

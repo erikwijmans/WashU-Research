@@ -19,7 +19,7 @@ private:
   std::vector<Eigen::SparseMatrix<char>> responsePyr;
   std::vector<cv::Mat> symbols;
   bool loaded;
-  const std::string name;
+  const fs::path name;
 };
 } // place
 

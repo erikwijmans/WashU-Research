@@ -14,7 +14,7 @@ namespace place {
 
 void createWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
 
-void loadInPlacement(const std::string &scanName,
+void loadInPlacement(const fs::path &scanName,
                      std::vector<place::moreInfo> &scoreVec, const int scanNum);
 
 void displayWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
@@ -22,12 +22,12 @@ void displayWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
 void weightEdges(
     const std::vector<place::node> &nodes,
     const std::vector<std::vector<place::MetaData>> &voxelInfo,
-    const std::vector<std::string> &pointVoxelFileNames,
-    const std::vector<std::string> &freeVoxelFileNames,
+    const std::vector<fs::path> &pointVoxelFileNames,
+    const std::vector<fs::path> &freeVoxelFileNames,
     const std::vector<std::vector<Eigen::Matrix3d>> &rotationMatricies,
     std::vector<place::Panorama> &panoramas, Eigen::MatrixXE &adjacencyMatrix);
 
-void loadInPlacementGraph(const std::string &imageName,
+void loadInPlacementGraph(const fs::path &imageName,
                           std::vector<place::node> &nodes, const int num);
 
 void trimScansAndMasks(const std::vector<cv::Mat> &toTrimScans,
@@ -52,11 +52,11 @@ place::edge compare3D(const place::VoxelGrid &aPoint,
                       const place::VoxelGrid &bFree, const place::cube &aRect,
                       const place::cube &bRect);
 
-void loadInVoxel(const std::string &name, place::VoxelGrid &dst);
-place::VoxelGrid loadInVoxel(const std::string &name);
-void loadInScansGraph(const std::vector<std::string> &pointFileNames,
-                      const std::vector<std::string> &freeFileNames,
-                      const std::vector<std::string> &zerosFileNames,
+void loadInVoxel(const fs::path &name, place::VoxelGrid &dst);
+place::VoxelGrid loadInVoxel(const fs::path &name);
+void loadInScansGraph(const std::vector<fs::path> &pointFileNames,
+                      const std::vector<fs::path> &freeFileNames,
+                      const std::vector<fs::path> &zerosFileNames,
                       std::vector<std::vector<Eigen::MatrixXb>> &scans,
                       std::vector<std::vector<Eigen::MatrixXb>> &masks,
                       std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);

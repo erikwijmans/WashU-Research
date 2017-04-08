@@ -16,5 +16,4 @@ target_link_libraries( scanDensity PRIVATE etw_utils ${OpenCV_LIBS}
                       ${Boost_LIBRARIES}
                       glog)
 target_include_directories(scanDensity PRIVATE ${Boost_INCLUDE_DIRS})
-set_property(TARGET scanDensity PROPERTY CXX_STANDARD 14)
 cotire(scanDensity)

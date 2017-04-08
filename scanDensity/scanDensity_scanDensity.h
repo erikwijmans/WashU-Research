@@ -38,13 +38,13 @@ public:
   bool exists3D();
   bool existsDoors();
   void setNext();
-  void get2DPointNames(std::vector<std::string> &names);
-  void get3DPointNames(std::vector<std::string> &names);
-  void get2DFreeNames(std::vector<std::string> &names);
-  void get3DFreeNames(std::vector<std::string> &names);
-  std::string getZerosName();
-  std::string getMetaDataName();
-  std::string getDoorsName();
+  void get2DPointNames(std::vector<fs::path> &names);
+  void get3DPointNames(std::vector<fs::path> &names);
+  void get2DFreeNames(std::vector<fs::path> &names);
+  void get3DFreeNames(std::vector<fs::path> &names);
+  fs::path getZerosName();
+  fs::path getMetaDataName();
+  fs::path getDoorsName();
   PointsPtr getPointsWithCenter() { return pointsWithCenter; };
   PointsPtr getPointsNoCenter() { return pointsNoCenter; };
   MatPtr getR() { return R; };
@@ -53,13 +53,13 @@ public:
   double getScale() { return FLAGS_scale; };
 
 private:
-  std::vector<std::string> binaryNames, rotationsFiles, featureNames,
-      doorsNames;
+  std::vector<fs::path> binaryNames, rotationsFiles, featureNames, doorsNames;
   std::shared_ptr<std::vector<Eigen::Vector3f>> pointsWithCenter;
   std::shared_ptr<std::vector<Eigen::Vector3f>> pointsNoCenter;
   std::shared_ptr<std::vector<Eigen::Matrix3d>> R;
   std::shared_ptr<std::vector<place::Door>> doors;
-  std::string rotationFile, fileName, scanNumber, buildName, featName, doorName;
+  fs::path rotationFile, fileName, doorName;
+  std::string scanNumber, buildName, featName;
   int current;
 };
 

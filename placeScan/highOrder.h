@@ -24,7 +24,6 @@ void displayHighOrder(
     const std::vector<std::vector<Eigen::MatrixXb>> &scans,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
 
-cv::Mat getDirections();
 } // place
 
 #endif // PLACE_SCAN_HIGH_ORDER_H

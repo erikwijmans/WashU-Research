@@ -150,25 +150,23 @@ int main(int argc, char **argv) {
   prependDataPath();
 
   FLAGS_transformation_folder =
-      FLAGS_dataPath + "/" + FLAGS_transformation_folder;
+      (fs::path(FLAGS_dataPath) / FLAGS_transformation_folder).string();
+  fs::create_directories(FLAGS_transformation_folder);
 
-  std::vector<std::string> binaryFileNames;
-  parseFolder(FLAGS_binaryFolder, binaryFileNames);
-  const std::string buildName = binaryFileNames[0].substr(0, 3);
-  const std::string cloudName = FLAGS_outputV2 + buildName + "_pointCloud.ply";
+  std::vector<fs::path> binaryFileNames;
+  utils::parse_folder(FLAGS_binaryFolder, binaryFileNames);
+  auto[buildName, tmp] = parse_name(binaryFileNames[0]);
+  const fs::path cloudName =
+      fs::path(FLAGS_outputV2) / "{}_pointCloud.ply"_format(buildName);
   fmt::print("{}\n", cloudName);
 
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
 
-  if (FLAGS_redo || !fexists(cloudName)) {
-    const std::string fileName = FLAGS_outputV2 + "final_0.dat";
-    if (!fexists(fileName)) {
-      fmt::print("Could not find {}\n", fileName);
-      exit(1);
-    }
-    std::ifstream in(FLAGS_outputV2 + "final_0.dat",
-                     std::ios::in | std::ios::binary);
+  if (FLAGS_redo || !fs::exists(cloudName)) {
+    const fs::path fileName = fs::path(FLAGS_outputV2) / "final_0.dat";
+    CHECK(fs::exists(fileName)) << "Could not find " << fileName;
 
+    std::ifstream in(fileName.string(), std::ios::in | std::ios::binary);
     int num;
     in.read(reinterpret_cast<char *>(&num), sizeof(num));
     std::cout << num << std::endl;
@@ -193,15 +191,12 @@ int main(int argc, char **argv) {
          k < std::min((int)rotMats.size(), FLAGS_startIndex + num); ++k) {
       std::cout << "Enter: " << binaryFileNames[k] << std::endl;
 
-      const std::string scan_number =
-          binaryFileNames[k].substr(binaryFileNames[k].find(".") - 3, 3);
-      const std::string build_name = binaryFileNames[k].substr(0, 3);
+      auto[build_name, scan_number] = parse_name(binaryFileNames[k]);
 
       if (rotMats[k] == Eigen::Matrix3d::Zero())
         continue;
 
-      in.open(FLAGS_binaryFolder + binaryFileNames[k],
-              std::ios::in | std::ios::binary);
+      in.open(binaryFileNames[k].string(), std::ios::in | std::ios::binary);
       int rows, cols;
       in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
       in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
@@ -217,13 +212,14 @@ int main(int argc, char **argv) {
       std::tie(min, max, transformation) = createPCLPointCloud(
           points, current_cloud, rotMats[k], translations[k]);
 
-      const std::string out_name = FLAGS_transformation_folder + build_name +
-                                   "_trans_" + scan_number + ".txt";
+      const fs::path out_name =
+          fs::path(FLAGS_transformation_folder) /
+          "{}_trans_{}.txt"_format(build_name, scan_number);
 
       if (!FLAGS_quietMode)
         std::cout << out_name << std::endl;
 
-      std::ofstream trans_out(out_name, std::ios::out);
+      std::ofstream trans_out(out_name.string(), std::ios::out);
       fmt::print(trans_out, "Before general icp:\n{}\n\n", transformation);
 
       bool run_icp = output_cloud->size() > 0;
@@ -339,33 +335,32 @@ int main(int argc, char **argv) {
             transformation = Ti * transformation;
           }
         }
-      }
 
-      fmt::print("Final transformation:\n{}\n\n", transformation);
+        fmt::print("Final transformation:\n{}\n\n", transformation);
 
-      fmt::print(trans_out, "After general icp:\n{}\n\n", transformation);
-      trans_out.close();
+        fmt::print(trans_out, "After general icp:\n{}\n\n", transformation);
+        trans_out.close();
 
-      output_cloud->insert(output_cloud->end(), current_cloud->begin(),
-                           current_cloud->end());
+        output_cloud->insert(output_cloud->end(), current_cloud->begin(),
+                             current_cloud->end());
 
-      current_cloud = nullptr;
+        current_cloud = nullptr;
 
-      pcl::UniformSampling<PointType> uniform_sampling;
-      uniform_sampling.setInputCloud(output_cloud);
-      output_cloud =
-          pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-      uniform_sampling.setRadiusSearch(subSampleSize);
-      uniform_sampling.filter(*output_cloud);
-
-      if (output_cloud->size() > targetNumPoints) {
-        subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
-
+        pcl::UniformSampling<PointType> uniform_sampling;
+        uniform_sampling.setInputCloud(output_cloud);
         output_cloud =
             pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
-      }
+
+        if (output_cloud->size() > targetNumPoints) {
+          subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
+
+          output_cloud =
+              pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+          uniform_sampling.setRadiusSearch(subSampleSize);
+          uniform_sampling.filter(*output_cloud);
+        }
 
 #if 0
       pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
@@ -375,7 +370,8 @@ int main(int argc, char **argv) {
       }
 #endif
 
-      std::cout << "Leaving: " << output_cloud->size() << std::endl;
+        std::cout << "Leaving: " << output_cloud->size() << std::endl;
+      }
     }
 
     fmt::print("Final sample size: {}\n", subSampleSize);
@@ -389,9 +385,9 @@ int main(int argc, char **argv) {
     sor.filter(*output_cloud);
 
     std::cout << "Saving" << std::endl;
-    pcl::io::savePLYFileBinary(cloudName, *output_cloud);
+    pcl::io::savePLYFileBinary(cloudName.string(), *output_cloud);
   } else
-    pcl::io::loadPLYFile(cloudName, *output_cloud);
+    pcl::io::loadPLYFile(cloudName.string(), *output_cloud);
 
   if (FLAGS_visulization) {
     pcl::UniformSampling<PointType> uniform_sampling;

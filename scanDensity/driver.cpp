@@ -8,7 +8,6 @@
 #include "scanDensity_3DInfo.h"
 #include "scanDensity_scanDensity.h"
 
-#include <boost/progress.hpp>
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
@@ -16,10 +15,10 @@
 #include <thread>
 
 void saveImages(const std::vector<cv::Mat> &images,
-                const std::vector<std::string> &names);
-void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name);
+                const std::vector<fs::path> &names);
+void saveZeroZero(const Eigen::Vector2i &zZ, const fs::path &name);
 void saveDoors(const std::vector<std::vector<place::Door>> &doors,
-               const std::string &name);
+               const fs::path &name);
 
 static constexpr double voxelsPerMeter = 20.0;
 
@@ -27,9 +26,9 @@ int main(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
   DensityMapsManager manager(argc, argv);
 
-  boost::progress_display *show_progress = nullptr;
+  utils::progress_display *show_progress = nullptr;
   if (FLAGS_quietMode)
-    show_progress = new boost::progress_display(FLAGS_numScans);
+    show_progress = new utils::progress_display(FLAGS_numScans);
   if (FLAGS_threads)
     omp_set_num_threads(FLAGS_threads);
 
@@ -39,10 +38,10 @@ int main(int argc, char *argv[]) {
   auto processed = std::make_shared<std::atomic_int>(2);
 
   while (manager.hasNext()) {
-    auto $2DPointNames = std::make_shared<std::vector<std::string>>(),
-         $2DFreeNames = std::make_shared<std::vector<std::string>>(),
-         $3DPointNames = std::make_shared<std::vector<std::string>>(),
-         $3DFreeNames = std::make_shared<std::vector<std::string>>();
+    auto $2DPointNames = std::make_shared<std::vector<fs::path>>(),
+         $2DFreeNames = std::make_shared<std::vector<fs::path>>(),
+         $3DPointNames = std::make_shared<std::vector<fs::path>>(),
+         $3DFreeNames = std::make_shared<std::vector<fs::path>>();
 
     manager.run();
     auto $3DPoints = manager.getPointsWithCenter();
@@ -53,10 +52,9 @@ int main(int argc, char *argv[]) {
     manager.get2DFreeNames(*$2DFreeNames);
     manager.get3DPointNames(*$3DPointNames);
     manager.get3DFreeNames(*$3DFreeNames);
-    auto zerosName = std::make_shared<std::string>(manager.getZerosName());
-    auto metaDataName =
-        std::make_shared<std::string>(manager.getMetaDataName());
-    auto doorsName = std::make_shared<std::string>(manager.getDoorsName());
+    auto zerosName = std::make_shared<fs::path>(manager.getZerosName());
+    auto metaDataName = std::make_shared<fs::path>(manager.getMetaDataName());
+    auto doorsName = std::make_shared<fs::path>(manager.getDoorsName());
     auto scale = manager.getScale();
     bool threeD = FLAGS_3D && (FLAGS_redo || !manager.exists3D());
     bool runDoors = FLAGS_redo || !manager.existsDoors();
@@ -141,25 +139,23 @@ int main(int argc, char *argv[]) {
 }
 
 void saveImages(const std::vector<cv::Mat> &images,
-                const std::vector<std::string> &names) {
-  CHECK(images.size() == names.size()) << "More images than names to save as!"
-                                       << std::endl;
+                const std::vector<fs::path> &names) {
+  CHECK(images.size() == names.size())
+      << "More images than names to save as!" << std::endl;
   for (int i = 0; i < names.size(); ++i)
-    cv::imwrite(names[i], images[i]);
+    cv::imwrite(names[i].string(), images[i]);
 }
 
-void saveZeroZero(const Eigen::Vector2i &zZ, const std::string &name) {
-  std::ofstream out(name, std::ios::out | std::ios::binary);
-  CHECK(out.is_open()) << "Could not open " << name << std::endl;
+void saveZeroZero(const Eigen::Vector2i &zZ, const fs::path &name) {
+  std::ofstream out(name.string(), std::ios::out | std::ios::binary);
   for (int i = 0; i < NUM_ROTS; ++i)
     out.write(reinterpret_cast<const char *>(zZ.data()), sizeof(zZ));
   out.close();
 }
 
 void saveDoors(const std::vector<std::vector<place::Door>> &doors,
-               const std::string &name) {
-  std::ofstream out(name, std::ios::out | std::ios::binary);
-  CHECK(out.is_open()) << "Could not open " << name << std::endl;
+               const fs::path &name) {
+  std::ofstream out(name.string(), std::ios::out | std::ios::binary);
   for (auto &ds : doors) {
     int num = ds.size();
     out.write(reinterpret_cast<const char *>(&num), sizeof(num));

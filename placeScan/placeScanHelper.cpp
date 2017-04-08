@@ -15,21 +15,27 @@ const double maxDelta = 0.10, maxTotal = 0.15;
 
 static constexpr int minWrite = 200;
 
-void place::parseFolders(std::vector<std::string> &pointFileNames,
-                         std::vector<std::string> &zerosFileNames,
-                         std::vector<std::string> *freeFileNames) {
+void place::parseFolders(std::vector<fs::path> &pointFileNames,
+                         std::vector<fs::path> &zerosFileNames,
+                         std::vector<fs::path> *freeFileNames) {
 
-  const std::string newDmFolder = FLAGS_dmFolder + "R0/";
-  parseFolder(newDmFolder, pointFileNames, [](const std::string &s) {
-    return s.find("point") != std::string::npos;
+  const fs::path newDmFolder = fs::path(FLAGS_dmFolder) / "R0";
+  utils::parse_folder(newDmFolder, pointFileNames, [](const fs::path &s) {
+    return s.string().find("point") != std::string::npos;
   });
+  for (auto &f : pointFileNames)
+    f = f.filename();
+
   if (freeFileNames) {
-    parseFolder(newDmFolder, *freeFileNames, [](const std::string &s) {
-      return s.find("freeSpace") != std::string::npos;
+    utils::parse_folder(newDmFolder, *freeFileNames, [](const fs::path &s) {
+      return s.string().find("freeSpace") != std::string::npos;
     });
+    for (auto &f : *freeFileNames)
+      f = f.filename();
   }
-  const std::string zzFolder = FLAGS_zerosFolder;
-  parseFolder(zzFolder, zerosFileNames);
+
+  const fs::path zzFolder = FLAGS_zerosFolder;
+  utils::parse_folder(zzFolder, zerosFileNames);
 
   if (pointFileNames.size() != zerosFileNames.size()) {
     perror("Not the same number of scans as zeros!");
@@ -37,13 +43,14 @@ void place::parseFolders(std::vector<std::string> &pointFileNames,
   }
 }
 
-void place::loadInScans(const std::string &scanName,
-                        const std::string &zerosFile,
+void place::loadInScans(const fs::path &scanName, const fs::path &zerosFile,
                         std::vector<cv::Mat> &rotatedScans,
                         std::vector<Eigen::Vector2i> &zeroZero) {
 
   zeroZero.resize(NUM_ROTS);
-  std::ifstream binaryReader(zerosFile, std::ios::in | std::ios::binary);
+  CHECK(fs::exists(zerosFile)) << "Could not open: " << zerosFile;
+  std::ifstream binaryReader(zerosFile.string(),
+                             std::ios::in | std::ios::binary);
   for (auto &z : zeroZero)
     binaryReader.read(reinterpret_cast<char *>(z.data()),
                       sizeof(Eigen::Vector2i));
@@ -51,15 +58,11 @@ void place::loadInScans(const std::string &scanName,
   binaryReader.close();
 
   for (int i = 0; i < NUM_ROTS; ++i) {
-    std::string fullScanName =
-        FLAGS_dmFolder + "R" + std::to_string(i) + "/" + scanName;
+    fs::path fullScanName =
+        fs::path(FLAGS_dmFolder) / "R{}"_format(i) / scanName;
+    CHECK(fs::exists(fullScanName)) << "Could not open " << fullScanName;
 
-    rotatedScans.push_back(cv::imread(fullScanName, 0));
-
-    if (!rotatedScans[i].data) {
-      std::cout << "Error reading scan: " << fullScanName << std::endl;
-      exit(1);
-    }
+    rotatedScans.push_back(cv::imread(fullScanName.string(), 0));
   }
 
   if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
@@ -67,19 +70,15 @@ void place::loadInScans(const std::string &scanName,
   }
 }
 
-void place::loadInScans(const std::string &scanName,
+void place::loadInScans(const fs::path &scanName,
                         std::vector<cv::Mat> &rotatedScans) {
 
   for (int i = 0; i < NUM_ROTS; ++i) {
-    std::string fullScanName =
-        FLAGS_dmFolder + "R" + std::to_string(i) + "/" + scanName;
+    fs::path fullScanName =
+        fs::path(FLAGS_dmFolder) / "R{}"_format(i) / scanName;
+    CHECK(fs::exists(fullScanName)) << "Could not open " << fullScanName;
 
-    rotatedScans.push_back(cv::imread(fullScanName, 0));
-
-    if (!rotatedScans[i].data) {
-      std::cout << "Error reading scan" << std::endl;
-      exit(1);
-    }
+    rotatedScans.push_back(cv::imread(fullScanName.string(), 0));
   }
 
   if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
@@ -87,9 +86,9 @@ void place::loadInScans(const std::string &scanName,
   }
 }
 
-void place::loadInScansAndMasks(const std::string &scanName,
-                                const std::string &zerosFile,
-                                const std::string &maskName,
+void place::loadInScansAndMasks(const fs::path &scanName,
+                                const fs::path &zerosFile,
+                                const fs::path &maskName,
                                 std::vector<cv::Mat> &rotatedScans,
                                 std::vector<cv::Mat> &masks,
                                 std::vector<Eigen::Vector2i> &zeroZero) {
@@ -137,12 +136,13 @@ void place::trimScans(const std::vector<cv::Mat> &toTrim,
 }
 
 void place::savePlacement(const std::vector<const place::posInfo *> &minima,
-                          const std::string &outName,
+                          const fs::path &outName,
                           const std::vector<Eigen::Vector2i> &zeroZero) {
   constexpr int maxToSave = 500;
 
-  std::ofstream out(outName, std::ios::out);
-  std::ofstream outB(outName.substr(0, outName.find(".")) + ".dat",
+  std::ofstream out(outName.string(), std::ios::out);
+  auto tmp = outName;
+  std::ofstream outB(tmp.replace_extension("dat").string(),
                      std::ios::out | std::ios::binary);
 
   const int num = minima.size();
@@ -153,8 +153,8 @@ void place::savePlacement(const std::vector<const place::posInfo *> &minima,
     place::posInfo minScore = *minima[i];
     minScore.x += zeroZero[minScore.rotation][0];
     minScore.y += zeroZero[minScore.rotation][1];
-    out << minScore.score << " " << minScore.x << " " << minScore.y << " "
-        << minScore.rotation << std::endl;
+    fmt::print(out, "{} {} {} {}\n", minScore.score, minScore.x, minScore.y,
+               minScore.rotation);
 
     outB.write(reinterpret_cast<const char *>(&minScore), sizeof(minScore));
   }
@@ -162,17 +162,17 @@ void place::savePlacement(const std::vector<const place::posInfo *> &minima,
   outB.close();
 }
 
-bool place::reshowPlacement(const std::string &scanName,
-                            const std::string &zerosFile,
-                            const std::string &doorName,
+bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
+                            const fs::path &doorName,
                             const place::DoorDetector &d,
-                            const std::string &preDone) {
-  const std::string buildName = scanName.substr(scanName.find("_") - 3, 3);
-  const std::string scanNumber = scanName.substr(scanName.find(".") - 3, 3);
-  const std::string placementName =
-      buildName + "_placement_" + scanNumber + ".dat";
+                            const fs::path &preDone) {
 
-  std::ifstream in(preDone + placementName, std::ios::in | std::ios::binary);
+  auto[buildName, scanNumber] = parse_name(scanName);
+  const fs::path placementName =
+      "{}_placement_{}.dat"_format(buildName, scanNumber);
+
+  std::ifstream in((preDone / placementName).string(),
+                   std::ios::in | std::ios::binary);
   if (!in.is_open())
     return false;
   if (!FLAGS_reshow)
@@ -194,8 +194,7 @@ bool place::reshowPlacement(const std::string &scanName,
   for (auto &s : scores)
     in.read(reinterpret_cast<char *>(&s), sizeof(place::posInfo));
 
-  int cutOffNum = place::getCutoffIndex(
-      placementName, scores, [](const place::posInfo &s) { return s.score; });
+  int cutOffNum = std::min(5, static_cast<int>(scores.size()));
   cutOffNum = FLAGS_top > 0 ? FLAGS_top : cutOffNum;
 
   num = std::min(num, cutOffNum);
@@ -240,7 +239,7 @@ bool place::reshowPlacement(const std::string &scanName,
         output(j + currentScore.y, i + currentScore.x) = cv::Vec3b(255, 0, 0);
 
     for (auto &d : doors[currentScore.rotation]) {
-      auto color = randomColor();
+      auto color = utils::randomColor();
       for (double x = 0; x < d.w; ++x) {
         Eigen::Vector3i index =
             (d.corner + x * d.xAxis + Eigen::Vector3d(xOffset, yOffset, 0))
@@ -266,7 +265,9 @@ bool place::reshowPlacement(const std::string &scanName,
     const int keyCode = cv::rectshow(output);
 
     if (keyCode == 27) {
-      cv::imwrite(preDone + buildName + "_ss_" + scanNumber + ".png", output);
+      cv::imwrite(
+          (preDone / "{}_ss_{}.png"_format(buildName, scanNumber)).string(),
+          output);
       break;
     } else if (keyCode == 8)
       k = k > 0 ? k - 1 : k;
@@ -391,7 +392,7 @@ void place::displayOutput(
     }
 
     for (auto &d : doors) {
-      auto color = randomColor();
+      auto color = utils::randomColor();
       for (double x = 0; x < d.w; ++x) {
         Eigen::Vector3i index =
             (d.corner + x * d.xAxis + Eigen::Vector3d(min->x, min->y, 0))
@@ -412,12 +413,13 @@ void place::displayOutput(
   }
 }
 
-void place::loadInTruePlacement(const std::string &scanName,
+void place::loadInTruePlacement(const fs::path &scanName,
                                 const std::vector<Eigen::Vector2i> &zeroZero) {
-  const std::string placementName =
-      FLAGS_outputV1 + scanName.substr(scanName.find("_") - 3, 3) +
-      "_placement_" + scanName.substr(scanName.find(".") - 3, 3) + ".dat";
-  std::ifstream in(placementName, std::ios::in | std::ios::binary);
+  auto[buildName, scanNumber] = parse_name(scanName);
+  const fs::path placementName =
+      fs::path(FLAGS_outputV1) /
+      "{}_placement_{}.dat"_format(buildName, scanName);
+  std::ifstream in(placementName.string(), std::ios::in | std::ios::binary);
 
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
@@ -611,9 +613,8 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
   for (int i = 0; i < labeledImage.size(); ++i)
     ++countPerLabel[*(labeledImagePtr + i)];
 
-  double average = 0.0, sigma = 0.0;
   const int *countPerLabelPtr = countPerLabel.data();
-  std::tie(average, sigma) = utils::aveAndStdev(
+  auto[average, sigma] = utils::ave_and_stdev(
       countPerLabelPtr + 1, countPerLabelPtr + countPerLabel.size());
 
   double threshHold = average;
@@ -631,9 +632,9 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
 }
 
 std::vector<std::vector<place::Door>>
-place::loadInDoors(const std::string &name,
+place::loadInDoors(const fs::path &name,
                    const std::vector<Eigen::Vector2i> &zeroZero) {
-  std::ifstream in(name, std::ios::in | std::ios::binary);
+  std::ifstream in(name.string(), std::ios::in | std::ios::binary);
   std::vector<std::vector<place::Door>> tmp(NUM_ROTS);
   for (int r = 0; r < NUM_ROTS; ++r) {
     int num;

@@ -407,7 +407,8 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       (truePointsInA.size() + truePointsInB.size()) / 2.0;
 
   count /= 2.0;
-  const double significance = sigmoidWeight(count, expectedCount * precent);
+  const double significance =
+      utils::sigmoidWeight(count, expectedCount * precent);
 
 #if viz
   if (FLAGS_debugMode) {

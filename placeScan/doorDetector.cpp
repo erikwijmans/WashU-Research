@@ -7,9 +7,9 @@
 #include <eigen3/Eigen/Geometry>
 
 place::DoorDetector::DoorDetector()
-    : loaded{false}, name{FLAGS_doorsFolder + "fpDoors.dat"} {
-  if (fexists(name) /* && !FLAGS_redo*/) {
-    std::ifstream in(name, std::ios::in | std::ios::binary);
+    : loaded{false}, name{fs::path(FLAGS_doorsFolder) / "fpDoors.dat"} {
+  if (fs::exists(name) /* && !FLAGS_redo*/) {
+    std::ifstream in(name.string(), std::ios::in | std::ios::binary);
     int length;
     in.read(reinterpret_cast<char *>(&length), sizeof(length));
     if (length == FLAGS_numLevels + 1) {
@@ -32,11 +32,9 @@ void place::DoorDetector::run(
 
   symbols.resize(NUM_ROTS * 2);
   constexpr int levels = 3;
-  const cv::Mat doorSymbol = cv::imread(FLAGS_dataPath + "/doorSymbol.png", 0);
-  if (!doorSymbol.data) {
-    std::cout << "Error loading door symbol!" << std::endl;
-    exit(1);
-  }
+  fs::path door = fs::path(FLAGS_dataPath) / "doorSymbol.png";
+  CHECK(fs::exists(door)) << "Could not find: " << door;
+  const cv::Mat doorSymbol = cv::imread(door.string(), 0);
 
   int rows = doorSymbol.rows;
   int cols = doorSymbol.cols;
@@ -191,9 +189,8 @@ void place::DoorDetector::run(
     return (a->score < b->score);
   });
 
-  double average, sigma;
-  std::tie(average, sigma) =
-      utils::aveAndStdev(minima, [](auto &m) { return m->score; });
+  auto[average, sigma] =
+      utils::ave_and_stdev(minima, 0.0, [](auto &m) { return m->score; });
 
   cv::Mat_<cv::Vec3b> out = fpColor.clone();
   Eigen::RowMatrixXb denseMap =
@@ -231,7 +228,7 @@ void place::DoorDetector::run(
   place::createPyramid(responsePyr, FLAGS_numLevels);
 
   if (FLAGS_save) {
-    std::ofstream binaryWriter(name, std::ios::out | std::ios::binary);
+    std::ofstream binaryWriter(name.string(), std::ios::out | std::ios::binary);
     int length = responsePyr.size();
     binaryWriter.write(reinterpret_cast<const char *>(&length), sizeof(length));
     for (auto &r : responsePyr)

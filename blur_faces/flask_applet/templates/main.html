@@ -1,0 +1,70 @@
+{% include 'header.html' %}
+
+{% if active %}
+<div class="container-fluid" id="content">
+  <a href="{{ url_for('floor', floor_id='DUC1', active=True) }}">
+    <h1>
+      DUC Floor 1
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='DUC2', active=True) }}">
+    <h1>
+      DUC Floor 2
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE3', active=True) }}">
+    <h1>
+      CSE Floor 3
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE4', active=True) }}">
+    <h1>
+      CSE Floor 4
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE5', active=True) }}">
+    <h1>
+      CSE Floor 5
+    </h1>
+  </a>
+</div>
+
+{% else %}
+<div class="container-fluid" id="content">
+  <a href="{{ url_for('floor', floor_id='DUC1') }}">
+    <h1>
+      DUC Floor 1
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='DUC2') }}">
+    <h1>
+      DUC Floor 2
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE3') }}">
+    <h1>
+      CSE Floor 3
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE4') }}">
+    <h1>
+      CSE Floor 4
+    </h1>
+  </a>
+
+  <a href="{{ url_for('floor', floor_id='CSE5') }}">
+    <h1>
+      CSE Floor 5
+    </h1>
+  </a>
+</div>
+{% endif %}
+
+{% include 'footer.html' %}

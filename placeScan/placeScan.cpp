@@ -10,7 +10,6 @@
 #include <random>
 #include <unordered_set>
 
-#include <boost/progress.hpp>
 #include <boost/timer/timer.hpp>
 
 #include <glog/logging.h>
@@ -58,7 +57,6 @@ int main(int argc, char *argv[]) {
   }
 
   place::removeMinimumConnectedComponents(inFP);
-  cv::imwrite(FLAGS_dataPath + "/cleanedFloorPlan.png", inFP);
 
   const int newRows = inFP.rows * 1.1, newCols = inFP.cols * 1.1;
   const int dY = (newRows - inFP.rows) / 2, dX = (newCols - inFP.cols) / 2;
@@ -121,11 +119,11 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  std::vector<std::string> pointFileNames, zerosFileNames, freeFileNames,
+  std::vector<fs::path> pointFileNames, zerosFileNames, freeFileNames,
       doorsNames;
 
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
-  parseFolder(FLAGS_doorsFolder + "/floorplan", doorsNames);
+  utils::parse_folder(FLAGS_doorsFolder + "/floorplan", doorsNames);
 
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(pointFileNames, FLAGS_startNumber);
@@ -139,10 +137,10 @@ int main(int argc, char *argv[]) {
                          : FLAGS_stopIndex - FLAGS_startIndex;
 
   if (FLAGS_V1) {
-    boost::progress_display *show_progress = nullptr;
+    utils::progress_display *show_progress = nullptr;
     boost::timer::auto_cpu_timer timer;
     if (FLAGS_quietMode)
-      show_progress = new boost::progress_display(FLAGS_numScans);
+      show_progress = new utils::progress_display(FLAGS_numScans);
 
     std::vector<Eigen::SparseMatrix<double>> fpPyramid, erodedFpPyramid;
     std::vector<Eigen::MatrixXb> fpMasks;
@@ -154,11 +152,10 @@ int main(int argc, char *argv[]) {
     const int stopIndex =
         std::min((int)pointFileNames.size(), FLAGS_startIndex + FLAGS_numScans);
     for (int i = FLAGS_startIndex; i < stopIndex; ++i) {
-      const std::string scanName = pointFileNames[i];
-      const std::string zerosFile = FLAGS_zerosFolder + zerosFileNames[i];
-      const std::string maskName = freeFileNames[i];
-      const std::string doorName =
-          FLAGS_doorsFolder + "floorplan/" + doorsNames[i];
+      const auto scanName = pointFileNames[i];
+      const auto zerosFile = zerosFileNames[i];
+      const auto maskName = freeFileNames[i];
+      const auto doorName = doorsNames[i];
 
       if (FLAGS_redo ||
           !place::reshowPlacement(scanName, zerosFile, doorName, d,
@@ -197,9 +194,9 @@ int main(int argc, char *argv[]) {
 void place::analyzePlacement(
     const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    const std::vector<Eigen::MatrixXb> &fpMasks, const std::string &scanName,
-    const std::string &zerosFile, const std::string &maskName,
-    const std::string &doorName, const place::DoorDetector &d) {
+    const std::vector<Eigen::MatrixXb> &fpMasks, const fs::path &scanName,
+    const fs::path &zerosFile, const fs::path &maskName,
+    const fs::path &doorName, const place::DoorDetector &d) {
   boost::timer::auto_cpu_timer *timer = nullptr;
 
   if (!FLAGS_quietMode) {
@@ -462,9 +459,10 @@ void place::analyzePlacement(
     delete timer;
 
   if (FLAGS_save) {
-    const std::string placementName =
-        FLAGS_outputV1 + scanName.substr(scanName.find("_") - 3, 3) +
-        "_placement_" + scanName.substr(scanName.find(".") - 3, 3) + ".txt";
+    auto[buildName, scanNumber] = parse_name(scanName);
+    const fs::path placementName =
+        fs::path(FLAGS_outputV1) /
+        "{}_placement_{}.txt"_format(buildName, scanNumber);
     savePlacement(minima, placementName, zeroZero);
   }
 
@@ -485,9 +483,8 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
   const double hardY = maps.exclusionSize * hardFactor,
                hardX = maps.exclusionSize * hardFactor;
 
-  double averageScore, sigScore;
-  std::tie(averageScore, sigScore) = utils::aveAndStdev(
-      scores, [](const place::posInfo &s) { return s.score; });
+  auto[averageScore, sigScore] = utils::ave_and_stdev(
+      scores, 0.0, [](const place::posInfo &s) { return s.score; });
 
   if (!FLAGS_quietMode) {
     std::cout << "Average         Sigma" << std::endl;
@@ -595,11 +592,11 @@ void place::trimScanPryamids(
         for (Eigen::SparseMatrix<double>::InnerIterator it(scanThreshHolded, k);
              it; ++it) {
           if (it.value() != 0) {
-            maxRow = std::max(maxRow, it.row());
-            minRow = std::min(minRow, it.row());
+            maxRow = std::max(maxRow, static_cast<int>(it.row()));
+            minRow = std::min(minRow, static_cast<int>(it.row()));
 
-            maxCol = std::max(maxCol, it.col());
-            minCol = std::min(minCol, it.col());
+            maxCol = std::max(maxCol, static_cast<int>(it.col()));
+            minCol = std::min(minCol, static_cast<int>(it.col()));
           }
         }
       }

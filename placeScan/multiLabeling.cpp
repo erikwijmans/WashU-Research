@@ -12,8 +12,7 @@
 
 const int minScans = 20;
 static constexpr int minNodes = 2;
-static void selectR1Nodes(const std::vector<std::string> &names,
-                          const std::vector<place::node> &nodes,
+static void selectR1Nodes(const std::vector<place::node> &nodes,
                           std::vector<place::node> &R1Nodes) {
   std::vector<size_t> numberOfLabels;
   {
@@ -34,15 +33,7 @@ static void selectR1Nodes(const std::vector<std::string> &names,
 
   for (int i = 0, offset = 0; i < numberOfLabels.size();
        offset += numberOfLabels[i], ++i) {
-    const std::string &imageName = names[i];
-    const std::string placementName =
-        imageName.substr(imageName.find("_") - 3, 3) + "_placement_" +
-        imageName.substr(imageName.find(".") - 3, 3) + ".dat";
-    int index = place::getCutoffIndex(
-        placementName,
-        std::vector<place::node>(nodes.begin() + offset,
-                                 nodes.begin() + offset + numberOfLabels[i]),
-        [](const place::node &n) { return n.score; });
+    const int index = std::min(5, static_cast<int>(numberOfLabels[i]));
 
     R1Nodes.insert(R1Nodes.end(), nodes.begin() + offset,
                    nodes.begin() + offset + index);
@@ -124,10 +115,8 @@ static void exclusionLite(
 }
 
 static void unlockNodes(std::vector<place::SelectedNode> &nodes) {
-
-  double average, sigma;
-  std::tie(average, sigma) = utils::aveAndStdev(
-      nodes, [](const place::SelectedNode &n) { return n.agreement; },
+  auto[average, sigma] = utils::ave_and_stdev(
+      nodes, 0.0, [](const place::SelectedNode &n) { return n.agreement; },
       [](const place::SelectedNode &n) {
         return n.locked && n.numberOfCandidates > 1;
       });
@@ -149,24 +138,26 @@ multi::Labeler::Labeler() {
   std::cout << "Starting up Labeler" << std::endl;
 
   {
-    std::string folder = FLAGS_voxelFolder + "R0/";
-    for (auto &file : folderToIterator(folder)) {
-      std::string fileName = file.path().filename().string();
-      if (fileName != ".." && fileName != "." &&
-          fileName.find("point") != std::string::npos) {
-        pointVoxelFileNames.push_back(fileName);
-      } else if (fileName != ".." && fileName != "." &&
-                 fileName.find("freeSpace") != std::string::npos) {
-        freeVoxelFileNames.push_back(fileName);
-      }
-    }
+    const fs::path folder = fs::path(FLAGS_voxelFolder) / "R0";
+
+    utils::parse_folder(folder, pointFileNames, [](const fs::path &s) {
+      return s.string().find("point") != std::string::npos;
+    });
+    for (auto &f : pointFileNames)
+      f = f.filename();
+
+    utils::parse_folder(folder, freeFileNames, [](const fs::path &s) {
+      return s.string().find("freeSpace") != std::string::npos;
+    });
+    for (auto &f : freeFileNames)
+      f = f.filename();
 
     std::sort(pointVoxelFileNames.begin(), pointVoxelFileNames.end());
     std::sort(freeVoxelFileNames.begin(), freeVoxelFileNames.end());
   }
 
-  const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
-  parseFolder(metaDataFolder, metaDataFiles);
+  const fs::path metaDataFolder = fs::path(FLAGS_voxelFolder) / "metaData";
+  utils::parse_folder(metaDataFolder, metaDataFiles);
   std::sort(metaDataFiles.begin(), metaDataFiles.end());
 
   const int numScans = pointFileNames.size();
@@ -178,12 +169,12 @@ multi::Labeler::Labeler() {
   for (int i = FLAGS_startIndex; i < std::min(FLAGS_startIndex + FLAGS_numScans,
                                               (int)pointFileNames.size());
        ++i) {
-    const std::string imageName = FLAGS_dmFolder + pointFileNames[i];
+    const fs::path imageName = fs::path(FLAGS_dmFolder) / pointFileNames[i];
     place::loadInPlacementGraph(imageName, nodes, i);
   }
 
   R1Nodes.clear();
-  selectR1Nodes(pointFileNames, nodes, R1Nodes);
+  selectR1Nodes(nodes, R1Nodes);
   calcNeighbors(R1Nodes, unwantedNeighbors);
 }
 
@@ -192,21 +183,21 @@ void multi::Labeler::load() {
   if (loaded)
     return;
 
-  const std::string rotFolder = FLAGS_rotFolder;
-  parseFolder(rotFolder, rotationsFiles);
+  const fs::path rotFolder = FLAGS_rotFolder;
+  utils::parse_folder(rotFolder, rotationsFiles);
 
-  std::string panoImagesFolder = FLAGS_panoFolder + "images/";
-  parseFolder(panoImagesFolder, panoFiles);
+  const fs::path panoImagesFolder = fs::path(FLAGS_panoFolder) / "images";
+  utils::parse_folder(panoImagesFolder, panoFiles);
 
-  std::vector<std::string> panoDataNames;
-  std::string panoDataFolder = FLAGS_panoFolder + "data/";
-  parseFolder(panoDataFolder, panoDataNames);
+  std::vector<fs::path> panoDataNames;
+  const fs::path panoDataFolder = fs::path(FLAGS_panoFolder) / "data";
+  utils::parse_folder(panoDataFolder, panoDataNames);
 
   rotationMatricies.assign(rotationsFiles.size(),
                            std::vector<Eigen::Matrix3d>(NUM_ROTS));
   for (int j = 0; j < rotationsFiles.size(); ++j) {
-    const std::string rotName = FLAGS_rotFolder + rotationsFiles[j];
-    std::ifstream in(rotName, std::ios::binary | std::ios::in);
+    const fs::path rotName = rotFolder / rotationsFiles[j];
+    std::ifstream in(rotName.string(), std::ios::binary | std::ios::in);
     for (int i = 0; i < NUM_ROTS; ++i)
       in.read(reinterpret_cast<char *>(rotationMatricies[j][i].data()),
               sizeof(Eigen::Matrix3d));
@@ -215,17 +206,18 @@ void multi::Labeler::load() {
   }
   panoramas.resize(panoFiles.size());
   for (int i = 0; i < panoFiles.size(); ++i) {
-    const std::string imgName = panoImagesFolder + panoFiles[i];
-    const std::string dataName = panoDataFolder + panoDataNames[i];
+    const fs::path imgName = panoImagesFolder / panoFiles[i];
+    const fs::path dataName = panoDataFolder / panoDataNames[i];
     panoramas[i].loadFromFile(imgName, dataName);
   }
 
-  const std::string metaDataFolder = FLAGS_voxelFolder + "metaData/";
+  const fs::path metaDataFolder = fs::path(FLAGS_voxelFolder) / "metaData";
   voxelInfo.assign(metaDataFiles.size(),
                    std::vector<place::MetaData>(NUM_ROTS));
   for (int i = 0; i < metaDataFiles.size(); ++i) {
-    const std::string metaName = metaDataFolder + metaDataFiles[i];
-    std::ifstream in(metaName, std::ios::in | std::ios::binary);
+    const fs::path metaName = metaDataFolder / metaDataFiles[i];
+    CHECK(fs::exists(metaName)) << "Could not open: " << metaName;
+    std::ifstream in(metaName.string(), std::ios::in | std::ios::binary);
     for (int j = 0; j < NUM_ROTS; ++j) {
       voxelInfo[i][j].loadFromFile(in);
     }
@@ -303,8 +295,8 @@ void multi::Labeler::saveFinal(int index) {
       Eigen::Vector3d(bestNodes[0].x, bestNodes[0].y, 0) / scale +
       Eigen::Vector3d(0, 0, panoramas[bestNodes[0].color].floorCoord);
 
-  std::ofstream out(FLAGS_outputV2 + "final_" + std::to_string(index) + ".dat",
-                    std::ios::out | std::ios::binary);
+  const fs::path name = fs::path(FLAGS_outputV2) / "final_{}.dat"_format(index);
+  std::ofstream out(name.string(), std::ios::out | std::ios::binary);
   const int num = bestNodes.size();
   out.write(reinterpret_cast<const char *>(&num), sizeof(num));
   Eigen::Matrix3d zeroMat = Eigen::Matrix3d::Zero();

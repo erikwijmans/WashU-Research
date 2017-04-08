@@ -73,43 +73,30 @@ DEFINE_double(
     "Scale used to size the density maps.  If -1, it will be looked up");
 
 void prependDataPath() {
-  FLAGS_floorPlan = FLAGS_dataPath + "/" + FLAGS_floorPlan;
-  FLAGS_dmFolder = FLAGS_dataPath + "/" + FLAGS_dmFolder;
-  FLAGS_outputV1 = FLAGS_dataPath + "/" + FLAGS_outputV1;
-  FLAGS_outputV2 = FLAGS_dataPath + "/" + FLAGS_outputV2;
-  FLAGS_zerosFolder = FLAGS_dataPath + "/" + FLAGS_zerosFolder;
-  FLAGS_voxelFolder = FLAGS_dataPath + "/" + FLAGS_voxelFolder;
-  FLAGS_rotFolder = FLAGS_dataPath + "/" + FLAGS_rotFolder;
-  FLAGS_panoFolder = FLAGS_dataPath + "/" + FLAGS_panoFolder;
-  FLAGS_PTXFolder = FLAGS_dataPath + "/" + FLAGS_PTXFolder;
-  FLAGS_normalsFolder = FLAGS_dataPath + "/" + FLAGS_normalsFolder;
-  FLAGS_descriptorsFolder = FLAGS_dataPath + "/" + FLAGS_descriptorsFolder;
-  FLAGS_SIFTFolder = FLAGS_dataPath + "/" + FLAGS_SIFTFolder;
-  FLAGS_binaryFolder = FLAGS_dataPath + "/" + FLAGS_binaryFolder;
-  FLAGS_doorsFolder = FLAGS_dataPath + "/" + FLAGS_doorsFolder;
+  FLAGS_floorPlan = (fs::path(FLAGS_dataPath) / FLAGS_floorPlan).string();
+  FLAGS_dmFolder = (fs::path(FLAGS_dataPath) / FLAGS_dmFolder).string();
+  FLAGS_outputV1 = (fs::path(FLAGS_dataPath) / FLAGS_outputV1).string();
+  FLAGS_outputV2 = (fs::path(FLAGS_dataPath) / FLAGS_outputV2).string();
+  FLAGS_zerosFolder = (fs::path(FLAGS_dataPath) / FLAGS_zerosFolder).string();
+  FLAGS_voxelFolder = (fs::path(FLAGS_dataPath) / FLAGS_voxelFolder).string();
+  FLAGS_rotFolder = (fs::path(FLAGS_dataPath) / FLAGS_rotFolder).string();
+  FLAGS_panoFolder = (fs::path(FLAGS_dataPath) / FLAGS_panoFolder).string();
+  FLAGS_PTXFolder = (fs::path(FLAGS_dataPath) / FLAGS_PTXFolder).string();
+  FLAGS_normalsFolder =
+      (fs::path(FLAGS_dataPath) / FLAGS_normalsFolder).string();
+  FLAGS_descriptorsFolder =
+      (fs::path(FLAGS_dataPath) / FLAGS_descriptorsFolder).string();
+  FLAGS_SIFTFolder = (fs::path(FLAGS_dataPath) / FLAGS_SIFTFolder).string();
+  FLAGS_binaryFolder = (fs::path(FLAGS_dataPath) / FLAGS_binaryFolder).string();
+  FLAGS_doorsFolder = (fs::path(FLAGS_dataPath) / FLAGS_doorsFolder).string();
 }
 
-void parseFolder(const std::string &name, std::vector<std::string> &out) {
-  for (auto &file : folderToIterator(name))
-    out.push_back(file.path().filename().string());
-  std::sort(out);
-}
-
-boost::filesystem::directory_iterator
-folderToIterator(const std::string &name) {
-  boost::filesystem::path folder(name);
-  if (!boost::filesystem::exists(folder) ||
-      !boost::filesystem::is_directory(folder)) {
-    std::cout << folder << " does not exists" << std::endl;
-    exit(1);
-  }
-  return boost::filesystem::directory_iterator(folder);
-}
-
-int numberToIndex(const std::vector<std::string> &names, const int number) {
-  for (int i = 0; i < names.size(); ++i)
-    if (number == std::stoi(names[i].substr(names[i].find(".") - 3, 3)))
+int numberToIndex(const std::vector<fs::path> &names, const int number) {
+  for (int i = 0; i < names.size(); ++i) {
+    auto s = names[i].string();
+    if (number == std::stoi(s.substr(s.find(".") - 3, 3)))
       return i;
+  }
   std::cout << "Could not find scan with number: " << number << std::endl;
   exit(2);
 }

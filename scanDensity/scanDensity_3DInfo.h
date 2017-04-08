@@ -28,9 +28,9 @@ public:
                   const DensityMapsManager::MatPtr &R,
                   const BoundingBox::ConstPtr &bBox);
   void run(double voxelsPerMeter, double pixelsPerMeter);
-  void saveVoxelGrids(const std::vector<std::string> &pointNames,
-                      const std::vector<std::string> &freeNames,
-                      const std::string &metaData);
+  void saveVoxelGrids(const std::vector<fs::path> &pointNames,
+                      const std::vector<fs::path> &freeNames,
+                      const fs::path &metaData);
 };
 
 } // voxel

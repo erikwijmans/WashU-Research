@@ -1,0 +1,53 @@
+{% include 'header.html '%}
+
+  <div class="container-fluid" id="content">
+  <div class="row">
+    <div class="col-md-3">
+      <a href={% if active %}"{{ url_for('index', active=True) }}"{% else %}"{{ url_for('index') }}"{% endif %} class="col-md-3">
+        <h2>
+          Home
+        </h2>
+      </a>
+    </div>
+    <div class="col-md-3">
+      <a href={% if active %}"{{ url_for('floor', floor_id=floor_id, img_name=img_name, active=True) }}"{% else %}"{{ url_for('floor', floor_id=floor_id, img_name=img_name) }}"{% endif %}>
+        <h2>
+          Floor Overview
+        </h2>
+      </a>
+    </div>
+  </div>
+
+  <div class="row">
+    <center>
+    <canvas id="main-canvas"></canvas>
+    </center>
+  </div>
+
+  <div class="row">
+    {% if active %}
+      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=prev_name, active=True) }}')">Prev</button>
+
+      <button type="button" class="btn btn-primary" id="save-btn" data-toggle="tooltip" title="Saved!" data-trigger="manual">Save</button>
+
+      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=next_name, active=True) }}')">Next</button>
+
+      <button type="button" class="btn btn-primary" id="delete-btn">Delete Rect</button>
+    {% else %}
+      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=prev_name) }}')">Prev</button>
+
+
+      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=next_name) }}')">Next</button>
+    {% endif %}
+  </div>
+  </div>
+
+  <script type="text/javascript">
+    $(function() {
+      var blurrer = new Blurrer("{{ url_for('get_image', floor_id=floor_id, img_name=img_name) | safe }}", '{{ prev_rects | tojson | safe }}' , "{{ active }}" == "True");
+      {% if active %}
+      set_up_connections("{{ floor_id }}", "{{ img_name }}", "{{ url_for('save') }}", blurrer);
+      {% endif %}
+    });
+  </script>
+{% include 'footer.html '%}
