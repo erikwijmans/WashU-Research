@@ -26,6 +26,17 @@ a {
   color: rgba(255, 255, 255, 0.5);
 }
 
+.page-link {
+  color: rgb(255, 255, 255);
+  /*background-color: rgba(255, 255, 255, 0.08);*/
+  text-decoration: underline;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.page-link:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .header-link {
   color: rgb(165, 20, 23);
   /*background-color: rgba(255, 255, 255, 0.08);*/
