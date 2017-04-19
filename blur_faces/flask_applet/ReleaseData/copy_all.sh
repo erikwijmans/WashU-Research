@@ -3,8 +3,8 @@
 function copyImgs {
   mkdir -p $1
   cd $1
-  cp -rv ../../ReleaseData/$1/imgs .
-  cp -rv ../../ReleaseData/$1/lowres .
+  cp -rfv /home/erik/Projects/ReleaseData/$1/imgs .
+  cp -rfv /home/erik/Projects/ReleaseData/$1/lowres .
   cd ..
 }
 

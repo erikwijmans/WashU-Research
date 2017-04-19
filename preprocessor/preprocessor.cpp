@@ -75,8 +75,8 @@ int main(int argc, char *argv[]) {
   utils::progress_display show_progress(FLAGS_numScans * 5);
 
   for (int i = FLAGS_startIndex; i < FLAGS_numScans + FLAGS_startIndex; ++i) {
-    auto[building_name, scan_id] = parse_name(csvFileNames[i]);
     const auto &csvFileName = csvFileNames[i];
+    auto[building_name, scan_id] = parse_name(csvFileName);
 
     const fs::path binaryFileName =
         fs::path(FLAGS_binaryFolder) /
@@ -136,7 +136,8 @@ int main(int argc, char *argv[]) {
 
 static double ransacZ(const std::vector<double> &Z) {
   return utils::ransac(
-      Z, 0.0, [](double z, double zest) { return std::abs(z - zest) < 0.03; });
+      Z, []() -> double { return 0.0; },
+      [](double z, double zest) { return std::abs(z - zest) < 0.03; });
 }
 
 static Eigen::VectorXd getZPlanes(const std::vector<double> &z) {
@@ -436,6 +437,7 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
                     const fs::path &panoName, const fs::path &dataName) {
   if (!FLAGS_redo && fs::exists(panoName) && fs::exists(dataName))
     return;
+
   cv::Mat trackingPanorama(PTXrows, PTXcols, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat_<cv::Vec3b> _trackingPanorama = trackingPanorama;
 
@@ -683,6 +685,7 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
   if (!FLAGS_redo && reloadNormals(cloud_normals, normals_points, outName))
     return;
 
+  LOG(INFO) << "Calculating normals";
   pcl::PointCloud<PointType>::Ptr filtered_cloud(
       new pcl::PointCloud<PointType>);
 
@@ -709,6 +712,8 @@ void getNormals(const pcl::PointCloud<PointType>::Ptr &cloud,
   std::vector<int> indices;
   pcl::removeNaNNormalsFromPointCloud(*cloud_normals, *cloud_normals, indices);
   pcl::copyPointCloud(*filtered_cloud, indices, *normals_points);
+
+  LOG(INFO) << "Found {} normals"_format(cloud_normals->size());
 
   if (FLAGS_save)
     saveNormals(cloud_normals, normals_points, outName);

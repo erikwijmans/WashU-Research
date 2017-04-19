@@ -472,9 +472,8 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
     T(j, 3) = trans[j];
   }
 
-  Eigen::Matrix4d correction;
-
   /* clang-format off */
+  Eigen::Matrix4d correction;
   correction << 1,  0, 0, 0,
                 0, -1, 0, 0,
                 0,  0, 1, 0,
@@ -482,9 +481,7 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
   /* clang-format on */
 
   T = correction * T * correction;
-  std::cout << "Transformation before ICP: " << std::endl
-            << T << std::endl
-            << std::endl;
+  fmt::print("Transformation before ICP: {}\n\n", T);
 
   for (auto it = points.begin(); it != points.end();) {
     auto &p = *it;

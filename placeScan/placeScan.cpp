@@ -50,11 +50,8 @@ int main(int argc, char *argv[]) {
   if (FLAGS_threads)
     omp_set_num_threads(FLAGS_threads);
 
+  CHECK(fs::exists(fs::path(FLAGS_floorPlan))) << "Could not find floor plan";
   cv::Mat inFP = cv::imread(FLAGS_floorPlan, 0);
-  if (!inFP.data) {
-    std::cout << "Error reading floorPlan" << std::endl;
-    exit(1);
-  }
 
   place::removeMinimumConnectedComponents(inFP);
 
@@ -87,7 +84,7 @@ int main(int argc, char *argv[]) {
 
 #if 0
   if (FLAGS_debugMode) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_032.png", 0);
+    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_000.png", 0);
     if (!image.data) {
       std::cout << "Could not load image" << std::endl;
       return 1;
@@ -123,7 +120,15 @@ int main(int argc, char *argv[]) {
       doorsNames;
 
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
-  utils::parse_folder(FLAGS_doorsFolder + "/floorplan", doorsNames);
+  utils::parse_folder(fs::path(FLAGS_doorsFolder) / "floorplan", doorsNames);
+
+  CHECK(pointFileNames.size() == zerosFileNames.size() &&
+        pointFileNames.size() == freeFileNames.size() &&
+        pointFileNames.size() == doorsNames.size())
+      << "Must have the same number of scans, doors, and zeros\n"
+      << "p: {} f: {} z: {} d: {}"_format(
+             pointFileNames.size(), freeFileNames.size(), zerosFileNames.size(),
+             doorsNames.size());
 
   if (FLAGS_startNumber != -1)
     FLAGS_startIndex = numberToIndex(pointFileNames, FLAGS_startNumber);
@@ -152,10 +157,10 @@ int main(int argc, char *argv[]) {
     const int stopIndex =
         std::min((int)pointFileNames.size(), FLAGS_startIndex + FLAGS_numScans);
     for (int i = FLAGS_startIndex; i < stopIndex; ++i) {
-      const auto scanName = pointFileNames[i];
-      const auto zerosFile = zerosFileNames[i];
-      const auto maskName = freeFileNames[i];
-      const auto doorName = doorsNames[i];
+      const auto &scanName = pointFileNames[i];
+      const auto &zerosFile = zerosFileNames[i];
+      const auto &maskName = freeFileNames[i];
+      const auto &doorName = doorsNames[i];
 
       if (FLAGS_redo ||
           !place::reshowPlacement(scanName, zerosFile, doorName, d,

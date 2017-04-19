@@ -1,9 +1,9 @@
-{% include 'header.html '%}
+{% include 'header.html' %}
 
   <div class="container-fluid" id="content">
   <div class="row">
     <div class="col-md-3">
-      <a href={% if active %}"{{ url_for('index', active=True) }}"{% else %}"{{ url_for('index') }}"{% endif %} class="col-md-3">
+      <a href={% if active %}"{{ url_for('main', active=True) }}"{% else %}"{{ url_for('main') }}"{% endif %} class="col-md-3">
         <h2>
           Home
         </h2>
@@ -26,21 +26,24 @@
 
   <div class="row">
     {% if active %}
-      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=prev_name, active=True) }}')">Prev</button>
+      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('annotate', floor_id=floor_id, img_name=prev_name, active=True) }}')">Prev</button>
 
       <button type="button" class="btn btn-primary" id="save-btn" data-toggle="tooltip" title="Saved!" data-trigger="manual">Save</button>
 
-      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=next_name, active=True) }}')">Next</button>
+      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('annotate', floor_id=floor_id, img_name=next_name, active=True) }}')">Next</button>
 
       <button type="button" class="btn btn-primary" id="delete-btn">Delete Rect</button>
     {% else %}
-      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=prev_name) }}')">Prev</button>
+      <button type="button" class="btn btn-primary {% if prev_name==img_name %} disabled {% endif %}" id="prev-btn" onclick="window.location.assign('{{ url_for('annotate', floor_id=floor_id, img_name=prev_name) }}')">Prev</button>
 
 
-      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('blur', floor_id=floor_id, img_name=next_name) }}')">Next</button>
+      <button type="button" class="btn btn-primary {% if next_name==img_name %} disabled {% endif %}" id="next-btn" onclick="window.location.assign('{{ url_for('annotate', floor_id=floor_id, img_name=next_name) }}')">Next</button>
     {% endif %}
   </div>
   </div>
+
+  <script type="text/javascript" src="/js/main.js"></script>
+  <script type="text/javascript" src="/js/connection.js"></script>
 
   <script type="text/javascript">
     $(function() {
@@ -50,4 +53,4 @@
       {% endif %}
     });
   </script>
-{% include 'footer.html '%}
+{% include 'footer.html' %}

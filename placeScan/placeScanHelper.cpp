@@ -37,10 +37,8 @@ void place::parseFolders(std::vector<fs::path> &pointFileNames,
   const fs::path zzFolder = FLAGS_zerosFolder;
   utils::parse_folder(zzFolder, zerosFileNames);
 
-  if (pointFileNames.size() != zerosFileNames.size()) {
-    perror("Not the same number of scans as zeros!");
-    exit(1);
-  }
+  CHECK(pointFileNames.size() == zerosFileNames.size())
+      << "Not the same number of scans as zerso!";
 }
 
 void place::loadInScans(const fs::path &scanName, const fs::path &zerosFile,
@@ -48,9 +46,9 @@ void place::loadInScans(const fs::path &scanName, const fs::path &zerosFile,
                         std::vector<Eigen::Vector2i> &zeroZero) {
 
   zeroZero.resize(NUM_ROTS);
-  CHECK(fs::exists(zerosFile)) << "Could not open: " << zerosFile;
-  std::ifstream binaryReader(zerosFile.string(),
-                             std::ios::in | std::ios::binary);
+
+  std::ifstream binaryReader =
+      utils::open(zerosFile, std::ios::in | std::ios::binary);
   for (auto &z : zeroZero)
     binaryReader.read(reinterpret_cast<char *>(z.data()),
                       sizeof(Eigen::Vector2i));
@@ -171,15 +169,15 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
   const fs::path placementName =
       "{}_placement_{}.dat"_format(buildName, scanNumber);
 
-  std::ifstream in((preDone / placementName).string(),
-                   std::ios::in | std::ios::binary);
+  std::ifstream in =
+      utils::open(preDone / placementName, std::ios::in | std::ios::binary);
   if (!in.is_open())
     return false;
   if (!FLAGS_reshow)
     return true;
 
   if (!FLAGS_quietMode)
-    std::cout << placementName << std::endl;
+    fmt::print("{}\n", placementName);
 
   std::vector<cv::Mat> rotatedScans, toTrim;
   std::vector<Eigen::Vector2i> zeroZero;
@@ -200,9 +198,8 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
   num = std::min(num, cutOffNum);
 
   cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-
   if (!FLAGS_quietMode)
-    std::cout << "Showing minima: " << num << std::endl;
+    fmt::print("Showing {} minima\n", num);
 
   for (int k = 0; k < std::min(num, (int)scores.size());) {
     auto &currentScore = scores[k];
@@ -212,7 +209,7 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
     const int xOffset = currentScore.x - zeroZero[currentScore.rotation][0];
     const int yOffset = currentScore.y - zeroZero[currentScore.rotation][1];
 
-    cv::Mat_<cv::Vec3b> output = fpColor.clone();
+    cv::Mat3b output = fpColor.clone();
 
     auto &res = d.getResponse(0);
     for (int i = 0; i < res.outerSize(); ++i)
@@ -255,11 +252,11 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
     }
 
     if (!FLAGS_quietMode) {
-      std::cout << &currentScore << std::endl;
-      std::cout << "% of scan unexplained: "
-                << currentScore.scanFP / currentScore.scanPixels
-                << "   Index: " << k << std::endl
-                << std::endl;
+      fmt::print("{}\n"
+                 "\% of scan unexplained: {:.4f}"
+                 "\tIndex: {}\n\n",
+                 currentScore, currentScore.scanFP / currentScore.scanPixels,
+                 k);
     }
 
     const int keyCode = cv::rectshow(output);
@@ -419,7 +416,8 @@ void place::loadInTruePlacement(const fs::path &scanName,
   const fs::path placementName =
       fs::path(FLAGS_outputV1) /
       "{}_placement_{}.dat"_format(buildName, scanName);
-  std::ifstream in(placementName.string(), std::ios::in | std::ios::binary);
+  std::ifstream in =
+      utils::open(placementName, std::ios::in | std::ios::binary);
 
   int num;
   in.read(reinterpret_cast<char *>(&num), sizeof(num));
@@ -634,7 +632,10 @@ void place::removeMinimumConnectedComponents(cv::Mat &image) {
 std::vector<std::vector<place::Door>>
 place::loadInDoors(const fs::path &name,
                    const std::vector<Eigen::Vector2i> &zeroZero) {
-  std::ifstream in(name.string(), std::ios::in | std::ios::binary);
+  if (!FLAGS_quietMode) {
+    fmt::print("Doors name: {}\n", name);
+  }
+  std::ifstream in = utils::open(name, std::ios::in | std::ios::binary);
   std::vector<std::vector<place::Door>> tmp(NUM_ROTS);
   for (int r = 0; r < NUM_ROTS; ++r) {
     int num;

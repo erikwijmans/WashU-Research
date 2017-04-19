@@ -282,13 +282,16 @@ template <> struct hash<place::posInfo> {
 };
 } // std
 
+namespace hidden {
 inline std::tuple<std::string, std::string>
 parse_name(const std::string &name) {
   return std::make_tuple(name.substr(0, 3), name.substr(name.find(".") - 3, 3));
 }
 
+} // hidden
+
 inline std::tuple<std::string, std::string> parse_name(const fs::path &p) {
-  return parse_name(p.filename().string());
+  return hidden::parse_name(p.filename().string());
 }
 
 #endif // RGBD_UTILS_HPP

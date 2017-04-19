@@ -310,48 +310,46 @@ double sigmoidWeight(double seen, double expected);
 
 cv::Vec3b randomColor();
 
-template <class RandAccIterator, class E, class PurePairwiseFunc>
-auto ransac(const RandAccIterator &data, E init, PurePairwiseFunc is_inlier) {
+template <class RandAccIterator, class E, class PurePairwiseFunc, class Reducer>
+auto ransac(const RandAccIterator &data, E init, PurePairwiseFunc is_inlier,
+            Reducer reducer) {
 
   const int m = data.size();
 
   double maxInliers = 0, K = 1e5;
   int k = 0;
 
-  std::random_device seed;
-  std::mt19937_64 gen(seed());
+  static std::random_device seed;
+  static std::mt19937_64 gen(seed());
   std::uniform_int_distribution<int> dist(0, m - 1);
-  E res = init;
+  auto res = init();
 
   while (k < K) {
     // random sampling
     int randomIndex = dist(gen);
     // compute the model parameters
-    auto est = data[randomIndex];
+    auto &est = data[randomIndex];
 
     // Count the number of inliers
     double numInliers = 0;
-    E average = init;
+    auto average = init();
 #pragma omp parallel
     {
       double privateInliers = 0;
-      E private_ave = init;
+      auto private_ave = init();
 #pragma omp for nowait schedule(static)
       for (int i = 0; i < m; ++i) {
         auto &d = data[i];
         if (is_inlier(d, est)) {
           ++privateInliers;
-          private_ave += d;
+          private_ave = reducer(private_ave, d, est);
         }
       }
 
-#pragma omp for schedule(static) ordered
-      for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp ordered
-        {
-          average += private_ave;
-          numInliers += privateInliers;
-        }
+#pragma omp critical
+      {
+        average += private_ave;
+        numInliers += privateInliers;
       }
     }
 
@@ -368,6 +366,12 @@ auto ransac(const RandAccIterator &data, E init, PurePairwiseFunc is_inlier) {
   }
 
   return res;
+}
+
+template <class RandAccIterator, class E, class PurePairwiseFunc>
+auto ransac(const RandAccIterator &data, E init, PurePairwiseFunc is_inlier) {
+  return ransac(data, init, is_inlier, [](const auto &ave, const auto &n,
+                                          const auto &est) { return ave + n; });
 }
 
 class progress_display : private boost::noncopyable {
@@ -396,6 +400,12 @@ private:
   unsigned int _tic;
   void display_tic();
 };
+
+inline std::ifstream open(const fs::path &n,
+                          std::ios_base::openmode mode = std::ios_base::in) {
+  CHECK(fs::exists(n)) << "Could not open: " << n;
+  return std::ifstream(n.string(), mode);
+}
 } // utils
 
 template <unsigned N, unsigned L, typename... Targs> struct tuple_printer {

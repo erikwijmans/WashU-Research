@@ -17,11 +17,10 @@
 
 #include <omp.h>
 
-void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &,
-                             Eigen::Vector3d &);
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &,
-                             const Eigen::Vector3d &, Eigen::Vector3d &,
-                             Eigen::Vector3d &);
+void ransacManhattan1(const std::vector<Eigen::Vector3d> &, Eigen::Vector3d &);
+void ransacManhattan2(const std::vector<Eigen::Vector3d> &,
+                      const Eigen::Vector3d &, Eigen::Vector3d &,
+                      Eigen::Vector3d &);
 void getMajorAngles(const Eigen::Vector3d &, const Eigen::Vector3d &,
                     const Eigen::Vector3d &, std::vector<Eigen::Matrix3d> &);
 
@@ -57,7 +56,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   VLOG(1) << "N size: " << normals.size() << std::endl;
 
   std::vector<Eigen::Vector3d> M(3);
-  satoshiRansacManhattan1(normals, M[0]);
+  ransacManhattan1(normals, M[0]);
 
   LOG(INFO) << "D1: " << M[0] << std::endl << std::endl;
 
@@ -70,7 +69,7 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
   VLOG(1) << "N2 size: " << N2.size() << std::endl;
 
-  satoshiRansacManhattan2(N2, M[0], M[1], M[2]);
+  ransacManhattan2(N2, M[0], M[1], M[2]);
 
   LOG(INFO) << "D2: " << M[1] << std::endl << std::endl;
   LOG(INFO) << "D3: " << M[2] << std::endl << std::endl;
@@ -117,18 +116,24 @@ void getRotations(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
   }
 }
 
-#pragma omp declare reduction(+ : Eigen::Vector3d : omp_out += omp_in)
-
 /**
   Gets the first dominate direction.  Dominate direction extraction
   is done using RANSAC.  N is all normals and M is the ouput
 */
-void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
-                             Eigen::Vector3d &M) {
+void ransacManhattan1(const std::vector<Eigen::Vector3d> &N,
+                      Eigen::Vector3d &M) {
   Eigen::Vector3d init = Eigen::Vector3d::Zero();
-  M = utils::ransac(N, init, [](auto &n, auto &nest) {
-    return std::acos(std::abs(nest.dot(n))) < 0.02;
-  });
+  M = utils::ransac(
+      N, []() -> Eigen::Vector3d { return Eigen::Vector3d::Zero(); },
+      [](auto &n, auto &nest) {
+        return std::acos(std::abs(nest.dot(n))) < 0.02;
+      },
+      [](const auto &ave, const auto &n, const auto &est) -> Eigen::Vector3d {
+        if (n.dot(est) < 0)
+          return ave - n;
+        else
+          return ave + n;
+      });
 }
 
 /**
@@ -137,9 +142,9 @@ void satoshiRansacManhattan1(const std::vector<Eigen::Vector3d> &N,
   M1 and M2 are the outputs for the two remaining dominate directions.
   This method follows a very similar the first version of it
 */
-void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
-                             const Eigen::Vector3d &n1, Eigen::Vector3d &M1,
-                             Eigen::Vector3d &M2) {
+void ransacManhattan2(const std::vector<Eigen::Vector3d> &N,
+                      const Eigen::Vector3d &n1, Eigen::Vector3d &M1,
+                      Eigen::Vector3d &M2) {
   const int m = N.size();
 
   volatile double maxInliers = 0, K = 1.0e5;
@@ -184,13 +189,11 @@ void satoshiRansacManhattan2(const std::vector<Eigen::Vector3d> &N,
           ++privateInliers;
         }
       }
-#pragma omp for schedule(static) ordered
-      for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp ordered
-        {
-          average += privateAve;
-          numInliers += privateInliers;
-        }
+
+#pragma omp critical
+      {
+        average += privateAve;
+        numInliers += privateInliers;
       }
     }
 

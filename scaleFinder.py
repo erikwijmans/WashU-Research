@@ -1,1 +1,0 @@
-globals/scaleFinder.py

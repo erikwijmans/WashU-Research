@@ -140,16 +140,16 @@ multi::Labeler::Labeler() {
   {
     const fs::path folder = fs::path(FLAGS_voxelFolder) / "R0";
 
-    utils::parse_folder(folder, pointFileNames, [](const fs::path &s) {
+    utils::parse_folder(folder, pointVoxelFileNames, [](const fs::path &s) {
       return s.string().find("point") != std::string::npos;
     });
-    for (auto &f : pointFileNames)
+    for (auto &f : pointVoxelFileNames)
       f = f.filename();
 
-    utils::parse_folder(folder, freeFileNames, [](const fs::path &s) {
+    utils::parse_folder(folder, freeVoxelFileNames, [](const fs::path &s) {
       return s.string().find("freeSpace") != std::string::npos;
     });
-    for (auto &f : freeFileNames)
+    for (auto &f : freeVoxelFileNames)
       f = f.filename();
 
     std::sort(pointVoxelFileNames.begin(), pointVoxelFileNames.end());
@@ -196,8 +196,8 @@ void multi::Labeler::load() {
   rotationMatricies.assign(rotationsFiles.size(),
                            std::vector<Eigen::Matrix3d>(NUM_ROTS));
   for (int j = 0; j < rotationsFiles.size(); ++j) {
-    const fs::path rotName = rotFolder / rotationsFiles[j];
-    std::ifstream in(rotName.string(), std::ios::binary | std::ios::in);
+    const fs::path &rotName = rotationsFiles[j];
+    std::ifstream in = utils::open(rotName, std::ios::binary | std::ios::in);
     for (int i = 0; i < NUM_ROTS; ++i)
       in.read(reinterpret_cast<char *>(rotationMatricies[j][i].data()),
               sizeof(Eigen::Matrix3d));
@@ -206,18 +206,16 @@ void multi::Labeler::load() {
   }
   panoramas.resize(panoFiles.size());
   for (int i = 0; i < panoFiles.size(); ++i) {
-    const fs::path imgName = panoImagesFolder / panoFiles[i];
-    const fs::path dataName = panoDataFolder / panoDataNames[i];
+    const fs::path &imgName = panoFiles[i];
+    const fs::path &dataName = panoDataNames[i];
     panoramas[i].loadFromFile(imgName, dataName);
   }
 
-  const fs::path metaDataFolder = fs::path(FLAGS_voxelFolder) / "metaData";
   voxelInfo.assign(metaDataFiles.size(),
                    std::vector<place::MetaData>(NUM_ROTS));
   for (int i = 0; i < metaDataFiles.size(); ++i) {
-    const fs::path metaName = metaDataFolder / metaDataFiles[i];
-    CHECK(fs::exists(metaName)) << "Could not open: " << metaName;
-    std::ifstream in(metaName.string(), std::ios::in | std::ios::binary);
+    const fs::path &metaName = metaDataFiles[i];
+    std::ifstream in = utils::open(metaName, std::ios::in | std::ios::binary);
     for (int j = 0; j < NUM_ROTS; ++j) {
       voxelInfo[i][j].loadFromFile(in);
     }

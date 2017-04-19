@@ -2,44 +2,10 @@ from flask import Flask, url_for, redirect, request, render_template, send_from_
 from glob import glob
 from os.path import isfile
 from fastnumbers import fast_real
-import re
+import re, sys
 
 app = Flask(__name__)
 
-
-@app.route('/api/get-prev', methods=['GET'])
-def get_prev():
-  floor_id = request.args.get('floor_id')
-  img_name = request.args.get('img_name')
-
-  image_urls = glob("ReleaseData/{}/imgs/*.png".format(floor_id))
-  image_urls.sort();
-
-  idx = image_urls.index("ReleaseData/{}/imgs/{}".format(floor_id, img_name));
-  if idx > 0:
-    url = image_urls[idx - 1]
-  else:
-    url = image_urls[idx]
-
-  return jsonify(url_for('annotate', floor_id=url.split("/")[1], img_name=url.split("/")[2]))
-
-
-@app.route('/api/get-next', methods=['GET'])
-def get_next():
-  floor_id = request.args.get('floor_id')
-  img_name = request.args.get('img_name')
-
-  image_urls = glob("ReleaseData/{}/imgs/*.png".format(floor_id))
-  image_urls.sort();
-
-  idx = image_urls.index("ReleaseData/{}/imgs/{}".format(floor_id, img_name));
-
-  if idx < len(image_urls) - 1:
-    url = image_urls[idx + 1]
-  else:
-    url = image_urls[idx]
-
-  return jsonify(url_for('annotate', floor_id=url.split("/")[1], img_name=url.split("/")[2]))
 
 searcher1 = re.compile(r"""
                       .*? #Matches everything upto the floor name
@@ -78,10 +44,10 @@ def save():
 
 @app.route('/floor', methods=['GET'])
 def floor():
-  floor_id = request.args.get('floor_id')
+  floor_id = request.args.get('floor_id', "DUC1")
   active = request.args.get('active', False)
   image_urls = glob("ReleaseData/{}/imgs/*.png".format(floor_id))
-  image_urls.sort();
+  image_urls.sort()
 
   images = []
   for url in image_urls:
@@ -114,8 +80,8 @@ def load_old_rects(floor_id, img_name):
 
 @app.route('/annotate', methods=['GET'])
 def annotate():
-  floor_id = request.args.get('floor_id')
-  img_name = request.args.get('img_name')
+  floor_id = request.args.get('floor_id', "DUC1")
+  img_name = request.args.get('img_name', "DUC_pano_000.png")
   active = request.args.get('active', False)
 
   image_urls = glob("ReleaseData/{}/imgs/*.png".format(floor_id))
@@ -149,9 +115,10 @@ def send_js(script_name):
 
 @app.route('/api/images', methods=['GET'])
 def get_image():
-  floor_id = request.args.get('floor_id')
-  img_name = request.args.get('img_name')
+  floor_id = request.args.get('floor_id', "DUC1")
+  img_name = request.args.get('img_name', "DUC_pano_000.png")
   lowres = request.args.get('lowres', False)
+  print(floor_id, img_name, lowres)
   if not lowres:
     file = "{}/imgs/{}".format(floor_id, img_name)
   else:

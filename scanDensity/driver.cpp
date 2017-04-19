@@ -77,7 +77,8 @@ int main(int argc, char *argv[]) {
 
         if (runDoors) {
           analyzer2D.rotateDoors();
-          saveDoors(analyzer2D.getRotatedDoors(), *doorsName);
+          if (FLAGS_save)
+            saveDoors(analyzer2D.getRotatedDoors(), *doorsName);
         }
 
         if (FLAGS_pe) {
@@ -118,8 +119,8 @@ int main(int argc, char *argv[]) {
           analyzer3D.saveVoxelGrids(*$3DPointNames, *$3DFreeNames,
                                     *metaDataName);
       }
-      processed->fetch_add(1);
 
+      processed->fetch_add(1);
       lock.unlock();
       cv->notify_all();
     });

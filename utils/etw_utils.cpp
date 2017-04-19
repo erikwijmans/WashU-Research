@@ -22,11 +22,11 @@ cv::Vec3b utils::randomColor() {
 }
 
 int cv::rectshow(const std::string &name, const cv::Mat &img) {
-  while (cv::waitKey(1) != -1)
-    ;
-
-  cv::namedWindow(name, CV_WINDOW_NORMAL);
   static cv::Mat bigImg;
+  cv::namedWindow(name, CV_WINDOW_NORMAL);
+
+  for (int tmp = cv::waitKey(1); cv::waitKey(1) != tmp;)
+    ;
 
   int newRows, newCols;
   if (img.rows > img.cols) {
@@ -36,6 +36,7 @@ int cv::rectshow(const std::string &name, const cv::Mat &img) {
     newRows = img.cols;
     newCols = img.cols * 16 / 9;
   }
+  fmt::print("{}, {}\n", newRows, newCols);
 
   if (!bigImg.data || bigImg.rows != newRows || bigImg.cols != newCols ||
       bigImg.type() != img.type()) {
@@ -50,8 +51,11 @@ int cv::rectshow(const std::string &name, const cv::Mat &img) {
   for (int j = 0; j < img.rows; ++j) {
     auto src = img.ptr<uchar>(j);
     auto dst = bigImg.ptr<uchar>(j + deltaRows);
-    std::memcpy(dst + img.channels() * deltaCols, src,
-                sizeof(uchar) * img.cols * img.channels());
+    /*    std::memcpy(dst + img.channels() * deltaCols, src,
+                    sizeof(uchar) * img.cols * img.channels());*/
+    for (int i = 0; i < img.cols * img.channels(); ++i) {
+      dst[i + img.channels() * deltaCols] = src[i];
+    }
   }
 
   cv::imshow(name, bigImg);
@@ -70,29 +74,26 @@ void utils::parse_folder(const fs::path &p, std::vector<fs::path> &out) {
     out.push_back(file);
   }
   std::sort(out, [](auto &a, auto &b) {
-    auto astr = a.string(), bstr = b.string();
+    auto astr = a.filename().string(), bstr = b.filename().string();
     return astr < bstr;
   });
 }
 void utils::parse_folder(const std::string &name, std::vector<fs::path> &out) {
-  parse_folder(name, out);
+  parse_folder(fs::path(name), out);
 }
 
-std::vector<fs::path> utils::parse_folder(const std::string &name) {
-  std::vector<fs::path> out;
-  utils::parse_folder(name, out);
-  return out;
-}
 std::vector<fs::path> utils::parse_folder(const fs::path &p) {
   std::vector<fs::path> out;
   utils::parse_folder(p, out);
   return out;
 }
+std::vector<fs::path> utils::parse_folder(const std::string &name) {
+  return utils::parse_folder(fs::path(name));
+}
+
 fs::directory_iterator utils::folder_to_iterator(const fs::path &p) {
-  if (!fs::exists(p) || !fs::is_directory(p)) {
-    std::cout << p << " does not exists" << std::endl;
-    exit(1);
-  }
+  CHECK(fs::exists(p) && fs::is_directory(p))
+      << "Path is not a directory!\t" << p;
   return fs::directory_iterator(p);
 }
 

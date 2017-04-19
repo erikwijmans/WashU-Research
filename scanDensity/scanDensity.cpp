@@ -68,19 +68,24 @@ void DensityMapsManager::resetFlags(int argc, char *argv[]) {
   if (FLAGS_numScans == -1)
     FLAGS_numScans = binaryNames.size() - FLAGS_startIndex;
 
-  CHECK(FLAGS_startIndex + FLAGS_numScans > binaryNames.size())
+  CHECK(FLAGS_startIndex + FLAGS_numScans <= binaryNames.size())
       << "Not enough binary files" << std::endl;
-  CHECK(FLAGS_startIndex + FLAGS_numScans > rotationsFiles.size())
+  CHECK(FLAGS_startIndex + FLAGS_numScans <= rotationsFiles.size())
       << "Not enough rotations files" << std::endl;
+  CHECK(binaryNames.size() == rotationsFiles.size() &&
+        binaryNames.size() == doorsNames.size())
+      << "Must have same number of binary files, rotations files, and doors "
+         "files";
+
   this->current = FLAGS_startIndex;
 }
 
 void DensityMapsManager::run() {
-  rotationFile = fs::path(FLAGS_rotFolder) / rotationsFiles[current];
-  fileName = fs::path(FLAGS_binaryFolder) / binaryNames[current];
-  doorName = fs::path(FLAGS_doorsFolder) / "pointcloud" / doorsNames[current];
+  rotationFile = rotationsFiles[current];
+  fileName = binaryNames[current];
+  doorName = doorsNames[current];
 
-  std::tie(scanNumber, buildName) = parse_name(fileName);
+  std::tie(buildName, scanNumber) = parse_name(fileName);
 
   if (!FLAGS_redo && exists2D() && exists3D() && existsDoors())
     return;
@@ -150,6 +155,13 @@ void DensityMapsManager::get2DPointNames(std::vector<fs::path> &names) {
   }
 }
 
+void DensityMapsManager::get2DFreeNames(std::vector<fs::path> &names) {
+  for (int r = 0; r < NUM_ROTS; ++r) {
+    names.push_back(fs::path(FLAGS_dmFolder) / "R{}"_format(r) /
+                    "{}_freeSpace_{}.png"_format(buildName, scanNumber));
+  }
+}
+
 void DensityMapsManager::get3DPointNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
     names.push_back(fs::path(FLAGS_voxelFolder) / "R{}"_format(r) /
@@ -157,17 +169,10 @@ void DensityMapsManager::get3DPointNames(std::vector<fs::path> &names) {
   }
 }
 
-void DensityMapsManager::get2DFreeNames(std::vector<fs::path> &names) {
+void DensityMapsManager::get3DFreeNames(std::vector<fs::path> &names) {
   for (int r = 0; r < NUM_ROTS; ++r) {
     names.push_back(fs::path(FLAGS_voxelFolder) / "R{}"_format(r) /
                     "{}_freeSpace_{}.dat"_format(buildName, scanNumber));
-  }
-}
-
-void DensityMapsManager::get3DFreeNames(std::vector<fs::path> &names) {
-  for (int r = 0; r < NUM_ROTS; ++r) {
-    names.push_back(fs::path(FLAGS_dmFolder) / "R{}"_format(r) /
-                    "{}_freeSpace_{}.png"_format(buildName, scanNumber));
   }
 }
 

@@ -130,7 +130,7 @@ double NCC(const cv::Mat_<cv::Vec3b> &a, const cv::Mat_<cv::Vec3b> &b) {
   return AB / sqrt(AA * BB);
 }
 
-#define viz 1
+#define viz 0
 
 void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
                        const Eigen::Matrix3d &RA, const Eigen::Matrix3d &RB,
@@ -172,6 +172,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
     for (int i = 0; i < truePointsInA.size(); ++i) {
       const cv::Point2f &kp = truePointsInA[i];
       Eigen::Vector2d coordA(kp.x, kp.y);
+
       const double r = rMapA(coordA[1], coordA[0]);
       if (r < 0.5)
         continue;

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 find_package( OpenCV REQUIRED )
 find_package( gflags REQUIRED )
 find_package( fmt REQUIRED )
-find_package( Boost COMPONENTS System Filesystem REQUIRED)
+find_package( Boost COMPONENTS system filesystem REQUIRED)
 find_package( glog REQUIRED )
 
 set_property(TARGET fmt PROPERTY INTERFACE_COMPILE_OPTIONS "")

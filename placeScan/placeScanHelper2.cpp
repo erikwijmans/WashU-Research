@@ -145,8 +145,8 @@ static void displayVoxelGrid(const T &voxelA, const S &voxelB,
   for (int k = 0; k < z; ++k) {
     for (int i = 0; i < Xcols; ++i) {
       for (int j = 0; j < Xrows; ++j) {
-        Eigen::Vector3i APos(i + aRect.X1, j + aRect.Y1, z + aRect.Z1);
-        Eigen::Vector3i BPos(i + bRect.X1, j + bRect.Y1, z + bRect.Z1);
+        Eigen::Vector3i APos(i + aRect.X1, j + aRect.Y1, k + aRect.Z1);
+        Eigen::Vector3i BPos(i + bRect.X1, j + bRect.Y1, k + bRect.Z1);
         collapsedA(j, i) += voxelA[APos[2]](APos[1], APos[0]);
         collapsedB(j, i) += voxelB[BPos[2]](BPos[1], BPos[0]);
       }
@@ -383,7 +383,7 @@ void place::weightEdges(
     }
   }
 
-  std::cout << tracker.size() << std::endl;
+  fmt::print("Number of edges to weight: {}\n", tracker.size());
   utils::progress_display *show_progress =
       new utils::progress_display(tracker.size());
   boost::timer::auto_cpu_timer *timer = new boost::timer::auto_cpu_timer();
@@ -395,7 +395,7 @@ void place::weightEdges(
     const place::node &nodeA = nodes[i];
     const place::node &nodeB = nodes[j];
 
-#if 1
+#if 0
     if (FLAGS_debugMode && (j != 28 || i != 0))
       continue;
 #endif
@@ -408,6 +408,18 @@ void place::weightEdges(
         pointGrids.find(std::make_pair(nodeB.color, nodeB.rotation))->second;
     auto &bFree =
         freeGrids.find(std::make_pair(nodeB.color, nodeB.rotation))->second;
+
+#if 0
+    if (FLAGS_debugMode) {
+      std::cout << "(" << i << "," << j << ")" << std::endl;
+      displayVoxelGrid(aPoint.v, "aPoint");
+      displayVoxelGrid(bPoint.v, "bPoint");
+      displayVoxelGrid(aFree.v, "aFree");
+      displayVoxelGrid(bFree.v, "bFree");
+      cv::waitKey(0);
+      displayVoxelGrid(aFree.v, bFree.v, current.crossWRTA, current.crossWRTB);
+    }
+#endif
 
     place::edge weight = place::compare3D(aPoint, bPoint, aFree, bFree,
                                           current.crossWRTA, current.crossWRTB);
@@ -432,17 +444,6 @@ void place::weightEdges(
     const Eigen::Vector3d bToA = BZeroZero - AZeroZero;
 
     pano::compareNCC2(panoA, panoB, RA, RB, aToB, bToA, weight);
-#if 1
-    if (FLAGS_debugMode) {
-      std::cout << "(" << i << "," << j << ")" << std::endl;
-      std::cout << weight << std::endl;
-      displayVoxelGridS(aPoint.v, "aPoint");
-      displayVoxelGridS(bPoint.v, "bPoint");
-      displayVoxelGrid(aFree.v, "aFree");
-      displayVoxelGrid(bFree.v, "bFree");
-      displayVoxelGridS(aFree.v, bFree.v, current.crossWRTA, current.crossWRTB);
-    }
-#endif
 
     adjacencyMatrix(j, i) = weight;
     ++(*show_progress);
@@ -466,7 +467,8 @@ void place::loadInPlacementGraph(const fs::path &imageName,
   const fs::path placementName =
       fs::path(FLAGS_outputV1) /
       "{}_placement_{}.dat"_format(buildName, scanNumber);
-  std::ifstream in(placementName.string(), std::ios::in | std::ios::binary);
+  std::ifstream in =
+      utils::open(placementName, std::ios::in | std::ios::binary);
 
   int numToLoad;
   in.read(reinterpret_cast<char *>(&numToLoad), sizeof(numToLoad));
@@ -801,6 +803,7 @@ place::compare3D(const place::VoxelGrid &aPoint, const place::VoxelGrid &bPoint,
 #pragma omp parallel for shared(aPoint, bPoint, aFree, bFree, aRect,           \
                                 bRect) reduction(                              \
     + : pointAgreement, freeSpaceAgreementA, freeSpaceAgreementB, totalPointA, \
+                                                                               \
     totalPointB, totalCount, freeSpaceCross)
   for (int k = 0; k < z; ++k) {
     auto &Ap = aPoint.v[k + aRect.Z1];
@@ -878,7 +881,7 @@ inline place::VoxelGrid place::loadInVoxel(const fs::path &name) {
 }
 
 inline void place::loadInVoxel(const fs::path &name, place::VoxelGrid &dst) {
-  std::ifstream in(name.string(), std::ios::in | std::ios::binary);
+  std::ifstream in = utils::open(name, std::ios::in | std::ios::binary);
   dst.loadFromFile(in);
   in.close();
 }
@@ -1073,7 +1076,7 @@ bool place::reloadGraph(Eigen::MatrixXE &adjacencyMatrix, int level) {
   if (!fs::exists(graphName))
     return false;
 
-  std::ifstream in(graphName.string(), std::ios::in | std::ios::binary);
+  std::ifstream in = utils::open(graphName, std::ios::in | std::ios::binary);
 
   int cols, rows;
   in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
