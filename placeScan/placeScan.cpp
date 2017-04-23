@@ -24,7 +24,6 @@
 
 DEFINE_bool(errosion, true,
             "This is used for scale finding only, don't touch!");
-DEFINE_bool(displayGraph, false, "Displays the graph");
 DEFINE_int32(stopIndex, -1, "Index to stop at");
 DEFINE_int32(stopNumber, -1, "Number to stop at");
 
@@ -79,42 +78,6 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-
-// cv::Mat fpWeights = place::getDirections();
-
-#if 0
-  if (FLAGS_debugMode) {
-    cv::Mat image = cv::imread(FLAGS_dmFolder + "R2/DUC_point_000.png", 0);
-    if (!image.data) {
-      std::cout << "Could not load image" << std::endl;
-      return 1;
-    }
-    std::vector<Eigen::Vector2i> tmp(4);
-    std::vector<cv::Mat> toTrim = {image}, trimmed;
-    place::trimScans(toTrim, trimmed, tmp);
-    image = trimmed[0];
-
-    const int xOffset = 3900;
-    const int yOffset = 508;
-    std::cout << xOffset << "  " << yOffset << std::endl;
-    for (int i = 0; i < image.rows; ++i) {
-      uchar *src = image.ptr<uchar>(i);
-      uchar *dst = fpColor.ptr<uchar>(i + yOffset);
-      for (int j = 0; j < image.cols; ++j) {
-        if (src[j] != 255) {
-          dst[3 * (j + xOffset) + 0] = 0;
-          dst[3 * (j + xOffset) + 1] = 0;
-          dst[3 * (j + xOffset) + 2] = 255;
-        }
-      }
-    }
-    cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-    cv::imshow("Preview", fpColor);
-    std::cout << cv::waitKey(0) << std::endl;
-
-    return 0;
-  }
-#endif
 
   std::vector<fs::path> pointFileNames, zerosFileNames, freeFileNames,
       doorsNames;
@@ -181,17 +144,11 @@ int main(int argc, char *argv[]) {
   if (FLAGS_V2) {
     multi::Labeler labeler;
     labeler.weightEdges();
-    if (FLAGS_displayGraph)
-      labeler.displayGraph();
     labeler.solveTRW();
     labeler.saveFinal(0);
 
     if (!FLAGS_redo || FLAGS_previewOut)
       labeler.displaySolution();
-    // labeler.solveMIP();
-    // labeler.saveFinal(1);
-
-    // labeler.displaySolution();
   }
   return 0;
 }
@@ -281,9 +238,6 @@ void place::analyzePlacement(
   findNumPixelsUnderMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS,
                          numPixelsUnderMask);
 
-  if (FLAGS_debugMode || FLAGS_visulization)
-    displayScanAndMask(rSSparsePyramidTrimmed, eMaskPyramidTrimmedNS);
-
   std::vector<std::vector<std::vector<place::Door>>> doors(
       {loadInDoors(doorName, zeroZero)});
 
@@ -299,71 +253,6 @@ void place::analyzePlacement(
   }
 
   constexpr double numRects = 1024 * 1.5;
-
-#if 0
-  if (FLAGS_debugMode) {
-    for (int k = 0; k >= 0; --k) {
-      std::vector<Eigen::Vector3i> tmpPoints;
-      std::vector<place::posInfo> trueScores;
-
-      Eigen::Vector3i tmp(3900, 500, 2);
-      tmp[0] /= pow(2, k);
-      tmp[1] /= pow(2, k);
-
-      std::cout << tmp << std::endl << std::endl;
-
-      for (int i = -30; i <= 30; ++i) {
-        for (int j = -30; j <= 30; ++j) {
-          tmpPoints.push_back(Eigen::Vector3i(tmp[0] + i, tmp[1] + j, tmp[2]));
-        }
-      }
-
-      findPlacement(fpPyramid[k], rSSparsePyramidTrimmed[k], erodedFpPyramid[k],
-                    erodedSparsePyramidTrimmed[k], eMaskPyramidTrimmedNS[k],
-                    numPixelsUnderMask[k], fpMasks[k], tmpPoints,
-                    d.getResponse(k), doors[k], trueScores);
-
-      std::vector<const place::posInfo *> tmpMin;
-
-      const int scanRows = std::min({rSSparsePyramidTrimmed[k][0].rows(),
-                                     rSSparsePyramidTrimmed[k][1].rows(),
-                                     rSSparsePyramidTrimmed[k][2].rows(),
-                                     rSSparsePyramidTrimmed[k][3].rows()});
-      const int scanCols = std::min({rSSparsePyramidTrimmed[k][0].cols(),
-                                     rSSparsePyramidTrimmed[k][1].cols(),
-                                     rSSparsePyramidTrimmed[k][2].cols(),
-                                     rSSparsePyramidTrimmed[k][3].cols()});
-
-      const double exclusion =
-          (scanRows + scanCols) / (2.0 * std::sqrt(numRects));
-
-      const int cols = fpPyramid[k].cols();
-      const int rows = fpPyramid[k].rows();
-      place::ExclusionMap maps(exclusion, rows, cols);
-
-      findLocalMinima(trueScores, 1.0, maps, tmpMin);
-
-      bool found = false;
-      for (auto &min : tmpMin)
-        if (min->x >= (tmp[0] - 1) && min->x <= (tmp[0] + 1) &&
-            (min->y >= tmp[1] - 1) && min->y <= (tmp[1] + 1) &&
-            min->rotation == tmp[2])
-          found = true;
-
-      if (!found)
-        std::cout << "Lost at level: " << k << std::endl;
-
-      std::sort(tmpMin.begin(), tmpMin.end(),
-                [](const place::posInfo *a, const place::posInfo *b) {
-                  return (a->score < b->score);
-                });
-
-      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k],
-                           d.getResponse(k), doors[k], tmpMin);
-    }
-  }
-#endif
-
   std::vector<place::posInfo> scores;
   std::vector<const posInfo *> minima;
   std::vector<Eigen::Vector3i> pointsToAnalyze;
@@ -422,38 +311,6 @@ void place::analyzePlacement(
       findLocalMinima(scores, 1.2, maps, minima);
 
     findPointsToAnalyzeV2(minima, pointsToAnalyze);
-
-#if 0
-    if (FLAGS_debugMode) {
-      /*Eigen::Vector3i tmp(3197, 1241, 2);
-      tmp[0] /= pow(2, k);
-      tmp[1] /= pow(2, k);
-
-      constexpr int offset = 1;
-      std::vector<const place::posInfo *> trueMin;
-      bool found = false;
-      for (auto &min : minima) {
-        if (min->x >= tmp[0] - offset && min->x <= tmp[0] + offset &&
-            min->y >= tmp[1] - offset && min->y <= tmp[1] + offset &&
-            min->rotation == tmp[2]) {
-          trueMin.push_back(min);
-          found = true;
-        }
-      }
-
-      if (!found)
-        std::cout << "Lost at level: " << k << std::endl;*/
-
-      std::vector<const place::posInfo *> trueMin(minima.begin(), minima.end());
-      std::sort(trueMin.begin(), trueMin.end(),
-                [](const place::posInfo *a, const place::posInfo *b) {
-                  return (a->score < b->score);
-                });
-
-      place::displayOutput(fpPyramid[k], rSSparsePyramidTrimmed[k],
-                           d.getResponse(k), doors[k], trueMin);
-    }
-#endif
   }
 
   std::sort(minima, [](const place::posInfo *a, const place::posInfo *b) {
@@ -470,10 +327,6 @@ void place::analyzePlacement(
         "{}_placement_{}.txt"_format(buildName, scanNumber);
     savePlacement(minima, placementName, zeroZero);
   }
-
-  if (FLAGS_visulization || FLAGS_previewOut)
-    place::displayOutput(fpPyramid[0], rSSparsePyramidTrimmed[0],
-                         d.getResponse(0), doors[0], minima);
 }
 
 void place::findLocalMinima(const std::vector<place::posInfo> &scores,
@@ -490,11 +343,6 @@ void place::findLocalMinima(const std::vector<place::posInfo> &scores,
 
   auto[averageScore, sigScore] = utils::ave_and_stdev(
       scores, 0.0, [](const place::posInfo &s) { return s.score; });
-
-  if (!FLAGS_quietMode) {
-    std::cout << "Average         Sigma" << std::endl;
-    std::cout << averageScore << "         " << sigScore << std::endl;
-  }
 
   for (int k = 0; k < 100; ++k) {
     minima.clear();
@@ -630,20 +478,6 @@ void place::trimScanPryamids(
     erodedSparsePyramidTrimmed.push_back(erodedLevelTrimed);
     eMaskPyramidTrimmed.push_back(maskLevelTrimmed);
   }
-
-  if (FLAGS_visulization) {
-    for (int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
-      for (int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
-        cvNamedWindow("Image", CV_WINDOW_NORMAL);
-        cv::imshow("Image", sparseToImage(rSSparsePyramidTrimmed[i][j]));
-
-        cvNamedWindow("Mask", CV_WINDOW_NORMAL);
-        cv::imshow("Mask", sparseToImage(eMaskPyramidTrimmed[i][j]));
-
-        cv::waitKey(0);
-      }
-    }
-  }
 }
 
 static std::tuple<double, double>
@@ -681,8 +515,6 @@ void place::findPlacement(
     const std::vector<Eigen::Vector3i> &points, const Eigen::MatrixXb &fpDoors,
     const std::vector<std::vector<place::Door>> &pcDoors,
     std::vector<place::posInfo> &scores) {
-  if (!FLAGS_quietMode)
-    std::cout << "Start: " << points.size() << std::endl;
 
   scores.resize(points.size());
   for (auto &s : scores)
@@ -751,8 +583,7 @@ void place::findPlacement(
         if (it.value() > 0.0 && currentMask(it.row(), it.col()) != 0)
           fpScanSetDiff += it.value();
 
-    double doorUxp, doorCount;
-    std::tie(doorUxp, doorCount) =
+    auto [doorUxp, doorCount] =
         computeDoorIntersections(fpDoors, pcDoors, point);
     const double doorScore = doorUxp / doorCount;
     const double scanScore = scanFPsetDiff / numPixelsUnderMask[scanIndex];
@@ -782,9 +613,6 @@ void place::findPlacement(
                                 return std::abs(s.score + 1) < 1e-12;
                               }),
                scores.end());
-
-  if (!FLAGS_quietMode)
-    std::cout << "Done: " << scores.size() << std::endl;
 }
 
 template <int w> class Perimeter {
@@ -858,15 +686,6 @@ void place::createFPPyramids(
     std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
     std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
     std::vector<Eigen::MatrixXb> &fpMasks, bool reload) {
-
-  /*for (int j = 0; j < floorPlan.rows; ++j) {
-    const uchar *w = fpWeights.ptr<uchar>(j);
-    uchar *dst = floorPlan.ptr<uchar>(j);
-    for (int i = 0; i < floorPlan.cols; ++i) {
-      if (dst[i] != 255)
-        dst[i] = std::max(w[i], dst[i]);
-    }
-  }*/
 
   static bool loaded = false;
   if (loaded & !reload)
@@ -942,20 +761,6 @@ void place::createFPPyramids(
           mask(j, i) = 0;
     }
     fpMasks.push_back(mask);
-
-    if (FLAGS_visulization) {
-      cv::Mat dst(mask.rows(), mask.cols(), CV_8UC1, cv::Scalar::all(255));
-      for (int i = 0; i < mask.cols(); ++i) {
-        for (int j = 0; j < mask.rows(); ++j) {
-          if (mask(j, i))
-            dst.at<uchar>(j, i) = 0;
-        }
-      }
-
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", dst);
-      cv::waitKey(0);
-    }
   }
 
   loaded = true;

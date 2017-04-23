@@ -19,7 +19,6 @@ public:
   void solveTRW();
   void solveMIP();
   void displaySolution();
-  void displayGraph();
   void getLabeling(std::vector<const place::node *> &labels);
   void saveFinal(int index);
   struct HighOrderEle {
@@ -41,10 +40,8 @@ private:
   std::vector<std::vector<place::MetaData>> voxelInfo;
   std::vector<std::vector<Eigen::MatrixXb>> scans, masks;
   HighOrder highOrder;
-  HighOrderV2 highOrderV2;
   std::vector<std::vector<Eigen::Matrix3d>> rotationMatricies;
   std::vector<place::Panorama> panoramas;
-  std::unordered_map<int, std::unordered_set<int>> unwantedNeighbors;
   void load();
 };
 

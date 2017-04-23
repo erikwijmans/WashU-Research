@@ -51,35 +51,12 @@ bool reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
                      const fs::path &doorName, const place::DoorDetector &d,
                      const fs::path &preDone);
 
-void displayOutput(
-    const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
-    const std::vector<const place::posInfo *> &minima);
-
-void loadInTruePlacement(const fs::path &scanName,
-                         const std::vector<Eigen::Vector2i> &zeroZero);
-
-void displayTruePlacement(const std::vector<Eigen::SparseMatrix<double>> &,
-                          const std::vector<posInfo> &scores,
-                          const std::vector<Eigen::Vector2i> &zeroZero);
-
 void scanToSparse(const cv::Mat &scan, Eigen::SparseMatrix<double> &sparse);
 
 Eigen::SparseMatrix<double> scanToSparse(const cv::Mat &scan);
 
-void displayScanAndMask(
-    const std::vector<std::vector<Eigen::SparseMatrix<double>>>
-        &rSSparsePyramidTrimmed,
-    const std::vector<std::vector<Eigen::MatrixXb>> &eMaskPyramidTrimmedNS);
-
 void erodeSparse(const Eigen::SparseMatrix<double> &src,
                  Eigen::SparseMatrix<double> &dst);
-
-void displayOutput(
-    const Eigen::SparseMatrix<double> &fp,
-    const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
-    const Eigen::MatrixXb &fpDoors,
-    const std::vector<std::vector<place::Door>> &pcDoors,
-    const std::vector<const place::posInfo *> &minima);
 
 void removeMinimumConnectedComponents(cv::Mat &image);
 

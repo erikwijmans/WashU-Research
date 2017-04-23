@@ -233,9 +233,5 @@ void getMajorAngles(const Eigen::Vector3d &M1, const Eigen::Vector3d &M2,
     }
 
     R[i] = out;
-    /*for (int j = 0; j < 3; ++j) {
-      R[i](2, j) = -R[i](2, j);
-      R[i](1, j) = -R[i](1, j);
-    }*/
   }
 }

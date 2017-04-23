@@ -1,8 +1,7 @@
+#!/bin/bash
 #Usage: ./pipeLine.sh <location_of_data_to_use> <location_of_build_dir>
 #CSE Scale = 98.0
 #DUC Scale = 73.5
-
-#!/bin/bash
 
 #Make all the needed folders
 mkdir -p $1/placementOptions/V1

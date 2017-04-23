@@ -43,95 +43,6 @@ static void selectR1Nodes(const std::vector<place::node> &nodes,
     R1Nodes[i].id = i;
 }
 
-static void selectR2Nodes(const std::vector<place::node> &nodes,
-                          const std::vector<place::SelectedNode> &bestNodes,
-                          std::vector<place::R2Node> &R2Nodes) {
-  int currentColor = -1;
-  for (auto &n : nodes) {
-    if (n.color != currentColor) {
-      currentColor = n.color;
-      if (bestNodes[currentColor].locked)
-        R2Nodes.push_back(bestNodes[currentColor]);
-    }
-    if (!bestNodes[currentColor].locked) {
-      R2Nodes.emplace_back(n, false);
-    }
-  }
-}
-
-static void calcNeighbors(
-    const std::vector<place::node> &nodes,
-    std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
-  const double scale = buildingScale.getScale();
-
-  for (int i = 0; i < nodes.size(); ++i) {
-    for (int j = 0; j < nodes.size(); ++j) {
-      if (i == j)
-        continue;
-
-      const Eigen::Vector2d a(nodes[i].x, nodes[i].y);
-      const Eigen::Vector2d b(nodes[j].x, nodes[j].y);
-
-      const double dist = (a - b).norm() / scale;
-
-      if (dist < 1.5) {
-        const int idA = nodes[i].id;
-        const int idB = nodes[j].id;
-        auto it = unwantedNeighbors.find(idA);
-        if (it == unwantedNeighbors.cend())
-          unwantedNeighbors.emplace(idA, std::unordered_set<int>({idB}));
-        else
-          it->second.emplace(idB);
-      }
-    }
-  }
-}
-
-static void exclusionLite(
-    std::vector<place::SelectedNode> &nodes,
-    const std::unordered_map<int, std::unordered_set<int>> &unwantedNeighbors) {
-
-  for (int i = 0; i < nodes.size(); ++i) {
-    const int idA = nodes[i].id;
-    auto it = unwantedNeighbors.find(idA);
-
-    if (it == unwantedNeighbors.cend())
-      continue;
-
-    auto &n = it->second;
-
-    for (int j = 0; j < nodes.size(); ++j) {
-      const int idB = nodes[j].id;
-      auto isNeighbor = n.find(idB);
-
-      if (isNeighbor != n.cend() && nodes[i].locked && nodes[j].locked) {
-        if (nodes[i].agreement < nodes[j].agreement)
-          nodes[i].locked = false;
-        else
-          nodes[j].locked = false;
-      }
-    }
-  }
-}
-
-static void unlockNodes(std::vector<place::SelectedNode> &nodes) {
-  auto[average, sigma] = utils::ave_and_stdev(
-      nodes, 0.0, [](const place::SelectedNode &n) { return n.agreement; },
-      [](const place::SelectedNode &n) {
-        return n.locked && n.numberOfCandidates > 1;
-      });
-
-  std::cout << average << "  " << sigma << std::endl;
-  for (auto &n : nodes) {
-    if (n.numberOfCandidates > 1) {
-      const double norm = (n.agreement - average) / sigma;
-      n.norm = norm;
-      if (norm < -0.75)
-        n.locked = false;
-    }
-  }
-}
-
 multi::Labeler::Labeler() {
   place::parseFolders(pointFileNames, zerosFileNames, &freeFileNames);
 
@@ -175,7 +86,6 @@ multi::Labeler::Labeler() {
 
   R1Nodes.clear();
   selectR1Nodes(nodes, R1Nodes);
-  calcNeighbors(R1Nodes, unwantedNeighbors);
 }
 
 void multi::Labeler::load() {
@@ -226,7 +136,7 @@ void multi::Labeler::load() {
 }
 
 void multi::Labeler::weightEdges() {
-  if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 2)) {
+  if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 1)) {
     if (FLAGS_redo || !place::reloadGraph(adjacencyMatrix, 0)) {
       load();
       place::weightEdges(R1Nodes, voxelInfo, pointVoxelFileNames,
@@ -265,21 +175,11 @@ void multi::Labeler::weightEdges() {
 }
 
 void multi::Labeler::solveTRW() {
-  std::vector<place::R2Node> tmp;
-  for (auto &n : R1Nodes)
-    tmp.emplace_back(n, false);
-
   place::TRWSolver(adjacencyMatrix, R1Nodes, bestNodes);
-  unlockNodes(bestNodes);
-  exclusionLite(bestNodes, unwantedNeighbors);
 }
 
 void multi::Labeler::displaySolution() {
   place::displayBest(bestNodes, scans, masks, zeroZeros);
-}
-
-void multi::Labeler::displayGraph() {
-  place::displayGraph(adjacencyMatrix, R1Nodes, scans, zeroZeros);
 }
 
 void multi::Labeler::saveFinal(int index) {

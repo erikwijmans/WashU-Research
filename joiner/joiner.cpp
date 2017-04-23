@@ -12,8 +12,6 @@
 #include <pcl/registration/icp.h>
 #include <pcl/registration/icp_nl.h>
 #include <pcl/search/kdtree.h>
-#include <pcl/visualization/keyboard_event.h>
-#include <pcl/visualization/pcl_visualizer.h>
 
 #include <etw_utils.hpp>
 #include <scan_gflags.h>
@@ -49,63 +47,6 @@ public:
   }
 };
 
-pcl::visualization::PCLVisualizer::Ptr
-rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
-  // --------------------------------------------
-  // -----Open 3D viewer and add point cloud-----
-  // --------------------------------------------
-
-  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
-      new pcl::visualization::PCLVisualizer("3D Viewer"));
-  viewer->setBackgroundColor(0, 0, 0);
-  pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(cloud);
-  viewer->addPointCloud<PointType>(cloud, rgb, "sample cloud");
-  viewer->setPointCloudRenderingProperties(
-      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud");
-  viewer->addCoordinateSystem(1.0);
-  viewer->initCameraParameters();
-  viewer->registerKeyboardCallback(
-      [&, viewer](const pcl::visualization::KeyboardEvent &kb) {
-        pcl::visualization::Camera c;
-        viewer->getCameraParameters(c);
-
-        Eigen::Map<Eigen::Vector3d> focal(c.focal);
-        Eigen::Map<Eigen::Vector3d> pos(c.pos);
-        Eigen::Vector3d view = (focal - pos).normalized();
-        view[2] = 0;
-        view.normalize();
-        const double incMag = (kb.isShiftPressed() ? 1.0 : 0.5);
-
-        Eigen::Vector3d incDir = incMag * view;
-        Eigen::Vector3d perpInc =
-            incMag * Eigen::Vector3d(-view[1], view[0], view[2]);
-
-        if (kb.getKeySym() == "Up") {
-          if (!kb.isCtrlPressed())
-            focal += incDir;
-          pos += incDir;
-        }
-        if (kb.getKeySym() == "Down") {
-          if (!kb.isCtrlPressed())
-            focal -= incDir;
-          pos -= incDir;
-        }
-        if (kb.getKeySym() == "Left") {
-          if (!kb.isCtrlPressed())
-            focal += perpInc;
-          pos += perpInc;
-        }
-        if (kb.getKeySym() == "Right") {
-          if (!kb.isCtrlPressed())
-            focal -= perpInc;
-          pos -= perpInc;
-        }
-        viewer->setCameraParameters(c);
-      });
-  viewer->setCameraPosition(1, 0, 0, -1, 0, 0, 0, 0, 1);
-  return (viewer);
-}
-
 std::tuple<Eigen::Array3f, Eigen::Array3f, Eigen::Matrix4f>
 createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                     pcl::PointCloud<PointType>::Ptr &cloud,
@@ -113,6 +54,9 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                     const Eigen::Vector3d &trans);
 pcl::PointCloud<NormalType>::Ptr
 subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud);
+void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &transformation,
+          pcl::PointCloud<PointType>::Ptr current_cloud
+          );
 
 constexpr double targetNumPoints = 100e6;
 constexpr double startScale = 0.02;
@@ -164,9 +108,8 @@ int main(int argc, char **argv) {
 
   if (FLAGS_redo || !fs::exists(cloudName)) {
     const fs::path fileName = fs::path(FLAGS_outputV2) / "final_0.dat";
-    CHECK(fs::exists(fileName)) << "Could not find " << fileName;
+    std::ifstream in = utils::open(fileName, std::ios::in | std::ios::binary);
 
-    std::ifstream in(fileName.string(), std::ios::in | std::ios::binary);
     int num;
     in.read(reinterpret_cast<char *>(&num), sizeof(num));
     std::cout << num << std::endl;
@@ -196,7 +139,7 @@ int main(int argc, char **argv) {
       if (rotMats[k] == Eigen::Matrix3d::Zero())
         continue;
 
-      in.open(binaryFileNames[k].string(), std::ios::in | std::ios::binary);
+      in = utils::open(binaryFileNames[k], std::ios::in | std::ios::binary);
       int rows, cols;
       in.read(reinterpret_cast<char *>(&rows), sizeof(rows));
       in.read(reinterpret_cast<char *>(&cols), sizeof(cols));
@@ -216,15 +159,10 @@ int main(int argc, char **argv) {
           fs::path(FLAGS_transformation_folder) /
           "{}_trans_{}.txt"_format(build_name, scan_number);
 
-      if (!FLAGS_quietMode)
-        std::cout << out_name << std::endl;
-
       std::ofstream trans_out(out_name.string(), std::ios::out);
       fmt::print(trans_out, "Before general icp:\n{}\n\n", transformation);
 
-      bool run_icp = output_cloud->size() > 0;
-
-      if (run_icp) {
+      if (output_cloud->size() > 0) {
         pcl::PointCloud<PointType>::Ptr icp_target(
             new pcl::PointCloud<PointType>);
 
@@ -244,134 +182,37 @@ int main(int argc, char **argv) {
                    icp_target->size(), current_cloud->size());
 
         if (icp_target->size() > 0.25 * current_cloud->size()) {
-
-          pcl::search::KdTree<NormalType>::Ptr tree_source(
-              new pcl::search::KdTree<NormalType>),
-              tree_target(new pcl::search::KdTree<NormalType>);
-
-          MyPointRepresentation point_representation;
-          // ... and weight the 'curvature' dimension so that it is balanced
-          // against x, y, and z
-          float alpha[] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-          point_representation.setRescaleValues(alpha);
-
-          pcl::GeneralizedIterativeClosestPoint<NormalType, NormalType> icp;
-          icp.setPointRepresentation(
-              boost::make_shared<const MyPointRepresentation>(
-                  point_representation));
-          icp.setSearchMethodTarget(tree_target);
-          icp.setSearchMethodSource(tree_source);
-
-          // icp.setMaximumIterations(5);
-          // icp.setRANSACIterations(5e3);
-
-          auto source_with_normals = subsample_normals(current_cloud);
-          auto target_with_normals = subsample_normals(icp_target);
-
-          icp.setInputSource(source_with_normals);
-          icp.setInputTarget(target_with_normals);
-          icp.setTransformationEpsilon(1e-6);
-          icp.setMaxCorrespondenceDistance(1e-1);
-
-          Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity(), prev,
-                          targetToSource;
-          auto icp_result = source_with_normals;
-          icp.setMaximumIterations(2);
-          std::list<Eigen::Matrix4f> prev_4;
-          for (int i = 0; i < 30 && run_icp; ++i) {
-            // save cloud for visualization purpose
-            source_with_normals = icp_result;
-
-            // Estimate
-            icp.setInputSource(source_with_normals);
-            icp.align(*icp_result);
-
-            // accumulate transformation between each Iteration
-            Ti = icp.getFinalTransformation() * Ti;
-
-            if (!sanity_check(Ti) || icp.getFitnessScore() > 20) {
-              run_icp = false;
-              break;
-            }
-
-            // if the difference between this transformation and the previous
-            // one
-            // is smaller than the threshold, refine the process by reducing
-            // the maximal correspondence distance
-            if (fabs((icp.getLastIncrementalTransformation() - prev).sum()) <
-                icp.getTransformationEpsilon())
-              icp.setMaxCorrespondenceDistance(
-                  icp.getMaxCorrespondenceDistance() - 0.001);
-
-            prev = icp.getLastIncrementalTransformation();
-
-            if (prev_4.size() == 4) {
-              double ave = 0;
-              for (auto &m : prev_4)
-                ave += (Ti - m).norm();
-
-              ave /= 4;
-
-              if (ave < icp.getTransformationEpsilon())
-                break;
-
-              prev_4.pop_front();
-            }
-            prev_4.emplace_back(Ti);
-          }
-
-          fmt::print("ICP worked: {}\n"
-                     "has converged: {}\n"
-                     "score: {}\n"
-                     "transformation:\n{}\n\n",
-                     run_icp, icp.hasConverged(), icp.getFitnessScore(), Ti);
-
-          if (run_icp) {
-            auto tmp = current_cloud;
-            current_cloud =
-                pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-            pcl::transformPointCloud(*tmp, *current_cloud, Ti);
-
-            transformation = Ti * transformation;
-          }
+          GICP(icp_target, transformation, current_cloud);
         }
+      }
 
-        fmt::print("Final transformation:\n{}\n\n", transformation);
+      fmt::print("Final transformation:\n{}\n\n", transformation);
 
-        fmt::print(trans_out, "After general icp:\n{}\n\n", transformation);
-        trans_out.close();
+      fmt::print(trans_out, "After general icp:\n{}\n\n", transformation);
+      trans_out.close();
 
-        output_cloud->insert(output_cloud->end(), current_cloud->begin(),
-                             current_cloud->end());
+      output_cloud->insert(output_cloud->end(), current_cloud->begin(),
+                           current_cloud->end());
 
-        current_cloud = nullptr;
+      current_cloud = nullptr;
 
-        pcl::UniformSampling<PointType> uniform_sampling;
-        uniform_sampling.setInputCloud(output_cloud);
+      pcl::UniformSampling<PointType> uniform_sampling;
+      uniform_sampling.setInputCloud(output_cloud);
+      output_cloud =
+          pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+      uniform_sampling.setRadiusSearch(subSampleSize);
+      uniform_sampling.filter(*output_cloud);
+
+      if (output_cloud->size() > targetNumPoints) {
+        subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
+
         output_cloud =
             pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
-
-        if (output_cloud->size() > targetNumPoints) {
-          subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
-
-          output_cloud =
-              pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-          uniform_sampling.setRadiusSearch(subSampleSize);
-          uniform_sampling.filter(*output_cloud);
-        }
-
-#if 0
-      pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
-      while (!viewer->wasStopped()) {
-        viewer->spinOnce(100);
-        boost::this_thread::sleep(boost::posix_time::microseconds(100000));
       }
-#endif
 
-        std::cout << "Leaving: " << output_cloud->size() << std::endl;
-      }
+      std::cout << "Leaving: " << output_cloud->size() << std::endl;
     }
 
     fmt::print("Final sample size: {}\n", subSampleSize);
@@ -388,19 +229,6 @@ int main(int argc, char **argv) {
     pcl::io::savePLYFileBinary(cloudName.string(), *output_cloud);
   } else
     pcl::io::loadPLYFile(cloudName.string(), *output_cloud);
-
-  if (FLAGS_visulization) {
-    pcl::UniformSampling<PointType> uniform_sampling;
-    uniform_sampling.setInputCloud(output_cloud);
-    pcl::PointCloud<PointType>::Ptr ss(new pcl::PointCloud<PointType>);
-    uniform_sampling.setRadiusSearch(0.05);
-    uniform_sampling.filter(*ss);
-    pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(ss);
-    while (!viewer->wasStopped()) {
-      viewer->spinOnce(100);
-      boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-    }
-  }
 }
 
 void boundingBox(const pcl::PointCloud<PointType>::Ptr &cloud,
@@ -563,4 +391,97 @@ subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud) {
   pcl::copyPointCloud(*ss, *output);
 
   return output;
+}
+
+void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &transformation,
+          pcl::PointCloud<PointType>::Ptr current_cloud) {
+
+  pcl::search::KdTree<NormalType>::Ptr tree_source(
+      new pcl::search::KdTree<NormalType>),
+      tree_target(new pcl::search::KdTree<NormalType>);
+
+  MyPointRepresentation point_representation;
+  // ... and weight the 'curvature' dimension so that it is balanced
+  // against x, y, and z
+  float alpha[] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  point_representation.setRescaleValues(alpha);
+
+  pcl::GeneralizedIterativeClosestPoint<NormalType, NormalType> icp;
+  icp.setPointRepresentation(
+      boost::make_shared<const MyPointRepresentation>(point_representation));
+  icp.setSearchMethodTarget(tree_target);
+  icp.setSearchMethodSource(tree_source);
+
+  // icp.setMaximumIterations(5);
+  // icp.setRANSACIterations(5e3);
+
+  auto source_with_normals = subsample_normals(current_cloud);
+  auto target_with_normals = subsample_normals(icp_target);
+
+  icp.setInputSource(source_with_normals);
+  icp.setInputTarget(target_with_normals);
+  icp.setTransformationEpsilon(1e-6);
+  icp.setMaxCorrespondenceDistance(1e-1);
+
+  Eigen::Matrix4f Ti = Eigen::Matrix4f::Identity(), prev, targetToSource;
+  auto icp_result = source_with_normals;
+  icp.setMaximumIterations(2);
+  std::list<Eigen::Matrix4f> prev_4;
+  bool icp_working = true;
+  for (int i = 0; i < 30 && icp_working; ++i) {
+    // save cloud for visualization purpose
+    source_with_normals = icp_result;
+
+    // Estimate
+    icp.setInputSource(source_with_normals);
+    icp.align(*icp_result);
+
+    // accumulate transformation between each Iteration
+    Ti = icp.getFinalTransformation() * Ti;
+
+    if (!sanity_check(Ti) || icp.getFitnessScore() > 20) {
+      icp_working = false;
+      break;
+    }
+
+    // if the difference between this transformation and the previous
+    // one
+    // is smaller than the threshold, refine the process by reducing
+    // the maximal correspondence distance
+    if (fabs((icp.getLastIncrementalTransformation() - prev).sum()) <
+        icp.getTransformationEpsilon())
+      icp.setMaxCorrespondenceDistance(icp.getMaxCorrespondenceDistance() -
+                                       0.001);
+
+    prev = icp.getLastIncrementalTransformation();
+
+    if (prev_4.size() == 4) {
+      double ave = 0;
+      for (auto &m : prev_4)
+        ave += (Ti - m).norm();
+
+      ave /= 4;
+
+      if (ave < icp.getTransformationEpsilon())
+        break;
+
+      prev_4.pop_front();
+    }
+    prev_4.emplace_back(Ti);
+  }
+
+  fmt::print("ICP worked: {}\n"
+             "has converged: {}\n"
+             "score: {}\n"
+             "transformation:\n{}\n\n",
+             icp_working, icp.hasConverged(), icp.getFitnessScore(), Ti);
+
+  if (icp_working) {
+    auto tmp = current_cloud;
+    current_cloud =
+        pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+    pcl::transformPointCloud(*tmp, *current_cloud, Ti);
+
+    transformation = Ti * transformation;
+  }
 }

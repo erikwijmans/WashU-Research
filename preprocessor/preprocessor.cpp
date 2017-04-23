@@ -27,26 +27,6 @@
 #include <pcl/features/shot_omp.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/uniform_sampling.h>
-#include <pcl/visualization/pcl_visualizer.h>
-
-#include <dirent.h>
-
-pcl::visualization::PCLVisualizer::Ptr
-rgbVis(pcl::PointCloud<PointType>::ConstPtr cloud) {
-  // --------------------------------------------
-  // -----Open 3D viewer and add point cloud-----
-  // --------------------------------------------
-  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
-      new pcl::visualization::PCLVisualizer("3D Viewer"));
-  viewer->setBackgroundColor(0, 0, 0);
-  pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(cloud);
-  viewer->addPointCloud<PointType>(cloud, rgb, "sample cloud");
-  viewer->setPointCloudRenderingProperties(
-      pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
-  viewer->addCoordinateSystem(1.0);
-  viewer->initCameraParameters();
-  return (viewer);
-}
 
 static int PTXrows, PTXcols;
 
@@ -157,76 +137,6 @@ static Eigen::VectorXd getZPlanes(const std::vector<double> &z) {
   return domZs;
 }
 
-static void dispDepthMap(const Eigen::RowMatrixXd &dm) {
-  double average = 0;
-  int count = 0;
-  const double *dataPtr = dm.data();
-  for (int i = 0; i < dm.size(); ++i) {
-    if (*(dataPtr + i)) {
-      average += *(dataPtr + i);
-      ++count;
-    }
-  }
-  average /= count;
-  double sigma = 0;
-  for (int i = 0; i < dm.size(); ++i) {
-    const double val = *(dataPtr + i);
-    if (val) {
-      sigma += (val - average) * (val - average);
-    }
-  }
-
-  sigma /= count - 1;
-  sigma = sqrt(sigma);
-
-  cv::Mat heatMap(dm.rows(), dm.cols(), CV_8UC3, cv::Scalar::all(0));
-  for (int j = 0; j < heatMap.rows; ++j) {
-    uchar *dst = heatMap.ptr<uchar>(j);
-    for (int i = 0; i < heatMap.cols; ++i) {
-      if (dm(j, i)) {
-        const int gray = cv::saturate_cast<uchar>(
-            255.0 * ((dm(j, i) - average) / (1.0 * sigma) + 1.0) / 2.0);
-        int red, green, blue;
-        if (gray < 128) {
-          red = 0;
-          green = 2 * gray;
-          blue = 255 - green;
-        } else {
-          blue = 0;
-          red = 2 * (gray - 128);
-          green = 255 - red;
-        }
-        dst[i * 3] = blue;
-        dst[i * 3 + 1] = green;
-        dst[i * 3 + 2] = red;
-      }
-    }
-  }
-  cvNamedWindow("dm", CV_WINDOW_NORMAL);
-  cv::imshow("dm", heatMap);
-}
-
-static void dispSurfaceNormals(const Eigen::ArrayXV3f &sn) {
-  cv::Mat heatMap(sn.rows(), sn.cols(), CV_8UC3, cv::Scalar::all(255));
-  for (int j = 0; j < heatMap.rows; ++j) {
-    uchar *dst = heatMap.ptr<uchar>(j);
-    for (int i = 0; i < heatMap.cols; ++i) {
-      if (sn(j, i) != Eigen::Vector3f::Zero()) {
-
-        int red = 255 * std::abs(sn(j, i).dot(Eigen::Vector3f::UnitX()));
-        int green = 255 * std::abs(sn(j, i).dot(Eigen::Vector3f::UnitY()));
-        int blue = 255 * std::abs(sn(j, i).dot(Eigen::Vector3f::UnitZ()));
-
-        dst[i * 3] = blue;
-        dst[i * 3 + 1] = green;
-        dst[i * 3 + 2] = red;
-      }
-    }
-  }
-  cvNamedWindow("sn", CV_WINDOW_NORMAL);
-  cv::imshow("sn", heatMap);
-}
-
 void convertToBinary(const fs::path &fileNameIn, const fs::path &outName,
                      std::vector<scan::PointXYZRGBA> &pointCloud) {
 
@@ -283,45 +193,6 @@ void convertToBinary(const fs::path &fileNameIn, const fs::path &outName,
 
     in.close();
   }
-}
-
-std::string type2str(int type) {
-  std::string r;
-
-  uchar depth = type & CV_MAT_DEPTH_MASK;
-  uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-  switch (depth) {
-  case CV_8U:
-    r = "8U";
-    break;
-  case CV_8S:
-    r = "8S";
-    break;
-  case CV_16U:
-    r = "16U";
-    break;
-  case CV_16S:
-    r = "16S";
-    break;
-  case CV_32S:
-    r = "32S";
-    break;
-  case CV_32F:
-    r = "32F";
-    break;
-  case CV_64F:
-    r = "64F";
-    break;
-  default:
-    r = "User";
-    break;
-  }
-
-  r += "C";
-  r += (chans + '0');
-
-  return r;
 }
 
 static Eigen::Vector3d cartesianToPolar(const Eigen::Vector3d &coords) {
@@ -596,32 +467,8 @@ void createPanorama(const std::vector<scan::PointXYZRGBA> &pointCloud,
                                       }),
                        pano.keypoints.end());
 
-  // pano.imgs[0] =
-  //     cv::Mat(scaledPTX.size(), scaledPTX.type(), cv::Scalar::all(0));
-  // GaussianBlur(scaledPTX, pano.imgs[0], cv::Size(5, 5), 0);
-
   if (FLAGS_save)
     pano.writeToFile(panoName, dataName);
-
-  if (FLAGS_preview) {
-
-    fmt::print("Well formed kps: {:f}%",
-               pano.keypoints.size() / startSize * 100);
-
-    dispDepthMap(scaledRMap);
-    dispSurfaceNormals(scaledSurfNormals);
-    cvNamedWindow("Tracking", CV_WINDOW_NORMAL);
-    cv::imshow("Tracking", scaledTracking);
-    cvNamedWindow("PTX", CV_WINDOW_NORMAL);
-    cv::imshow("PTX", PTXPanorama);
-    cv::Mat out;
-    cv::drawKeypoints(scaledPTX, keypoints, out);
-    cvNamedWindow("KP", CV_WINDOW_NORMAL);
-    cv::imshow("KP", out);
-    cvNamedWindow("Blur", CV_WINDOW_NORMAL);
-    cv::imshow("Blur", pano.imgs[0]);
-    cv::waitKey(0);
-  }
 }
 
 void createPCLPointCloud(const std::vector<scan::PointXYZRGBA> &points,
@@ -740,21 +587,6 @@ void saveNormals(const pcl::PointCloud<NormalType>::Ptr &cloud_normals,
 
 void boundingBox(const std::vector<scan::PointXYZRGBA> &points,
                  Eigen::Vector3f &pointMin, Eigen::Vector3f &pointMax) {
-  /*Eigen::Vector3f average = Eigen::Vector3f::Zero();
-  Eigen::Vector3f sigma = Eigen::Vector3f::Zero();
-  for (auto &point : points)
-    average += point.point;
-
-  average /= points.size();
-
-  for (auto &point : points) {
-    Eigen::Vector3f tmp = point.point - average;
-    sigma += tmp.cwiseProduct(tmp);
-  }
-
-  sigma /= points.size() - 1;
-  for (int i = 0; i < 3; ++i)
-    sigma[i] = sqrt(sigma[i]);*/
 
   Eigen::Array3f init = Eigen::Array3f::Zero();
   auto[average, sigma] = utils::ave_and_stdev(
@@ -971,73 +803,5 @@ void findDoors(pcl::PointCloud<PointType>::Ptr &pointCloud,
     for (auto &d : doors)
       d.writeToFile(out);
     out.close();
-  }
-
-  if (FLAGS_visulization) {
-    pcl::PointCloud<PointType>::Ptr output(new pcl::PointCloud<PointType>);
-    output->insert(output->end(), pointCloud->begin(), pointCloud->end());
-
-    for (auto &d : doors) {
-      auto &bl = d.corner;
-
-      auto &direction = d.xAxis;
-      double h = d.h;
-      double w = d.w;
-
-      direction[2] = 0;
-      direction /= direction.norm();
-      auto color = utils::randomColor();
-      for (double z = 0; z <= h; z += 0.015) {
-
-        auto point = traverse(direction, 0, d.zAxis, z) + bl;
-        PointType tmp;
-        tmp.x = point[0];
-        tmp.y = point[1];
-        tmp.z = point[2];
-        tmp.r = color[2];
-        tmp.g = color[1];
-        tmp.b = color[0];
-
-        output->push_back(tmp);
-      }
-
-      for (double z = 0; z <= h; z += 0.015) {
-
-        for (double x = 0; x <= w; x += 0.015) {
-
-          auto point = traverse(direction, x, d.zAxis, z) + bl;
-          PointType tmp;
-          tmp.x = point[0];
-          tmp.y = point[1];
-          tmp.z = point[2];
-          tmp.r = color[2];
-          tmp.g = color[1];
-          tmp.b = color[0];
-
-          output->push_back(tmp);
-        }
-      }
-
-      for (double x = 0; x <= w; x += 0.015) {
-
-        auto point = traverse(direction, x, d.zAxis, 0) + bl;
-        PointType tmp;
-        tmp.x = point[0];
-        tmp.y = point[1];
-        tmp.z = point[2];
-        tmp.r = color[2];
-        tmp.g = color[1];
-        tmp.b = color[0];
-
-        output->push_back(tmp);
-      }
-    }
-
-    pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output);
-    while (!viewer->wasStopped()) {
-      viewer->spinOnce(100);
-      boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-    }
-    viewer->close();
   }
 }

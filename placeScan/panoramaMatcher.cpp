@@ -130,8 +130,6 @@ double NCC(const cv::Mat_<cv::Vec3b> &a, const cv::Mat_<cv::Vec3b> &b) {
   return AB / sqrt(AA * BB);
 }
 
-#define viz 0
-
 void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
                        const Eigen::Matrix3d &RA, const Eigen::Matrix3d &RB,
                        const Eigen::Vector3d &aToB, const Eigen::Vector3d &bToA,
@@ -165,8 +163,7 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
       bMaxes(std::min(panoB[0].cols, (int)rMapB.cols()),
              std::min(panoB[0].rows, (int)rMapB.rows()));
 
-#pragma omp parallel reduction(+ : count, score, numSim,                       \
-                               numDiff) if (!FLAGS_debugMode || !viz)
+#pragma omp parallel reduction(+ : count, score, numSim, numDiff)
   {
 #pragma omp for nowait
     for (int i = 0; i < truePointsInA.size(); ++i) {
@@ -249,46 +246,6 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
         ++numSim;
       else
         ++numDiff;
-
-#if viz
-      if (FLAGS_debugMode) {
-        cv::Mat_<cv::Vec3b> out1(aLvlImg.size());
-        aLvlImg.copyTo(out1);
-        cv::Mat_<cv::Vec3b> out2(bLvlImg.size());
-        bLvlImg.copyTo(out2);
-
-        for (int j = 0; j < NCCSize; ++j) {
-          for (int i = 0; i < NCCSize; ++i) {
-            out1(j - offset + a[1], i - offset + a[0])[0] = 0;
-            out1(j - offset + a[1], i - offset + a[0])[1] = 0;
-            out1(j - offset + a[1], i - offset + a[0])[2] = 255;
-
-            out2(j - offset + b[1], i - offset + b[0])[0] = 0;
-            out2(j - offset + b[1], i - offset + b[0])[1] = 0;
-            out2(j - offset + b[1], i - offset + b[0])[2] = 255;
-          }
-        }
-        std::cout << "aLevel: " << aLevel << std::endl;
-        std::cout << "bLevel: " << bLevel << std::endl;
-        std::cout << "aRadius: " << radiusA << std::endl;
-        std::cout << "bRadius: " << radiusB << std::endl;
-
-        std::cout << "NCC: " << ncc << std::endl;
-        cvNamedWindow("A", CV_WINDOW_NORMAL);
-        cv::imshow("A", out1);
-
-        cvNamedWindow("B", CV_WINDOW_NORMAL);
-        cv::imshow("B", out2);
-
-        cvNamedWindow("NCCA", CV_WINDOW_NORMAL);
-        cv::imshow("NCCA", NCCA);
-
-        cvNamedWindow("NCCB", CV_WINDOW_NORMAL);
-        cv::imshow("NCCB", NCCB);
-
-        cv::waitKey(0);
-      }
-#endif
     }
 
 #pragma omp for nowait
@@ -362,43 +319,6 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
         ++numSim;
       else
         ++numDiff;
-#if viz
-      if (FLAGS_debugMode) {
-        cv::Mat_<cv::Vec3b> out1(aLvlImg.rows, aLvlImg.cols);
-        aLvlImg.copyTo(out1);
-        cv::Mat_<cv::Vec3b> out2(bLvlImg.rows, bLvlImg.cols);
-        bLvlImg.copyTo(out2);
-
-        for (int j = 0; j < NCCSize; ++j) {
-          for (int i = 0; i < NCCSize; ++i) {
-            out1(j - offset + a[1], i - offset + a[0])[0] = 0;
-            out1(j - offset + a[1], i - offset + a[0])[1] = 0;
-            out1(j - offset + a[1], i - offset + a[0])[2] = 255;
-
-            out2(j - offset + b[1], i - offset + b[0])[0] = 0;
-            out2(j - offset + b[1], i - offset + b[0])[1] = 0;
-            out2(j - offset + b[1], i - offset + b[0])[2] = 255;
-          }
-        }
-        std::cout << "aLevel: " << aLevel << std::endl;
-        std::cout << "bLevel: " << bLevel << std::endl;
-
-        std::cout << "NCC: " << ncc << std::endl;
-        cvNamedWindow("A", CV_WINDOW_NORMAL);
-        cv::imshow("A", out1);
-
-        cvNamedWindow("B", CV_WINDOW_NORMAL);
-        cv::imshow("B", out2);
-
-        cvNamedWindow("NCCA", CV_WINDOW_NORMAL);
-        cv::imshow("NCCA", NCCA);
-
-        cvNamedWindow("NCCB", CV_WINDOW_NORMAL);
-        cv::imshow("NCCB", NCCB);
-
-        cv::waitKey(0);
-      }
-#endif
     }
   }
   score /= count;
@@ -410,13 +330,6 @@ void pano::compareNCC2(place::Panorama &panoA, place::Panorama &panoB,
   count /= 2.0;
   const double significance =
       utils::sigmoidWeight(count, expectedCount * precent);
-
-#if viz
-  if (FLAGS_debugMode) {
-    std::cout << count << ", " << significance << std::endl;
-    std::cout << score << std::endl;
-  }
-#endif
 
   if (significance < sigCutoff || !Eigen::numext::isfinite(score))
     return;

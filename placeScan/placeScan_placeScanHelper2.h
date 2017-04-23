@@ -6,18 +6,12 @@
 
 #include <FeatureVoxel.hpp>
 
-DECLARE_int32(graphColor);
-
 extern const double sigCutoff, scoreCutoff;
 
 namespace place {
 
-void createWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
-
 void loadInPlacement(const fs::path &scanName,
                      std::vector<place::moreInfo> &scoreVec, const int scanNum);
-
-void displayWeightedFloorPlan(Eigen::SparseMatrix<double> &weightedFloorPlan);
 
 void weightEdges(
     const std::vector<place::node> &nodes,
@@ -35,11 +29,6 @@ void trimScansAndMasks(const std::vector<cv::Mat> &toTrimScans,
                        std::vector<cv::Mat> &trimmedScans,
                        std::vector<cv::Mat> &trimmedMasks,
                        std::vector<Eigen::Vector2i> &zeroZero);
-
-void displayGraph(const Eigen::MatrixXE &adjacencyMatrix,
-                  const std::vector<place::node> &nodes,
-                  const std::vector<std::vector<Eigen::MatrixXb>> &scans,
-                  const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
 
 void displayBest(const std::vector<place::SelectedNode> &bestNodes,
                  const std::vector<std::vector<Eigen::MatrixXb>> &scans,

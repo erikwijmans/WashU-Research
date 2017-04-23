@@ -91,63 +91,6 @@ void voxel::CloudAnalyzer3D::run(double voxelsPerMeter, double pixelsPerMeter) {
       Eigen::Vector3i(-pointMin[0] * voxelsPerMeter,
                       -pointMin[1] * voxelsPerMeter, -pointMin[2] * zScale);
 }
-template <typename T> static void displayVoxelGrid(const T &voxelB) {
-  Eigen::MatrixXd collapsed =
-      Eigen::MatrixXd::Zero(voxelB.v[0].rows(), voxelB.v[0].cols());
-
-  for (int k = 0; k < voxelB.v.size(); ++k)
-    for (int i = 0; i < voxelB.v[0].cols(); ++i)
-      for (int j = 0; j < voxelB.v[0].rows(); ++j)
-        collapsed(j, i) += voxelB.v[k](j, i) ? 1 : 0;
-
-  double average, sigma;
-  average = sigma = 0;
-  int count = 0;
-  const double *dataPtr = collapsed.data();
-  for (int i = 0; i < collapsed.size(); ++i) {
-    if (*(dataPtr + i)) {
-      ++count;
-      average += *(dataPtr + i);
-    }
-  }
-
-  average = average / count;
-
-  for (int i = 0; i < collapsed.size(); ++i)
-    if (*(dataPtr + i) != 0)
-      sigma += (*(dataPtr + i) - average) * (*(dataPtr + i) - average);
-
-  sigma = sigma / (count - 1);
-  sigma = sqrt(sigma);
-
-  cv::Mat heatMap(collapsed.rows(), collapsed.cols(), CV_8UC3,
-                  cv::Scalar::all(255));
-  for (int i = 0; i < heatMap.rows; ++i) {
-    uchar *dst = heatMap.ptr<uchar>(i);
-    for (int j = 0; j < heatMap.cols; ++j) {
-      if (collapsed(i, j)) {
-        const int gray = cv::saturate_cast<uchar>(
-            255.0 * (collapsed(i, j) - average) / (1.0 * sigma));
-        int red, green, blue;
-        if (gray < 128) {
-          red = 0;
-          green = 2 * gray;
-          blue = 255 - green;
-        } else {
-          blue = 0;
-          red = 2 * (gray - 128);
-          green = 255 - red;
-        }
-        dst[j * 3] = blue;
-        dst[j * 3 + 1] = green;
-        dst[j * 3 + 2] = red;
-      }
-    }
-  }
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", heatMap);
-  cv::waitKey(0);
-}
 
 /* This method is destructive to the things created by run */
 void voxel::CloudAnalyzer3D::saveVoxelGrids(
@@ -305,11 +248,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     rotatedFree.v.clear();
     rotatedPoint.v.clear();
 
-    if (FLAGS_visulization) {
-      displayVoxelGrid(trimmedPoint);
-      displayVoxelGrid(trimmedFree);
-    }
-
     place::MetaData meta{zeroZero, newX,           newY,
                          newZ,     voxelsPerMeter, pixelsPerMeter};
     meta.zZ[0] += dX;
@@ -330,5 +268,6 @@ void voxel::CloudAnalyzer3D::saveVoxelGrids(
     trimmedPoint.writeToFile(out);
     out.close();
   }
+
   metaDataWriter.close();
 }

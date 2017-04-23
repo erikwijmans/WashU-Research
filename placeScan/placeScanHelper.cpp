@@ -62,10 +62,6 @@ void place::loadInScans(const fs::path &scanName, const fs::path &zerosFile,
 
     rotatedScans.push_back(cv::imread(fullScanName.string(), 0));
   }
-
-  if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cv::rectshow(rotatedScans[0]);
-  }
 }
 
 void place::loadInScans(const fs::path &scanName,
@@ -77,10 +73,6 @@ void place::loadInScans(const fs::path &scanName,
     CHECK(fs::exists(fullScanName)) << "Could not open " << fullScanName;
 
     rotatedScans.push_back(cv::imread(fullScanName.string(), 0));
-  }
-
-  if (FLAGS_tinyPreviewIn || FLAGS_visulization) {
-    cv::rectshow(rotatedScans[0]);
   }
 }
 
@@ -262,9 +254,6 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
     const int keyCode = cv::rectshow(output);
 
     if (keyCode == 27) {
-      cv::imwrite(
-          (preDone / "{}_ss_{}.png"_format(buildName, scanNumber)).string(),
-          output);
       break;
     } else if (keyCode == 8)
       k = k > 0 ? k - 1 : k;
@@ -272,181 +261,6 @@ bool place::reshowPlacement(const fs::path &scanName, const fs::path &zerosFile,
       ++k;
   }
   return true;
-}
-
-void place::displayOutput(
-    const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
-    const std::vector<const place::posInfo *> &minima) {
-
-  if (!FLAGS_quietMode) {
-    std::cout << "Num minima: " << minima.size() << std::endl;
-    std::cout << "Press a key to begin displaying placement options"
-              << std::endl;
-  }
-
-  cv::rectshow(fpColor);
-
-  int currentCount = 0;
-  for (auto &min : minima) {
-    const int xOffset = min->x;
-    const int yOffset = min->y;
-    const Eigen::SparseMatrix<double> &currentScan =
-        rSSparseTrimmed[min->rotation];
-    cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3, cv::Scalar::all(255));
-    fpColor.copyTo(output);
-
-    cv::Mat_<cv::Vec3b> _output = output;
-
-    for (int i = 0; i < currentScan.outerSize(); ++i) {
-      for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it;
-           ++it) {
-        if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
-          continue;
-        if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
-          continue;
-
-        _output(it.row() + yOffset, it.col() + xOffset)[0] = 0;
-        _output(it.row() + yOffset, it.col() + xOffset)[1] = 0;
-        _output(it.row() + yOffset, it.col() + xOffset)[2] = 255;
-      }
-    }
-
-    if (!FLAGS_quietMode) {
-      std::cout << min << std::endl << std::endl;
-    }
-    const int keyCode = cv::rectshow(output);
-    ~output;
-    if (keyCode == 27)
-      break;
-  }
-}
-
-void place::displayOutput(
-    const Eigen::SparseMatrix<double> &fp,
-    const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
-    const Eigen::MatrixXb &fpDoors,
-    const std::vector<std::vector<place::Door>> &pcDoors,
-    const std::vector<const place::posInfo *> &minima) {
-  const int num = minima.size() < 20 ? minima.size() : 20;
-  if (!FLAGS_quietMode) {
-    std::cout << "Num minima: " << num << std::endl;
-    std::cout << "Press a key to begin displaying placement options"
-              << std::endl;
-  }
-  cv::Mat fpImg = place::sparseToImage(fp);
-  cv::Mat tmpColor(fpImg.rows, fpImg.cols, CV_8UC3, cv::Scalar::all(255));
-
-  for (int i = 0; i < tmpColor.rows; ++i) {
-    uchar *dst = tmpColor.ptr<uchar>(i);
-    const uchar *src = fpImg.ptr<uchar>(i);
-    for (int j = 0; j < tmpColor.cols; ++j) {
-      if (src[j] != 255) {
-        dst[j * 3] = 128;
-        dst[j * 3 + 1] = 128;
-        dst[j * 3 + 2] = 128;
-      }
-    }
-  }
-
-  for (int j = 0; j < fpDoors.rows(); ++j) {
-    uchar *dst = tmpColor.ptr<uchar>(j);
-    for (int i = 0; i < fpDoors.cols(); ++i) {
-      if (fpDoors(j, i)) {
-        dst[i * 3] = 0;
-        dst[i * 3 + 1] = 255;
-        dst[i * 3 + 2] = 0;
-      }
-    }
-  }
-
-  cv::rectshow(tmpColor);
-  const int cutOff = FLAGS_top > 0 ? FLAGS_top : 20;
-
-  int currentCount = 0;
-  for (auto &min : minima) {
-    const int xOffset = min->x;
-    const int yOffset = min->y;
-    const Eigen::SparseMatrix<double> &currentScan =
-        rSSparseTrimmed[min->rotation];
-    auto &doors = pcDoors[min->rotation];
-
-    cv::Mat output(tmpColor.rows, tmpColor.cols, CV_8UC3, cv::Scalar::all(255));
-    tmpColor.copyTo(output);
-    cv::Mat_<cv::Vec3b> _output = output;
-
-    for (int i = 0; i < currentScan.outerSize(); ++i) {
-      for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it;
-           ++it) {
-        if (it.row() + yOffset < 0 || it.row() + yOffset >= output.rows)
-          continue;
-        if (it.col() + xOffset < 0 || it.col() + xOffset >= output.cols)
-          continue;
-
-        _output(it.row() + yOffset, it.col() + xOffset)[0] = 0;
-        _output(it.row() + yOffset, it.col() + xOffset)[1] = 0;
-        _output(it.row() + yOffset, it.col() + xOffset)[2] = 255;
-      }
-    }
-
-    for (auto &d : doors) {
-      auto color = utils::randomColor();
-      for (double x = 0; x < d.w; ++x) {
-        Eigen::Vector3i index =
-            (d.corner + x * d.xAxis + Eigen::Vector3d(min->x, min->y, 0))
-                .unaryExpr([](auto v) { return std::round(v); })
-                .cast<int>();
-
-        _output(index[1], index[0]) = color;
-      }
-    }
-
-    if (!FLAGS_quietMode) {
-      std::cout << min << std::endl << std::endl;
-    }
-    cv::rectshow(output);
-    ~output;
-    if (++currentCount == cutOff)
-      break;
-  }
-}
-
-void place::loadInTruePlacement(const fs::path &scanName,
-                                const std::vector<Eigen::Vector2i> &zeroZero) {
-  auto[buildName, scanNumber] = parse_name(scanName);
-  const fs::path placementName =
-      fs::path(FLAGS_outputV1) /
-      "{}_placement_{}.dat"_format(buildName, scanName);
-  std::ifstream in =
-      utils::open(placementName, std::ios::in | std::ios::binary);
-
-  int num;
-  in.read(reinterpret_cast<char *>(&num), sizeof(num));
-
-  std::vector<place::posInfo> tmp(num);
-  for (int i = 0; i < num; ++i) {
-    in.read(reinterpret_cast<char *>(&tmp[i]), sizeof(place::posInfo));
-  }
-
-  truePlacement.clear();
-  for (auto &s : tmp) {
-    Eigen::Vector3i tmp2(s.x - zeroZero[s.rotation][0],
-                         s.y - zeroZero[s.rotation][1], s.rotation);
-    truePlacement.push_back(tmp2);
-  }
-}
-
-void place::displayTruePlacement(
-    const std::vector<Eigen::SparseMatrix<double>> &rSSparseTrimmed,
-    const std::vector<place::posInfo> &scores,
-    const std::vector<Eigen::Vector2i> &zeroZero) {
-
-  std::vector<const place::posInfo *> tmp;
-  for (int i = 0; i < scores.size(); ++i) {
-    tmp.push_back(&scores[i]);
-  }
-
-  std::cout << "displaying true placement" << std::endl;
-  place::displayOutput(rSSparseTrimmed, tmp);
 }
 
 void place::scanToSparse(const cv::Mat &scan,
@@ -486,51 +300,6 @@ Eigen::SparseMatrix<double> place::scanToSparse(const cv::Mat &scan) {
   sparseTmp.prune(1.0);
 
   return sparseTmp;
-}
-
-void place::displayScanAndMask(
-    const std::vector<std::vector<Eigen::SparseMatrix<double>>>
-        &rSSparsePyramidTrimmed,
-    const std::vector<std::vector<Eigen::MatrixXb>> &eMaskPyramidTrimmedNS) {
-
-  for (int i = 0; i < rSSparsePyramidTrimmed.size(); ++i) {
-    for (int j = 0; j < rSSparsePyramidTrimmed[i].size(); ++j) {
-      const Eigen::SparseMatrix<double> &currentScan =
-          rSSparsePyramidTrimmed[i][j];
-      const Eigen::MatrixXb &currentMask = eMaskPyramidTrimmedNS[i][j];
-      cv::Mat out(currentScan.rows(), currentScan.cols(), CV_8UC3,
-                  cv::Scalar::all(255));
-
-      for (int i = 0; i < out.rows; ++i) {
-        uchar *dst = out.ptr<uchar>(i);
-        for (int j = 0; j < out.cols; ++j) {
-          if (currentMask(i, j) != 0) {
-            dst[3 * j] = 0;
-            dst[3 * j + 1] = 0;
-            dst[3 * j + 2] = 0;
-          }
-        }
-      }
-
-      cv::Mat_<cv::Vec3b> _out = out;
-      for (int i = 0; i < currentScan.outerSize(); ++i) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(currentScan, i); it;
-             ++it) {
-          if (it.value() > 0 && _out(it.row(), it.col())[0] == 0) {
-            _out(it.row(), it.col())[0] = 0;
-            _out(it.row(), it.col())[1] = 255;
-            _out(it.row(), it.col())[2] = 0;
-          } else if (it.value() > 0) {
-            _out(it.row(), it.col())[0] = 0;
-            _out(it.row(), it.col())[1] = 0;
-            _out(it.row(), it.col())[2] = 255;
-          }
-        }
-      }
-      out = _out;
-      cv::rectshow(out);
-    }
-  }
 }
 
 void place::erodeSparse(const Eigen::SparseMatrix<double> &src,

@@ -18,12 +18,6 @@ void createHigherOrderTermsV2(
     const std::vector<place::node> &nodes,
     multi::Labeler::HighOrderV2 &highOrder);
 
-void displayHighOrder(
-    const multi::Labeler::HighOrder highOrder,
-    const std::vector<place::R2Node> &nodes,
-    const std::vector<std::vector<Eigen::MatrixXb>> &scans,
-    const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros);
-
 } // place
 
 #endif // PLACE_SCAN_HIGH_ORDER_H

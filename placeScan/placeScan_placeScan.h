@@ -45,14 +45,8 @@ void findPlacement(const Eigen::SparseMatrix<double> &fp,
                    const std::vector<std::vector<place::Door>> &pcDoors,
                    std::vector<place::posInfo> &scores);
 
-void findPointsToAnalyze(const std::vector<posInfo> &scores,
-                         const std::vector<int> &localMinima,
-                         std::vector<Eigen::Vector3i> &pointsToAnalyze);
-
 void findPointsToAnalyzeV2(const std::vector<const place::posInfo *> &minima,
                            std::vector<Eigen::Vector3i> &pointsToAnalyze);
-
-Eigen::MatrixXd distanceTransform(const Eigen::SparseMatrix<double> &image);
 
 void createFPPyramids(const cv::Mat &floorPlan,
                       std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
@@ -65,21 +59,6 @@ void findNumPixelsUnderMask(
         &rSSparsePyramidTrimmed,
     const std::vector<std::vector<Eigen::MatrixXb>> &eMaskPyramidTrimmedNS,
     std::vector<Eigen::VectorXd> &numPixelsUnderMask);
-
-/*void blurMinima(const std::vector<posInfo> & scores,
-  const Eigen::Vector4i & rows, const Eigen::Vector4i & cols,
-  std::vector<Eigen::MatrixXd> & scoreMatricies);*/
-
-void analyzePlacementWeighted(
-    const std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
-    const std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid,
-    const fs::path &scanName, const fs::path &zerosFile,
-    const fs::path &maskName);
-
-void createFPPyramidsWeighted(
-    const Eigen::SparseMatrix<double> &weightedFloorPlan,
-    std::vector<Eigen::SparseMatrix<double>> &fpPyramid,
-    std::vector<Eigen::SparseMatrix<double>> &erodedFpPyramid);
 
 template <typename MatType>
 void createPyramid(std::vector<MatType> &pyramid, int levels) {
@@ -126,14 +105,6 @@ void createPyramid(std::vector<MatType> &pyramid, int levels) {
     pyramid.push_back(newLevel);
     tripletList.clear();
   }
-
-  if (FLAGS_visulization) {
-    for (auto &level : pyramid) {
-      cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-      cv::imshow("Preview", place::sparseToImage(level));
-      cv::waitKey(0);
-    }
-  }
 }
 
 template <typename MatType>
@@ -179,16 +150,6 @@ void createPyramid(std::vector<std::vector<MatType>> &pyramid, int levels) {
       tripletList.clear();
     }
     pyramid.push_back(newLevel);
-  }
-
-  if (FLAGS_visulization) {
-    for (auto &level : pyramid) {
-      for (auto &scan : level) {
-        cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-        cv::imshow("Preview", place::sparseToImage(scan));
-        cv::waitKey(0);
-      }
-    }
   }
 }
 

@@ -23,180 +23,6 @@
 #include <math.h>
 #include <omp.h>
 
-DEFINE_int32(graphColor, -1, "Color of the graph to display");
-
-template <typename T>
-static void displayCollapsed(T &collapsed, const std::string &windowName) {
-  const auto dataPtr = collapsed.data();
-  auto[average, sigma] =
-      utils::ave_and_stdev(dataPtr, dataPtr + collapsed.size());
-
-  cv::Mat heatMap(collapsed.rows(), collapsed.cols(), CV_8UC3,
-                  cv::Scalar::all(255));
-  for (int i = 0; i < heatMap.rows; ++i) {
-    uchar *dst = heatMap.ptr<uchar>(i);
-    for (int j = 0; j < heatMap.cols; ++j) {
-      if (collapsed(i, j)) {
-        const int gray = cv::saturate_cast<uchar>(
-            255.0 * (collapsed(i, j) - average) / (1.0 * sigma));
-        int red, green, blue;
-        if (gray < 128) {
-          red = 0;
-          blue = 2 * gray;
-          green = 255 - blue;
-        } else {
-          blue = 0;
-          red = 2 * (gray - 128);
-          green = 255 - red;
-        }
-        dst[j * 3] = blue;
-        dst[j * 3 + 1] = green;
-        dst[j * 3 + 2] = red;
-      }
-    }
-  }
-  cvNamedWindow(windowName.data(), CV_WINDOW_NORMAL);
-  cv::imshow(windowName, heatMap);
-}
-
-template <typename T>
-static void displayVoxelGrid(const T &grid, const std::string &windowName) {
-  Eigen::MatrixXd collapsed =
-      Eigen::MatrixXd::Zero(grid[0].rows(), grid[0].cols());
-
-  for (int k = 0; k < grid.size(); ++k)
-    for (int i = 0; i < grid[0].cols(); ++i)
-      for (int j = 0; j < grid[0].rows(); ++j)
-        collapsed(j, i) += grid[k](j, i) ? 1 : 0;
-
-  displayCollapsed(collapsed, windowName);
-}
-
-template <typename T>
-static void displayVoxelGridS(const T &sparse, const std::string &windowName) {
-  typedef typename T::value_type::InnerIterator InnerIT;
-
-  Eigen::MatrixXd collapsed =
-      Eigen::MatrixXd::Zero(sparse[0].rows(), sparse[0].cols());
-  for (auto &current : sparse)
-    for (int i = 0; i < current.outerSize(); ++i)
-      for (InnerIT it(current, i); it; ++it)
-        collapsed(it.row(), it.col()) += it.value();
-
-  displayCollapsed(collapsed, windowName);
-}
-
-template <typename T, typename S>
-static void displayCollapsed(const T &collapsedA, const S &collapsedB,
-                             const place::cube &aRect,
-                             const place::cube &bRect) {
-  const int Xrows = aRect.Y2 - aRect.Y1 + 1;
-  const int Xcols = aRect.X2 - aRect.X1 + 1;
-
-  const auto dataPtrA = collapsedA.data();
-  auto[averageA, sigmaA] =
-      utils::ave_and_stdev(dataPtrA, dataPtrA + collapsedA.size());
-
-  const auto dataPtrB = collapsedB.data();
-  auto[averageB, sigmaB] =
-      utils::ave_and_stdev(dataPtrB, dataPtrB + collapsedB.size());
-
-  cv::Mat heatMap(Xrows, Xcols, CV_8UC3, cv::Scalar::all(255));
-  for (int i = 0; i < heatMap.rows; ++i) {
-    uchar *dst = heatMap.ptr<uchar>(i);
-    for (int j = 0; j < heatMap.cols; ++j) {
-      double aVal = collapsedA(i, j);
-      double bVal = collapsedB(i, j);
-
-      if (aVal && bVal) {
-        int red = 255, green = 0, blue = 255;
-        dst[j * 3] = blue;
-        dst[j * 3 + 1] = green;
-        dst[j * 3 + 2] = red;
-      } else if (aVal) {
-        int red = 255, green = 0, blue = 0;
-        dst[j * 3] = blue;
-        dst[j * 3 + 1] = green;
-        dst[j * 3 + 2] = red;
-      } else if (bVal) {
-        int red = 0, green = 0, blue = 255;
-        dst[j * 3] = blue;
-        dst[j * 3 + 1] = green;
-        dst[j * 3 + 2] = red;
-      }
-    }
-  }
-
-  cvNamedWindow("Preview", CV_WINDOW_NORMAL);
-  cv::imshow("Preview", heatMap);
-  cv::waitKey(0);
-}
-
-template <typename T, typename S>
-static void displayVoxelGrid(const T &voxelA, const S &voxelB,
-                             const place::cube &aRect,
-                             const place::cube &bRect) {
-  const int z = aRect.Z2 - aRect.Z1 + 1;
-  const int Xrows = aRect.Y2 - aRect.Y1 + 1;
-  const int Xcols = aRect.X2 - aRect.X1 + 1;
-
-  Eigen::MatrixXd collapsedA = Eigen::MatrixXd::Zero(Xrows, Xcols);
-  Eigen::MatrixXd collapsedB = Eigen::MatrixXd::Zero(Xrows, Xcols);
-  for (int k = 0; k < z; ++k) {
-    for (int i = 0; i < Xcols; ++i) {
-      for (int j = 0; j < Xrows; ++j) {
-        Eigen::Vector3i APos(i + aRect.X1, j + aRect.Y1, k + aRect.Z1);
-        Eigen::Vector3i BPos(i + bRect.X1, j + bRect.Y1, k + bRect.Z1);
-        collapsedA(j, i) += voxelA[APos[2]](APos[1], APos[0]);
-        collapsedB(j, i) += voxelB[BPos[2]](BPos[1], BPos[0]);
-      }
-    }
-  }
-  displayCollapsed(collapsedA, collapsedB, aRect, bRect);
-}
-
-template <typename TA, typename TB>
-static void displayVoxelGridS(const TA &voxelA, const TB &voxelB,
-                              const place::cube &aRect,
-                              const place::cube &bRect) {
-  typedef typename TA::value_type::InnerIterator InnerITA;
-  typedef typename TB::value_type::InnerIterator InnerITB;
-
-  const int z = aRect.Z2 - aRect.Z1 + 1;
-  const int Xrows = aRect.Y2 - aRect.Y1 + 1;
-  const int Xcols = aRect.X2 - aRect.X1 + 1;
-  for (int k = 0; k < z; ++k) {
-    Eigen::MatrixXd collapsedA = Eigen::MatrixXd::Zero(Xrows, Xcols);
-    Eigen::MatrixXd collapsedB = Eigen::MatrixXd::Zero(Xrows, Xcols);
-
-    auto &currentA = voxelA[k + aRect.Z1];
-    auto &currentB = voxelB[k + bRect.Z1];
-
-    for (int i = 0; i < currentA.outerSize(); ++i) {
-      for (InnerITA it(currentA, i); it; ++it) {
-        Eigen::Vector3i APos(it.col() - aRect.X1, it.row() - aRect.Y1, 0);
-        if (APos[0] < 0 || APos[0] >= Xcols)
-          continue;
-        if (APos[1] < 0 || APos[1] >= Xrows)
-          continue;
-        collapsedA(APos[1], APos[0]) += it.value();
-      }
-    }
-
-    for (int i = 0; i < currentB.outerSize(); ++i) {
-      for (InnerITB it(currentB, i); it; ++it) {
-        Eigen::Vector3i BPos(it.col() - bRect.X1, it.row() - bRect.Y1, 0);
-        if (BPos[0] < 0 || BPos[0] >= Xcols)
-          continue;
-        if (BPos[1] < 0 || BPos[1] >= Xrows)
-          continue;
-        collapsedB(BPos[1], BPos[0]) += it.value();
-      }
-    }
-    displayCollapsed(collapsedA, collapsedB, aRect, bRect);
-  }
-}
-
 void place::loadInScansGraph(
     const std::vector<fs::path> &pointFileNames,
     const std::vector<fs::path> &freeFileNames,
@@ -395,11 +221,6 @@ void place::weightEdges(
     const place::node &nodeA = nodes[i];
     const place::node &nodeB = nodes[j];
 
-#if 0
-    if (FLAGS_debugMode && (j != 28 || i != 0))
-      continue;
-#endif
-
     auto &aPoint =
         pointGrids.find(std::make_pair(nodeA.color, nodeA.rotation))->second;
     auto &aFree =
@@ -408,18 +229,6 @@ void place::weightEdges(
         pointGrids.find(std::make_pair(nodeB.color, nodeB.rotation))->second;
     auto &bFree =
         freeGrids.find(std::make_pair(nodeB.color, nodeB.rotation))->second;
-
-#if 0
-    if (FLAGS_debugMode) {
-      std::cout << "(" << i << "," << j << ")" << std::endl;
-      displayVoxelGrid(aPoint.v, "aPoint");
-      displayVoxelGrid(bPoint.v, "bPoint");
-      displayVoxelGrid(aFree.v, "aFree");
-      displayVoxelGrid(bFree.v, "bFree");
-      cv::waitKey(0);
-      displayVoxelGrid(aFree.v, bFree.v, current.crossWRTA, current.crossWRTB);
-    }
-#endif
 
     place::edge weight = place::compare3D(aPoint, bPoint, aFree, bFree,
                                           current.crossWRTA, current.crossWRTB);
@@ -539,128 +348,6 @@ void place::trimScansAndMasks(const std::vector<cv::Mat> &toTrimScans,
     zeroZero[i][1] -= minRow;
     trimmedScans.push_back(trimmedScan);
     trimmedMasks.push_back(trimmedMask);
-  }
-}
-
-void place::displayGraph(
-    const Eigen::MatrixXE &adjacencyMatrix,
-    const std::vector<place::node> &nodes,
-    const std::vector<std::vector<Eigen::MatrixXb>> &scans,
-    const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros) {
-  const int rows = adjacencyMatrix.rows();
-  const int cols = adjacencyMatrix.cols();
-
-  std::vector<std::pair<int, int>> usablePairs;
-
-  for (int i = 0; i < cols; ++i) {
-    for (int j = 0; j < rows; ++j) {
-      const place::node &nodeA = nodes[i];
-      const place::node &nodeB = nodes[j];
-      if (adjacencyMatrix(j, i).wSignificance == 0 &&
-          adjacencyMatrix(j, i).panoSignificance == 0)
-        continue;
-
-      usablePairs.emplace_back(i, j);
-    }
-  }
-
-  bool nextI = false;
-  int currentI = 0;
-  for (int k = 0; k < usablePairs.size();) {
-    int i, j;
-    std::tie(i, j) = usablePairs[k];
-
-    const place::node &nodeA = nodes[i];
-    const place::node &nodeB = nodes[j];
-
-    if (nextI) {
-      if (i == currentI) {
-        ++k;
-        continue;
-      } else
-        nextI = false;
-    }
-
-    if (FLAGS_graphColor != -1 && nodeA.color != FLAGS_graphColor) {
-      ++k;
-      continue;
-    }
-    /*if (i > j)
-      continue;*/
-
-    std::cout << "(" << i << ", " << j << ")" << std::endl;
-
-    const Eigen::MatrixXb &aScan = scans[nodeA.color][nodeA.rotation];
-    const Eigen::MatrixXb &bScan = scans[nodeB.color][nodeB.rotation];
-
-    const Eigen::Vector2i &zeroZeroA = zeroZeros[nodeA.color][nodeA.rotation];
-    const Eigen::Vector2i &zeroZeroB = zeroZeros[nodeB.color][nodeB.rotation];
-
-    cv::Mat output(fpColor.rows, fpColor.cols, CV_8UC3);
-    fpColor.copyTo(output);
-
-    cv::Mat_<cv::Vec3b> _output = output;
-
-    int yOffset = nodeA.y - zeroZeroA[1];
-    int xOffset = nodeA.x - zeroZeroA[0];
-    for (int k = 0; k < aScan.cols(); ++k) {
-      for (int l = 0; l < aScan.rows(); ++l) {
-        if (l + yOffset < 0 || l + yOffset >= output.rows)
-          continue;
-        if (k + xOffset < 0 || k + xOffset >= output.cols)
-          continue;
-
-        if (aScan(l, k) != 0) {
-          _output(l + yOffset, k + xOffset)[0] = 0;
-          _output(l + yOffset, k + xOffset)[1] = 0;
-          _output(l + yOffset, k + xOffset)[2] = 255;
-        }
-      }
-    }
-
-    yOffset = nodeB.y - zeroZeroB[1];
-    xOffset = nodeB.x - zeroZeroB[0];
-    for (int k = 0; k < bScan.cols(); ++k) {
-      for (int l = 0; l < bScan.rows(); ++l) {
-        if (l + yOffset < 0 || l + yOffset >= output.rows)
-          continue;
-        if (k + xOffset < 0 || k + xOffset >= output.cols)
-          continue;
-
-        if (bScan(l, k) != 0) {
-          _output(l + yOffset, k + xOffset)[0] = 255;
-          _output(l + yOffset, k + xOffset)[1] = 0;
-          _output(l + yOffset, k + xOffset)[2] = 0;
-        }
-      }
-    }
-
-    for (int l = -10; l <= 10; ++l) {
-      for (int k = -10; k <= 10; ++k) {
-        _output(l + nodeA.y, k + nodeA.x)[0] = 0;
-        _output(l + nodeA.y, k + nodeA.x)[1] = 255;
-        _output(l + nodeA.y, k + nodeA.x)[2] = 0;
-
-        _output(l + nodeB.y, k + nodeB.x)[0] = 0;
-        _output(l + nodeB.y, k + nodeB.x)[1] = 255;
-        _output(l + nodeB.y, k + nodeB.x)[2] = 0;
-      }
-    }
-
-    std::cout << "Color A: " << nodeA.color << "  Color B: " << nodeB.color
-              << std::endl
-              << adjacencyMatrix(j, i) << std::endl
-              << "urnary: " << nodeA.nw << "  " << nodeA.hWeight << "   "
-              << nodeB.nw << "  " << nodeB.hWeight << std::endl;
-
-    int kc = cv::rectshow(output);
-    if (kc == 27) {
-      nextI = true;
-      currentI = i;
-    } else if (kc == 8) {
-      k = k == 0 ? 0 : k - 1;
-    } else
-      ++k;
   }
 }
 
@@ -996,28 +683,11 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
 
   constexpr size_t numIters = 6000;
 
-  /*typedef opengm::TrbpUpdateRules<Model, opengm::Maximizer> UpdateRules;
-  typedef opengm::MessagePassing<Model, opengm::Maximizer, UpdateRules,
-                                 opengm::MaxDistance>
-      Solver;
-  constexpr double convergenceBound = 1e-7;
-  constexpr double damping = 0.0;
-  Solver::Parameter parameter(numIters, convergenceBound, damping);*/
-
   // set up the optimizer (TRW)
   typedef opengm::TRWSi_Parameter<Model> Parameter;
   typedef opengm::TRWSi<Model, opengm::Maximizer> Solver;
   Parameter parameter(numIters);
   Solver solver(gm, parameter);
-
-  // Set up MQPBO
-  /*typedef opengm::MQPBO<Model, opengm::Maximizer> Solver;
-  Solver::Parameter parameter;
-  parameter.useKovtunsMethod_ = false;
-  parameter.rounds_ = 100;
-  parameter.strongPersistency_ = true;
-  parameter.permutationType_ = Solver::MINMARG;
-  Solver solver(gm, parameter);*/
 
   Solver::EmptyVisitorType visitor;
 
@@ -1026,10 +696,10 @@ void place::TRWSolver(const Eigen::MatrixXE &adjacencyMatrix,
   delete timer;
   const int numVars = numberOfLabels.size();
 
-  std::cout << std::endl
-            << solver.name() << " found a solution with a value of "
-            << solver.value() << " bounded by " << solver.bound() << std::endl
-            << "Average energy: " << solver.value() / numVars << std::endl;
+  fmt::print("\n{} found a solution with a value of {} bounded by {}\n"
+             "Average energy: {}\n",
+             solver.name(), solver.value(), solver.bound(),
+             solver.value() / numVars);
 
   std::vector<Model::LabelType> labeling(numVars);
   solver.arg(labeling);
