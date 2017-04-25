@@ -158,6 +158,9 @@ int main(int argc, char **argv) {
   auto[buildName, tmp] = parse_name(binaryFileNames[0]);
   const fs::path cloudName =
       fs::path(FLAGS_outputV2) / "{}_pointCloud.ply"_format(buildName);
+  const fs::path all_rots_file =
+      fs::path(FLAGS_transformation_folder) / "all_transformations.txt";
+  std::ofstream all_out(all_rots_file.string(), std::ios::out);
   fmt::print("{}\n", cloudName);
 
   pcl::PointCloud<PointType>::Ptr output_cloud(new pcl::PointCloud<PointType>);
@@ -192,6 +195,7 @@ int main(int argc, char **argv) {
       std::cout << "Enter: " << binaryFileNames[k] << std::endl;
 
       auto[build_name, scan_number] = parse_name(binaryFileNames[k]);
+      fmt::print(all_out, "{}\n\n", scan_number);
 
       if (rotMats[k] == Eigen::Matrix3d::Zero())
         continue;
@@ -220,7 +224,12 @@ int main(int argc, char **argv) {
         std::cout << out_name << std::endl;
 
       std::ofstream trans_out(out_name.string(), std::ios::out);
-      fmt::print(trans_out, "Before general icp:\n{}\n\n", transformation);
+      fmt::print(trans_out, "Before general icp:\n"
+                            "{}\n\n",
+                 transformation);
+      fmt::print(all_out, "Before general icp:\n"
+                          "{}\n\n",
+                 transformation);
 
       bool run_icp = output_cloud->size() > 0;
 
@@ -335,32 +344,40 @@ int main(int argc, char **argv) {
             transformation = Ti * transformation;
           }
         }
+      }
 
-        fmt::print("Final transformation:\n{}\n\n", transformation);
+      fmt::print("Final transformation:\n"
+                 "{}\n\n",
+                 transformation);
 
-        fmt::print(trans_out, "After general icp:\n{}\n\n", transformation);
-        trans_out.close();
+      fmt::print(trans_out, "After general icp:\n"
+                            "{}\n\n",
+                 transformation);
+      fmt::print(all_out, "After general icp:\n"
+                          "{}\n\n",
+                 transformation);
+      trans_out.close();
 
-        output_cloud->insert(output_cloud->end(), current_cloud->begin(),
-                             current_cloud->end());
+      output_cloud->insert(output_cloud->end(), current_cloud->begin(),
+                           current_cloud->end());
 
-        current_cloud = nullptr;
+      current_cloud = nullptr;
 
-        pcl::UniformSampling<PointType> uniform_sampling;
-        uniform_sampling.setInputCloud(output_cloud);
+      pcl::UniformSampling<PointType> uniform_sampling;
+      uniform_sampling.setInputCloud(output_cloud);
+      output_cloud =
+          pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
+      uniform_sampling.setRadiusSearch(subSampleSize);
+      uniform_sampling.filter(*output_cloud);
+
+      if (output_cloud->size() > targetNumPoints) {
+        subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
+
         output_cloud =
             pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
         uniform_sampling.setRadiusSearch(subSampleSize);
         uniform_sampling.filter(*output_cloud);
-
-        if (output_cloud->size() > targetNumPoints) {
-          subSampleSize *= std::sqrt(output_cloud->size() / targetNumPoints);
-
-          output_cloud =
-              pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
-          uniform_sampling.setRadiusSearch(subSampleSize);
-          uniform_sampling.filter(*output_cloud);
-        }
+      }
 
 #if 0
       pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(output_cloud);
@@ -370,8 +387,7 @@ int main(int argc, char **argv) {
       }
 #endif
 
-        std::cout << "Leaving: " << output_cloud->size() << std::endl;
-      }
+      fmt::print("Leaving: {}\n", output_cloud->size());
     }
 
     fmt::print("Final sample size: {}\n", subSampleSize);
@@ -481,7 +497,7 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
   /* clang-format on */
 
   T = correction * T * correction;
-  fmt::print("Transformation before ICP: {}\n\n", T);
+  fmt::print("Transformation before ICP:\n{}\n\n", T);
 
   for (auto it = points.begin(); it != points.end();) {
     auto &p = *it;
@@ -491,9 +507,7 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
 
     auto &rgb = p.rgb;
     PointType tmp;
-    tmp.x = point[0];
-    tmp.y = point[1];
-    tmp.z = point[2];
+    tmp.getVector3fMap() = point.cast<float>();
     tmp.r = cv::saturate_cast<uint8_t>(rgb[0]);
     tmp.g = cv::saturate_cast<uint8_t>(rgb[1]);
     tmp.b = cv::saturate_cast<uint8_t>(rgb[2]);
