@@ -146,9 +146,9 @@ void multi::Labeler::weightEdges() {
         place::saveGraph(adjacencyMatrix, 0);
     }
 
-    place::createHigherOrderTermsV2(masks, zeroZeros, R1Nodes, highOrderV2);
+    place::createHigherOrderTermsV2(masks, zeroZeros, R1Nodes, highOrder);
 
-    for (auto &pair : highOrderV2) {
+    for (auto &pair : highOrder) {
       auto &incident = pair.first;
       auto &weights = pair.second;
       for (int i = 0; i < incident.size(); ++i) {
@@ -167,7 +167,7 @@ void multi::Labeler::weightEdges() {
         }
       }
     }
-    highOrderV2.clear();
+    highOrder.clear();
     if (FLAGS_save)
       place::saveGraph(adjacencyMatrix, 1);
   }

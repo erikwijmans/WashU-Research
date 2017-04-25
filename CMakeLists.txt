@@ -9,7 +9,6 @@ set(CMAKE_CXX_FLAGS "-std=c++1z -O2 -g -fopenmp")
 
 
 add_subdirectory(utils)
-add_subdirectory(blur_faces/blur_util)
 add_subdirectory(preprocessor)
 add_subdirectory(scanDensity)
 add_subdirectory(placeScan)

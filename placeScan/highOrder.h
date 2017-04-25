@@ -16,7 +16,7 @@ void createHigherOrderTermsV2(
     const std::vector<std::vector<Eigen::MatrixXb>> &freeSpace,
     const std::vector<std::vector<Eigen::Vector2i>> &zeroZeros,
     const std::vector<place::node> &nodes,
-    multi::Labeler::HighOrderV2 &highOrder);
+    multi::Labeler::HighOrderType &highOrder);
 
 } // place
 

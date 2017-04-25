@@ -54,9 +54,9 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                     const Eigen::Vector3d &trans);
 pcl::PointCloud<NormalType>::Ptr
 subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud);
-void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &transformation,
-          pcl::PointCloud<PointType>::Ptr current_cloud
-          );
+void GICP(const pcl::PointCloud<PointType>::Ptr icp_target,
+          Eigen::Matrix4f &transformation,
+          pcl::PointCloud<PointType>::Ptr current_cloud);
 
 constexpr double targetNumPoints = 100e6;
 constexpr double startScale = 0.02;
@@ -353,12 +353,6 @@ createPCLPointCloud(std::list<scan::PointXYZRGBA> &points,
                               }),
                cloud->end());
 
-  /*pcl::visualization::PCLVisualizer::Ptr viewer = rgbVis(cloud);
-  while (!viewer->wasStopped()) {
-    viewer->spinOnce(100);
-    boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-  }*/
-
   uniform_sampling.setInputCloud(cloud);
   cloud = pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
   uniform_sampling.setRadiusSearch(startScale);
@@ -393,7 +387,8 @@ subsample_normals(const pcl::PointCloud<PointType>::Ptr &cloud) {
   return output;
 }
 
-void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &transformation,
+void GICP(const pcl::PointCloud<PointType>::Ptr icp_target,
+          Eigen::Matrix4f &transformation,
           pcl::PointCloud<PointType>::Ptr current_cloud) {
 
   pcl::search::KdTree<NormalType>::Ptr tree_source(
@@ -427,8 +422,8 @@ void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &tra
   auto icp_result = source_with_normals;
   icp.setMaximumIterations(2);
   std::list<Eigen::Matrix4f> prev_4;
-  bool icp_working = true;
-  for (int i = 0; i < 30 && icp_working; ++i) {
+  bool icp_worked = true;
+  for (int i = 0; i < 30 && icp_worked; ++i) {
     // save cloud for visualization purpose
     source_with_normals = icp_result;
 
@@ -440,7 +435,7 @@ void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &tra
     Ti = icp.getFinalTransformation() * Ti;
 
     if (!sanity_check(Ti) || icp.getFitnessScore() > 20) {
-      icp_working = false;
+      icp_worked = false;
       break;
     }
 
@@ -474,9 +469,9 @@ void GICP(const pcl::PointCloud<PointType>::Ptr icp_target, Eigen::Matrix4f &tra
              "has converged: {}\n"
              "score: {}\n"
              "transformation:\n{}\n\n",
-             icp_working, icp.hasConverged(), icp.getFitnessScore(), Ti);
+             icp_worked, icp.hasConverged(), icp.getFitnessScore(), Ti);
 
-  if (icp_working) {
+  if (icp_worked) {
     auto tmp = current_cloud;
     current_cloud =
         pcl::PointCloud<PointType>::Ptr(new pcl::PointCloud<PointType>);
