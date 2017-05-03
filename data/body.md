@@ -1,29 +1,3 @@
-<!DOCTYPE html>
-<html lang="en-us">
-  <head>
-    <meta charset="UTF-8">
-    <title>Panorama RGBD Alignment</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="Brookings_Seal(RGB).png">
-    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
-    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="../stylesheets/prism.css">
-    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
-  </head>
-  <body>
-    <section class="page-header">
-      <h1 class="project-name">Exploiting 2D Floorplan for Building-scale Panorama RGBD Alignment - Dataset</h1>
-      <h2 class="project-tagline"><a class="site-link" href="http://wijmans.xyz">Erik Wijmans</a> and <a class="site-link" href="http://www.cse.wustl.edu/~furukawa/"> Yasutaka Furukawa</a></h2>
-      <center>
-      <a href="https://github.com/erikwijmans/WashU-Research/tree/v0.1" class="btn">Code</a>
-      <a href="/CVPR2017-0111-supp.pdf" class="btn">Paper</a>
-      <a href="/" class="btn">Project</a>
-      </center>
-    </section>
-<section class="main-content">
-
 # Point clouds
 
 1. Downloading
@@ -77,7 +51,7 @@
 
 1. Download
 
-    |Floor Code | Link |
+    |Floor Code | Download Link |
     |:---:|:---:|
     | DUC1 | [DUC1 Alignment](https://wustl.box.com/v/wustl3d-duc1-alignment) |
     | DUC2 | [DUC2 Alignment](https://wustl.box.com/v/wustl3d-duc2-alignment) |
@@ -148,5 +122,3 @@ If you use our data, please cite our paper:
   url = {http://cvpr17.wijmans.xyz/CVPR2017-0111.pdf}
 }
 ```
-
-<script src="../javascripts/prism.min.js"></script>
