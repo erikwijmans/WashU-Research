@@ -1,0 +1,180 @@
+<p><!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Panorama RGBD Alignment</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="Brookings_Seal(RGB).png">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/prism.css">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Exploiting 2D Floorplan for Building-scale Panorama RGBD Alignment - Dataset</h1>
+      <h2 class="project-tagline"><a class="site-link" href="http://wijmans.xyz">Erik Wijmans</a> and <a class="site-link" href="http://www.cse.wustl.edu/~furukawa/"> Yasutaka Furukawa</a></h2>
+      <center>
+      <a href="https://github.com/erikwijmans/WashU-Research/tree/v0.1" class="btn">Code</a>
+      <a href="/CVPR2017-0111-supp.pdf" class="btn">Paper</a>
+      <a href="/" class="btn">Project</a>
+      </center>
+    </section>
+<section class="main-content"></p>
+<h1 id="pointclouds">Point clouds</h1>
+<ol>
+<li><p>Download</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center;">Building Name (Building Code)</th>
+<th style="text-align:center;">Floor # (Floor Code)</th>
+<th style="text-align:center;">Link</th>
+<th style="text-align:center;">Number of Scans</th>
+<th style="text-align:center;">Area (ft^2)</th>
+<th style="text-align:center;">% Correct</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center;">Center (DUC)</td>
+<td style="text-align:center;">Floor 1 (DUC1)</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-duc1-lrz">LRZ (15GB)</a> <br>   <a href="https://wustl.box.com/v/wustl3d-duc1-zip">ZIP (24GB)</a></td>
+<td style="text-align:center;">50</td>
+<td style="text-align:center;">~100,000</td>
+<td style="text-align:center;">98%</td>
+</tr>
+<tr>
+<td style="text-align:center;">Center (DUC)</td>
+<td style="text-align:center;">Floor 2 (DUC2)</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-duc2-lrz">LRZ (23GB)</a> <br>  <a href="https://wustl.box.com/v/wustl3d-duc2-zip">ZIP (39GB)</a></td>
+<td style="text-align:center;">80</td>
+<td style="text-align:center;">~100,000</td>
+<td style="text-align:center;">100%</td>
+</tr>
+<tr>
+<td style="text-align:center;">Hall (CSE)</td>
+<td style="text-align:center;">Floor 3 (CSE3)</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse3-lrz">LRZ (2.4GB)</a> <br>  <a href="https://wustl.box.com/v/wustl3d-cse3-zip">ZIP (3.9GB)</a></td>
+<td style="text-align:center;">7</td>
+<td style="text-align:center;">~8,000</td>
+<td style="text-align:center;">85%</td>
+</tr>
+<tr>
+<td style="text-align:center;">Hall (CSE)</td>
+<td style="text-align:center;">Floor 4 (CSE4)</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse4-lrz">LRZ (24GB)</a> <br> <a href="https://wustl.box.com/v/wustl3d-cse4-zip">ZIP (40GB)</a></td>
+<td style="text-align:center;">75</td>
+<td style="text-align:center;">~19,000</td>
+<td style="text-align:center;">93%</td>
+</tr>
+<tr>
+<td style="text-align:center;">Hall (CSE)</td>
+<td style="text-align:center;">Floor 5 (CSE5)</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse5-lrz">LRZ (22GB)</a> <br> <a href="https://wustl.box.com/v/wustl3d-cse5-zip">ZIP (36GB)</a></td>
+<td style="text-align:center;">65</td>
+<td style="text-align:center;">~20,000</td>
+<td style="text-align:center;">66%</td>
+</tr>
+</tbody>
+</table></li>
+<li><p>Decompressing</p>
+<p>The point-clouds are available as LRZ or ZIP compressed PTX files.
+We provide lrzipped to accommodate those with slow Internet connections and/or data-caps.  Here is a quick guide to getting lrzip and decompressing the files.  However, we will not provide any additional support in terms of using/obtaining lrzip and encourage you to simply use the zipped versions if possible.</p>
+<ol>
+<li><p>Install lrzip</p>
+<ul>
+<li><p>Debian/Ubuntu</p>
+<p><code>sudo apt-get install lrzip</code></p></li>
+<li><p>Fedora</p>
+<p><code>sudo yum install lrzip</code></p></li>
+<li><p>OS X</p>
+<p><code>brew install lrzip</code></p></li>
+<li><p>Windows</p>
+<p><a href="https://www.cygwin.com/">Cygwin</a> provides a version of lrzip</p></li></ul></li>
+<li><p>Decompress</p>
+<p><code>lrunzip *.lrz</code></p></li></ol></li>
+<li><p>Usage</p>
+<p>Files are named as such:  <code>&lt;Building Code&gt;_scan_&lt;Scan_ID&gt;.ptx</code></p>
+<p>Information on the PTX format can be found <a href="http://w3.leica-geosystems.com/kb/?guid=5532D590-114C-43CD-A55F-FE79E5937CB2">here</a>.
+We only utilize the rows and columns field and transformation matrices are in separate files however.</p>
+<p>The points in the PTX file constitute as column-major panorama with the number of rows and columns specified in the PTX header.</p></li>
+</ol>
+<h1 id="transformationmatrices">Transformation Matrices</h1>
+<ol>
+<li><p>Download</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center;">Floor Code</th>
+<th style="text-align:center;">Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center;">DUC1</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-duc1-alignment">DUC1 Alignment</a></td>
+</tr>
+<tr>
+<td style="text-align:center;">DUC2</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-duc2-alignment">DUC2 Alignment</a></td>
+</tr>
+<tr>
+<td style="text-align:center;">CSE3</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse3-alignment">CSE3 Alignment</a></td>
+</tr>
+<tr>
+<td style="text-align:center;">CSE4</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse4-alignment">CSE4 Alignment</a></td>
+</tr>
+<tr>
+<td style="text-align:center;">CSE5</td>
+<td style="text-align:center;"><a href="https://wustl.box.com/v/wustl3d-cse5-alignment">CSE5 Alignment</a></td>
+</tr>
+</tbody>
+</table></li>
+
+<li><p>Decompress</p>
+<p><code>unzip alignment.zip</code></p></li>
+<li><p>What you get</p>
+<p>Transformation matrices are provided in two places, in all_transformations.txt formated as such:</p>
+<pre><code>  Scan_ID
+
+  Before general icp:
+  Before GICP 4x4 Transformation Matrix
+
+  After general icp:
+  After GICP 4x4 Transformation Matrix
+</code></pre>
+<p>The <code>Before GICP 4x4 Transformation Matrix</code> is the result of our algorithm.  We have then used <a href="http://www.roboticsproceedings.org/rss05/p21.pdf">GICP</a> to improve the fine alignment.  Note that the "Before" and "After" GICP matrices may be the same in the case that GICP failed</p>
+<p><code>Scan_ID</code> corresponds to the PTX filename.</p>
+<p>Transformation matrices are also in individual files in the transformations folder withe the naming scheme <code>&lt;Building Code&gt;_trans_&lt;Scan_ID&gt;.txt</code></p>
+<p>The <code>Scan_ID</code> of known incorrectly placed scans are in <code>known_incorrect.txt</code></p></li>
+<li><p>Usage</p>
+<p>Transformation matrices can be used as such.  Let <code>p</code> be a point from a PTX file, <code>p'</code> be the coordinate of that point in the aligned coordinate system, and <code>T</code> be the 4x4 transformation matrix for that scan.</p>
+<p>Using homogeneous coordinates</p>
+<pre><code>p' equal-up-to-scale T * p
+</code></pre>
+<p>Using <a href="http://eigen.tuxfamily.org/index.php?title=Main_Page">Eigen</a></p>
+<pre><code class="cpp language-cpp">p' = (T * p.homogeneous()).eval().hnormalized()
+</code></pre></li>
+</ol>
+<h2 id="floorplanandscale">Floorplan and Scale</h2>
+<p>The scale for DUC1 and DUC2 has included in their respective <code>alignment.zip</code>'s as <code>scale.txt</code>.  The floorplans can be found <a href="https://duc.wustl.edu/floor-plan/">here</a>.</p>
+<h2 id="license">License</h2>
+<pre><code>This Wustl Indoor RGBD dataset is made available under the Open Database License: http://opendatacommons.org/licenses/odbl/1.0/. Any rights in individual contents of the database are licensed under the Database Contents License: http://opendatacommons.org/licenses/dbcl/1.0/
+
+If you use our data, please cite our paper:
+
+@inproceedings{wijmans17rgbd,
+  author = {Erik Wijmans and
+            Yasutaka Furukawa},
+  title = {Exploiting 2D Floorplan for Building-scale Panorama RGBD Alignment},
+  booktitle = {Computer Vision and Pattern Recognition, {CVPR}},
+  year = {2017},
+  url = {http://cvpr17.wijmans.xyz/CVPR2017-0111.pdf}
+}
+</code></pre>
+<script src="../javascripts/prism.min.js"></script>

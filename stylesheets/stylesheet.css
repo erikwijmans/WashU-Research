@@ -10,10 +10,14 @@ body {
   color: #606c71; }
 
 a {
-  color: #1e6bb8;
-  text-decoration: none; }
-  a:hover {
-    text-decoration: underline; }
+  color: rgb(165, 20, 23);
+  text-decoration: none;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+a:hover {
+  text-decoration: none;
+  color: rgb(108, 115, 115); }
 
 .site-link {
   color: rgb(255, 255, 255);
