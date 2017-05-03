@@ -26,9 +26,9 @@
 
 # Point clouds
 
-1. Download
+1. Downloading
 
-    | Building Name (Building Code) |Floor # (Floor Code) |Link   | Number of Scans | Area (ft^2)  |% Correct  |
+    | Building Name (Building Code) |Floor # (Floor Code) | Download Link   | Number of Scans | Area (ft^2)  |% Correct  |
     |:---:|:---:|:---:|:---:|:---:|:---:|
     |Center (DUC)|Floor 1 (DUC1)| [LRZ (15GB)](https://wustl.box.com/v/wustl3d-duc1-lrz) <br>   [ZIP (24GB)](https://wustl.box.com/v/wustl3d-duc1-zip)   | 50 | ~100,000 |  98%   |
     | Center (DUC) |Floor 2 (DUC2)| [LRZ (23GB)](https://wustl.box.com/v/wustl3d-duc2-lrz) <br>  [ZIP (39GB)](https://wustl.box.com/v/wustl3d-duc2-zip)   | 80 | ~100,000 |  100% |
