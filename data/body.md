@@ -4,41 +4,15 @@
 
     | Building Name (Building Code) |Floor # (Floor Code) | Download Link   | Number of Scans | Area (ft^2)  |% Correct  |
     |:---:|:---:|:---:|:---:|:---:|:---:|
-    |Center (DUC)|Floor 1 (DUC1)| [LRZ (15GB)](https://wustl.box.com/v/wustl3d-duc1-lrz) <br>   [ZIP (24GB)](https://wustl.box.com/v/wustl3d-duc1-zip)   | 50 | ~100,000 |  98%   |
-    | Center (DUC) |Floor 2 (DUC2)| [LRZ (23GB)](https://wustl.box.com/v/wustl3d-duc2-lrz) <br>  [ZIP (39GB)](https://wustl.box.com/v/wustl3d-duc2-zip)   | 80 | ~100,000 |  100% |
-    | Hall (CSE) |Floor 3 (CSE3) | [LRZ (2.4GB)](https://wustl.box.com/v/wustl3d-cse3-lrz) <br>  [ZIP (3.9GB)](https://wustl.box.com/v/wustl3d-cse3-zip)   | 7 | ~8,000  | 85%   |
-    | Hall (CSE) |Floor 4 (CSE4) | [LRZ (24GB)](https://wustl.box.com/v/wustl3d-cse4-lrz) <br> [ZIP (40GB)](https://wustl.box.com/v/wustl3d-cse4-zip)  | 75 | ~19,000 |  93%  |
-    | Hall (CSE) |Floor 5 (CSE5) | [LRZ (22GB)](https://wustl.box.com/v/wustl3d-cse5-lrz) <br> [ZIP (36GB)](https://wustl.box.com/v/wustl3d-cse5-zip)  | 65 | ~20,000 |  66%  |
+    |Center (DUC)|Floor 1 (DUC1)| [ZIP](https://www.dropbox.com/s/z52vuaf0tszv87q/DUC1.zip?dl=0) | 50 | ~100,000 |  98%   |
+    | Center (DUC) |Floor 2 (DUC2)| [ZIP](https://www.dropbox.com/s/s7mh2zwgia427wx/DUC2.zip?dl=0)   | 80 | ~100,000 |  100% |
+    | Hall (CSE) |Floor 3 (CSE3) |   [ZIP](https://www.dropbox.com/s/pdiy0ej77iomwgp/CSE3.zip?dl=0)   | 7 | ~8,000  | 85%   |
+    | Hall (CSE) |Floor 4 (CSE4) |  [ZIP](https://www.dropbox.com/s/y57nahwszp9440u/CSE4.zip?dl=0)  | 75 | ~19,000 |  93%  |
+    | Hall (CSE) |Floor 5 (CSE5) |  [ZIP](https://www.dropbox.com/s/sjqz2uluxtz7ego/CSE5.zip?dl=0)  | 65 | ~20,000 |  66%  |
 
 
-2. Decompressing
 
-    The point-clouds are available as LRZ or ZIP compressed PTX files.
-    We provide lrzipped to accommodate those with slow Internet connections and/or data-caps.  Here is a quick guide to getting lrzip and decompressing the files.  However, we will not provide any additional support in terms of using/obtaining lrzip and encourage you to simply use the zipped versions if possible.
-
-    1. Install lrzip
-
-        * Debian/Ubuntu
-
-            `sudo apt-get install lrzip`
-
-        * Fedora
-
-            `sudo yum install lrzip`
-
-        * OS X
-
-            `brew install lrzip`
-
-        * Windows
-
-            [Cygwin](https://www.cygwin.com/) provides a version of lrzip
-
-    2. Decompress
-
-        `lrunzip *.lrz`
-
-3. Usage
+2. Usage
 
     Files are named as such:  `<Building Code>_scan_<Scan_ID>.ptx`
 
@@ -53,11 +27,11 @@
 
     |Floor Code | Download Link |
     |:---:|:---:|
-    | DUC1 | [DUC1 Alignment](https://wustl.box.com/v/wustl3d-duc1-alignment) |
-    | DUC2 | [DUC2 Alignment](https://wustl.box.com/v/wustl3d-duc2-alignment) |
-    | CSE3 | [CSE3 Alignment](https://wustl.box.com/v/wustl3d-cse3-alignment) |
-    | CSE4 | [CSE4 Alignment](https://wustl.box.com/v/wustl3d-cse4-alignment) |
-    | CSE5 | [CSE5 Alignment](https://wustl.box.com/v/wustl3d-cse5-alignment) |
+    | DUC1 | [DUC1 Alignment (Coming Soon)](TODO) |
+    | DUC2 | [DUC2 Alignment (Coming Soon)](TODD) |
+    | CSE3 | [CSE3 Alignment (Coming Soon)](TODO) |
+    | CSE4 | [CSE4 Alignment (Coming Soon)](TODO) |
+    | CSE5 | [CSE5 Alignment (Coming Soon)](TODO) |
 
 
 
