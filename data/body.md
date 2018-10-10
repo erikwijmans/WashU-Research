@@ -27,11 +27,11 @@
 
     |Floor Code | Download Link |
     |:---:|:---:|
-    | DUC1 | [DUC1 Alignment (Coming Soon)](TODO) |
-    | DUC2 | [DUC2 Alignment (Coming Soon)](TODD) |
-    | CSE3 | [CSE3 Alignment (Coming Soon)](TODO) |
-    | CSE4 | [CSE4 Alignment (Coming Soon)](TODO) |
-    | CSE5 | [CSE5 Alignment (Coming Soon)](TODO) |
+    | DUC1 | [DUC1 Alignment](https://www.dropbox.com/s/v4fh8qo5ec03av1/DUC1_alignment.zip?dl=0) |
+    | DUC2 | [DUC2 Alignment](https://www.dropbox.com/s/vzzvs8z7ytjt33k/DUC2_alignment.zip?dl=0) |
+    | CSE3 | [CSE3 Alignment](https://www.dropbox.com/s/thunbqjx7w4lwl7/CSE3_alignment.zip?dl=0) |
+    | CSE4 | [CSE4 Alignment](https://www.dropbox.com/s/j04m4s57nq5gqjm/CSE4_alignment.zip?dl=0) |
+    | CSE5 | [CSE5 Alignment](https://www.dropbox.com/s/uc9pgghwp4xlogd/CSE5_alignment.zip?dl=0) |
 
 
 
